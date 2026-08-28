@@ -661,9 +661,41 @@ def _classify_segment(seg: SimpleCommand, nxt: Optional[SimpleCommand], ctx: Pol
     if words:
         out.extend(_classify_by_command(name, words, seg, nxt, ctx))
     out.extend(_classify_word_paths(seg if words is seg.words else dataclasses.replace(seg, words=words), name, ctx))
-    if seg.has_substitution:
+    # substitution ทำให้ ALLOW กลายเป็น ASK ยกเว้น $(git <read-only query>) ล้วนที่ส่งให้ command ที่ไม่ใช่ print/write/delete
+    if seg.has_substitution and not _verified_git_query_substitution(seg, name):
         out.append(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", " ".join(seg.words)))
     return out
+
+
+# git query ที่ output เป็น SHA/ref/path เท่านั้น (ไม่มี --format/--pretty/--sq-quote ให้คุม output); flag ที่รับได้เป็น allowlist
+GIT_QUERY_SUBS = {"rev-parse", "merge-base", "show-ref", "rev-list"}
+GIT_QUERY_FLAGS = {"--show-toplevel", "--git-dir", "--git-common-dir", "--abbrev-ref", "--verify", "--short", "--quiet", "-q", "--is-inside-work-tree", "--count", "--max-count", "--hash", "--heads", "--tags", "--all", "--octopus", "--is-ancestor"}
+GIT_QUERY_SUB_RE = re.compile(r"\$\(\s*git\s+(\S+)([^$`()]*)\)")
+_UNVERIFIED_RE = re.compile(r"[$`(]")
+
+
+def _verified_git_query_substitution(seg: SimpleCommand, name: str) -> bool:
+    if name in PRINT_CMDS or name in WRITE_CMDS or name in ("rm", "rmdir"):
+        return False
+    # git push <remote> $(git branch --show-current): branch ปลายทางตรวจไม่ได้ ต้องคง ASK
+    if name == "git" and _git_subcommand(seg.words)[0] == "push":
+        return False
+    if any(_UNVERIFIED_RE.search(w) for w in seg.redirect_writes + seg.redirect_reads):
+        return False
+    saw_query = False
+
+    def _sub(m: "re.Match[str]") -> str:
+        nonlocal saw_query
+        if m.group(1) not in GIT_QUERY_SUBS:
+            return "$"
+        # flag นอก allowlist (เช่น --format, --sq-quote) อาจทำให้ output กลายเป็น flag ของ command นอก
+        if any(a.startswith("-") and a.split("=")[0] not in GIT_QUERY_FLAGS for a in m.group(2).split()):
+            return "$"
+        saw_query = True
+        return ""
+
+    rest = GIT_QUERY_SUB_RE.sub(_sub, " ".join(seg.words))
+    return saw_query and not _UNVERIFIED_RE.search(rest)
 
 
 def _find_bypass(words: list[str]) -> Optional[str]:

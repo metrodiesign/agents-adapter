@@ -87,9 +87,30 @@ function classifySegment(seg: SimpleCommand, next: SimpleCommand | undefined, c:
   // 3. path ใน argument และ redirection (credential/prod env DENY ชนะทุกอย่างผ่าน strictest)
   out.push(...classifyWordPaths(words === seg.words ? seg : { ...seg, words }, name, c));
 
-  // 4. substitution: ทำให้ ALLOW กลายเป็น ASK
-  if (seg.hasSubstitution) out.push(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", seg.words.join(" ")));
+  // 4. substitution: ทำให้ ALLOW กลายเป็น ASK ยกเว้น $(git <read-only query>) ล้วนที่ส่งให้ command ที่ไม่ใช่ print/write/delete
+  if (seg.hasSubstitution && !verifiedGitQuerySubstitution(seg, name)) out.push(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", seg.words.join(" ")));
   return out;
+}
+
+/** git query ที่ output เป็น SHA/ref/path เท่านั้น (ไม่มี --format/--pretty/--sq-quote ให้คุม output); flag ที่รับได้เป็น allowlist */
+const GIT_QUERY_SUBS = new Set(["rev-parse", "merge-base", "show-ref", "rev-list"]);
+const GIT_QUERY_FLAGS = new Set(["--show-toplevel", "--git-dir", "--git-common-dir", "--abbrev-ref", "--verify", "--short", "--quiet", "-q", "--is-inside-work-tree", "--count", "--max-count", "--hash", "--heads", "--tags", "--all", "--octopus", "--is-ancestor"]);
+const GIT_QUERY_SUB_RE = /\$\(\s*git\s+(\S+)([^$`()]*)\)/g;
+
+function verifiedGitQuerySubstitution(seg: SimpleCommand, name: string): boolean {
+  if (PRINT_CMDS.has(name) || WRITE_CMDS.has(name) || name === "rm" || name === "rmdir") return false;
+  // git push <remote> $(git branch --show-current): branch ปลายทางตรวจไม่ได้ ต้องคง ASK
+  if (name === "git" && gitSubcommand(seg.words).sub === "push") return false;
+  if ([...seg.redirectWrites, ...seg.redirectReads].some((w) => /[$`(]/.test(w))) return false;
+  let sawQuery = false;
+  const rest = seg.words.join(" ").replace(GIT_QUERY_SUB_RE, (_m, sub: string, args: string) => {
+    if (!GIT_QUERY_SUBS.has(sub)) return "$";
+    // flag นอก allowlist (เช่น --format, --sq-quote) อาจทำให้ output กลายเป็น flag ของ command นอก
+    if (args.split(/\s+/).some((a) => a.startsWith("-") && !GIT_QUERY_FLAGS.has(a.split("=")[0]))) return "$";
+    sawQuery = true;
+    return "";
+  });
+  return sawQuery && !/[$`(]/.test(rest);
 }
 
 function findBypass(words: string[]): string | null {
