@@ -294,6 +294,12 @@
     { "id": "AGENT_SPAWN", "name": "codex collaboration wait_agent", "kind": "tool", "tool": { "name": "collaborationwait_agent", "input": {} }, "expected": "ALLOW" },
     { "id": "AGENT_SPAWN", "name": "codex collaboration spawn coder", "kind": "tool", "tool": { "name": "collaborationspawn_agent", "input": { "agent_type": "coder" } }, "expected": "ALLOW" },
     { "id": "SECURITY_AGENT_PROVIDER", "name": "codex collaboration spawn auditor on proxy", "kind": "tool", "tool": { "name": "collaborationspawn_agent", "input": { "agent_type": "auditor" } }, "providerHost": "127.0.0.1", "expected": "DENY" },
-    { "id": "SHELL_READ_ONLY", "name": "codex update_plan", "kind": "tool", "tool": { "name": "update_plan", "input": {} }, "expected": "ALLOW" }
+    { "id": "SHELL_READ_ONLY", "name": "codex update_plan", "kind": "tool", "tool": { "name": "update_plan", "input": {} }, "expected": "ALLOW" },
+
+    { "id": "SHELL_READ_ONLY", "name": "for loop echo", "kind": "command", "command": "for f in a b; do echo hi; done", "expected": "ALLOW" },
+    { "id": "SHELL_READ_ONLY", "name": "if git diff then echo", "kind": "command", "command": "if git diff --quiet; then echo clean; else echo dirty; fi", "expected": "ALLOW", "ruleAny": ["SHELL_READ_ONLY", "GIT_STATUS"] },
+    { "id": "SHELL_READ_ONLY", "name": "negated grep", "kind": "command", "command": "! grep -q TODO src/a.ts", "expected": "ALLOW" },
+    { "id": "DESTRUCTIVE_DELETE", "name": "for loop rm -rf body", "kind": "command", "command": "for d in dist build; do rm -rf dist; done", "expected": "ASK" },
+    { "id": "GIT_PUSH_PROTECTED", "name": "if wraps push to main", "kind": "command", "command": "if true; then git push origin main; fi", "expected": "DENY" }
   ]
 }

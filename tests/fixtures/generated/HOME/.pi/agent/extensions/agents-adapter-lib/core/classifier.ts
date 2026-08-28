@@ -16,6 +16,7 @@ const BYPASS_FLAGS = [
   "--no-sandbox",
 ];
 const SHELL_NAMES = new Set(["sh", "bash", "zsh", "dash", "ksh", "fish"]);
+const SHELL_KEYWORDS = new Set(["for", "select", "case", "while", "until", "if", "then", "else", "elif", "fi", "do", "done", "esac", "!", "{", "}"]);
 const PRINT_CMDS = new Set(["cat", "less", "more", "head", "tail", "grep", "rg", "egrep", "fgrep", "awk", "cut", "strings", "base64", "xxd", "od", "hexdump", "jq", "yq", "sed", "bat", "nl", "tac", "pbcopy", "open"]);
 const READ_ONLY_CMDS = new Set([
   "ls", "pwd", "echo", "printf", "cat", "head", "tail", "less", "more", "grep", "rg", "egrep", "fgrep", "find", "fd", "wc", "sort", "uniq", "cut",
@@ -143,6 +144,13 @@ function classifyByCommand(name: string, words: string[], seg: SimpleCommand, ne
   const lower = words.map((w) => w.toLowerCase());
   const joined = words.join(" ");
 
+  if (SHELL_KEYWORDS.has(name)) {
+    // for/while/if ... เป็น shell keyword ไม่ใช่ command: ตัดสินจาก command ที่ตามหลัง (ถ้ามี)
+    if (name === "for" || name === "select" || name === "case") return [verdict("ALLOW", "SHELL_READ_ONLY", `shell keyword: ${name}`)];
+    const rest = words.slice(1);
+    if (rest.length === 0) return [verdict("ALLOW", "SHELL_READ_ONLY", `shell keyword: ${name}`)];
+    return classifyByCommand(commandName(rest), rest, seg, next, c);
+  }
   if (name === "sudo" || name === "doas" || name === "su") return [verdict("DENY", "PRIVILEGE_ESCALATION", `privileged execution: ${name}`, name)];
   if (SHELL_NAMES.has(name) && seg.pipedFromPrevious) return [verdict("DENY", "PIPE_TO_SHELL", "piping remote content into shell")];
   if ((name === "curl" || name === "wget") && next && SHELL_NAMES.has(commandName(next.words)) && next.pipedFromPrevious) {

@@ -504,6 +504,7 @@ BYPASS_FLAGS = [
     "--no-sandbox",
 ]
 SHELL_NAMES = SHELLS
+SHELL_KEYWORDS = {"for", "select", "case", "while", "until", "if", "then", "else", "elif", "fi", "do", "done", "esac", "!", "{", "}"}
 PRINT_CMDS = {"cat", "less", "more", "head", "tail", "grep", "rg", "egrep", "fgrep", "awk", "cut", "strings", "base64", "xxd", "od", "hexdump", "jq", "yq", "sed", "bat", "nl", "tac", "pbcopy", "open"}
 READ_ONLY_CMDS = {
     "ls", "pwd", "echo", "printf", "cat", "head", "tail", "less", "more", "grep", "rg", "egrep", "fgrep", "find", "fd", "wc", "sort", "uniq", "cut",
@@ -632,6 +633,14 @@ def _is_write_target(name: str, word: str, args: list[str]) -> bool:
 def _classify_by_command(name: str, words: list[str], seg: SimpleCommand, nxt: Optional[SimpleCommand], ctx: PolicyContext) -> list[Verdict]:
     lower = [w.lower() for w in words]
     joined = " ".join(words)
+    if name in SHELL_KEYWORDS:
+        # for/while/if ... เป็น shell keyword ไม่ใช่ command: ตัดสินจาก command ที่ตามหลัง (ถ้ามี)
+        if name in ("for", "select", "case"):
+            return [verdict("ALLOW", "SHELL_READ_ONLY", f"shell keyword: {name}")]
+        rest = words[1:]
+        if not rest:
+            return [verdict("ALLOW", "SHELL_READ_ONLY", f"shell keyword: {name}")]
+        return _classify_by_command(command_name(rest), rest, seg, nxt, ctx)
     if name in ("sudo", "doas", "su"):
         return [verdict("DENY", "PRIVILEGE_ESCALATION", f"privileged execution: {name}", name)]
     if name in SHELL_NAMES and seg.piped_from_previous:
