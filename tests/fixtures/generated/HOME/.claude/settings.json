@@ -274,7 +274,8 @@
         "${HOME}/Desktop/Project",
         "${HOME}/.claude",
         "${HOME}/.codex",
-        "${HOME}/.pi"
+        "${HOME}/.pi",
+        "${HOME}/.agents"
       ]
     },
     "excludedCommands": [

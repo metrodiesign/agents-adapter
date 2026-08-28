@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -319,6 +320,86 @@ def strip_wrappers(words: list[str]) -> list[str]:
     return w
 
 
+MAX_EXPANSIONS = 32
+FOR_RE = re.compile(r"\bfor\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([^;\n]+?)\s*(?:;|\n)\s*do\b")
+ASSIGN_RE = re.compile(r"(?:^|[;&|\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=(\"[^\"$`]*\"|'[^']*'|[^\s;&|$`()]+)(?=\s*(?:[;&|\n]|$))")
+LIST_WORD_RE = re.compile(r"\"[^\"]*\"|'[^']*'|\S+")
+
+
+def _strip_quotes(w: str) -> str:
+    if len(w) >= 2 and ((w[0] == '"' and w[-1] == '"') or (w[0] == "'" and w[-1] == "'")):
+        return w[1:-1]
+    return w
+
+
+def expand_literal_bindings(command: str) -> list[str]:
+    """ขยาย for VAR in <literal>; do ... และ VAR=<literal> ให้ $VAR เป็นค่าจริง (mirror ของ shell.ts); [] เมื่อขยายไม่ได้"""
+    bindings: list[tuple[str, list[str]]] = []
+    for m in FOR_RE.finditer(command):
+        vals = [w for w in LIST_WORD_RE.findall(m.group(2)) if w]
+        if not vals or any(re.search(r"[$`(]", v) for v in vals):
+            continue
+        bindings.append((m.group(1), [_strip_quotes(v) for v in vals]))
+    for m in ASSIGN_RE.finditer(command):
+        bindings.append((m.group(1), [_strip_quotes(m.group(2))]))
+    if not bindings:
+        return []
+    variants = [command]
+    for name, values in bindings:
+        pat = re.compile(r"\$\{" + name + r"\}|\$" + name + r"(?![A-Za-z0-9_])")
+        nxt: list[str] = []
+        for v in variants:
+            for val in values:
+                nxt.append(pat.sub(lambda _m, val=val: val, v))
+        variants = list(dict.fromkeys(nxt))
+        if len(variants) > MAX_EXPANSIONS:
+            return []
+    if len(variants) == 1 and variants[0] == command:
+        return []
+    return variants
+
+
+def command_substitutions(command: str) -> list[str]:
+    """คืน command ภายใน $(...) และ `...` ระดับนอกสุด (mirror ของ shell.ts)"""
+    out: list[str] = []
+    i, n = 0, len(command)
+    while i < n:
+        c = command[i]
+        if c == "'":
+            i += 1
+            while i < n and command[i] != "'":
+                i += 1
+            i += 1
+            continue
+        if c == "\\":
+            i += 2
+            continue
+        if c == "`":
+            i += 1
+            start = i
+            while i < n and command[i] != "`":
+                i += 1
+            out.append(command[start:i])
+            i += 1
+            continue
+        if c == "$" and i + 1 < n and command[i + 1] == "(":
+            depth = 0
+            start = i + 2
+            while i < n:
+                if command[i] == "(":
+                    depth += 1
+                if command[i] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                i += 1
+            out.append(command[start:i])
+            i += 1
+            continue
+        i += 1
+    return [x.strip() for x in out if x.strip()]
+
+
 def nested_shell_script(words: list[str]) -> Optional[str]:
     if len(words) < 2:
         return None
@@ -544,7 +625,15 @@ DB_DESTRUCTIVE_SQL = re.compile(r"\b(drop\s+(database|table|schema)|truncate|flu
 PROD_MARKER = re.compile(r"(^|[^a-z])(prod|production)([^a-z]|$)", re.I)
 
 
-def classify_command(command: str, ctx: PolicyContext) -> Verdict:
+def classify_command(command: str, ctx: PolicyContext, depth: int = 0) -> Verdict:
+    # for VAR in <literal>; VAR=<literal>: ตัดสินจากค่าจริงทุก combination แทน ASK
+    variants = expand_literal_bindings(command) if depth < 4 else []
+    if variants:
+        return strictest([_classify_command_once(v, ctx, depth + 1) for v in variants])
+    return _classify_command_once(command, ctx, depth)
+
+
+def _classify_command_once(command: str, ctx: PolicyContext, depth: int) -> Verdict:
     segments = parse_command(command)
     if not segments:
         return verdict("ALLOW", "SHELL_READ_ONLY", "empty command")
@@ -552,19 +641,26 @@ def classify_command(command: str, ctx: PolicyContext) -> Verdict:
     for i, seg in enumerate(segments):
         nxt = segments[i + 1] if i + 1 < len(segments) else None
         verdicts.extend(_classify_segment(seg, nxt, ctx))
+    # command ภายใน $(...) / `...` ยังถูก classify แยก: ASK ของ segment นอกคงอยู่ แต่ inner ที่ DENY ต้องชนะ
+    if depth < 4:
+        for inner in command_substitutions(command):
+            verdicts.append(classify_command(inner, ctx, depth + 1))
     return strictest(verdicts)
 
 
 def _classify_segment(seg: SimpleCommand, nxt: Optional[SimpleCommand], ctx: PolicyContext) -> list[Verdict]:
     out: list[Verdict] = []
     words = seg.words
+    # shell keyword นำหน้า (do/then/else/if/while/!/{ ...) ไม่ใช่ command: ตัดออกก่อนให้ name/path/print ตรวจจาก command จริง
+    while words and words[0] in SHELL_KEYWORDS and words[0] not in ("for", "select", "case"):
+        words = words[1:]
     name = command_name(words)
     bypass = _find_bypass(words)
     if bypass:
         out.append(verdict("DENY", "SAFETY_BYPASS", f"bypass flag: {bypass}", bypass))
     if words:
         out.extend(_classify_by_command(name, words, seg, nxt, ctx))
-    out.extend(_classify_word_paths(seg, name, ctx))
+    out.extend(_classify_word_paths(seg if words is seg.words else dataclasses.replace(seg, words=words), name, ctx))
     if seg.has_substitution:
         out.append(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", " ".join(seg.words)))
     return out

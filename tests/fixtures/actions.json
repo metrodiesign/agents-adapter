@@ -274,7 +274,8 @@
     { "id": "BUILD", "name": "codex normal", "kind": "command", "command": "codex exec 'review this'", "expected": "ALLOW" },
     { "id": "PRIVILEGE_ESCALATION", "name": "sudo", "kind": "command", "command": "sudo apt-get install x", "expected": "DENY" },
     { "id": "PRIVILEGE_ESCALATION", "name": "sudo in chain", "kind": "command", "command": "ls; sudo rm -rf /", "expected": "DENY" },
-    { "id": "SHELL_SUBSTITUTION", "name": "command substitution", "kind": "command", "command": "echo $(cat .env)", "expected": "ASK", "rule": "SHELL_SUBSTITUTION" },
+    { "id": "DEV_ENV_PRINT", "name": "command substitution printing .env", "kind": "command", "command": "echo $(cat .env)", "expected": "DENY" },
+    { "id": "SHELL_SUBSTITUTION", "name": "command substitution", "kind": "command", "command": "echo $(date)", "expected": "ASK", "rule": "SHELL_SUBSTITUTION" },
     { "id": "SHELL_SUBSTITUTION", "name": "backtick substitution", "kind": "command", "command": "ls `pwd`", "expected": "ASK" },
     { "id": "SHELL_SUBSTITUTION", "name": "variable expansion unknown", "kind": "command", "command": "cat $FILE", "expected": "ASK" },
     { "id": "SHELL_SUBSTITUTION", "name": "subshell", "kind": "command", "command": "(cd x && ls)", "expected": "ASK" },
@@ -307,6 +308,20 @@
     { "id": "SHELL_READ_ONLY", "name": "cat .env.prod.example", "kind": "command", "command": "cat .env.prod.example", "expected": "ALLOW", "ruleAny": ["SHELL_READ_ONLY", "FS_READ_SOURCE"] },
     { "id": "PROD_ENV_READ", "name": "read .env.prod.example.bak is still prod", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{CWD}/.env.prod.example.bak" } }, "expected": "DENY" },
     { "id": "PROD_ENV_READ", "name": "read .env.prod.local (native glob)", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{CWD}/.env.prod.local" } }, "expected": "DENY" },
-    { "id": "PROD_ENV_WRITE", "name": "edit .env.production.backup (classifier wildcard)", "kind": "tool", "tool": { "name": "Edit", "input": { "file_path": "{CWD}/.env.production.backup" } }, "expected": "DENY" }
+    { "id": "PROD_ENV_WRITE", "name": "edit .env.production.backup (classifier wildcard)", "kind": "tool", "tool": { "name": "Edit", "input": { "file_path": "{CWD}/.env.production.backup" } }, "expected": "DENY" },
+
+    { "id": "SHELL_READ_ONLY", "name": "for loop literal list printf $f", "kind": "command", "command": "for f in a.md b.md; do printf \"%s\" \"$f\"; done", "expected": "ALLOW" },
+    { "id": "SHELL_READ_ONLY", "name": "for loop literal list cat $f", "kind": "command", "command": "for f in docs/a.md docs/b.md; do cat $f; done", "expected": "ALLOW", "ruleAny": ["SHELL_READ_ONLY", "FS_READ_SOURCE"] },
+    { "id": "DEV_ENV_PRINT", "name": "for loop prints .env via $f", "kind": "command", "command": "for f in .env; do cat $f; done", "expected": "DENY" },
+    { "id": "CREDENTIAL_READ", "name": "for loop reads ssh key via $f", "kind": "command", "command": "for f in ~/.ssh/id_rsa; do cat \"$f\"; done", "expected": "DENY" },
+    { "id": "DESTRUCTIVE_DELETE", "name": "for loop rm -rf $d", "kind": "command", "command": "for d in dist build; do rm -rf $d; done", "expected": "ASK" },
+    { "id": "GIT_PUSH_PROTECTED", "name": "for loop push $b to main", "kind": "command", "command": "for b in main; do git push origin $b; done", "expected": "DENY" },
+    { "id": "SHELL_READ_ONLY", "name": "assignment then cat $x", "kind": "command", "command": "x=src/a.ts; cat $x", "expected": "ALLOW", "ruleAny": ["SHELL_READ_ONLY", "FS_READ_SOURCE"] },
+    { "id": "SHELL_SUBSTITUTION", "name": "for loop over $(ls) stays unverifiable", "kind": "command", "command": "for f in $(ls); do cat $f; done", "expected": "ASK" },
+    { "id": "SHELL_SUBSTITUTION", "name": "positional $@ stays unverifiable", "kind": "command", "command": "echo \"$@\"", "expected": "ASK" },
+    { "id": "CREDENTIAL_READ", "name": "command substitution reading ssh key", "kind": "command", "command": "echo $(cat ~/.ssh/id_rsa)", "expected": "DENY" },
+    { "id": "SHELL_SUBSTITUTION", "name": "cat of find substitution", "kind": "command", "command": "cat $(find . -name x)", "expected": "ASK" },
+    { "id": "DEV_ENV_PRINT", "name": "if wraps cat .env", "kind": "command", "command": "if true; then cat .env; fi", "expected": "DENY" },
+    { "id": "FS_READ_SOURCE", "name": "read skill under ~/.agents (symlink target of ~/.claude/skills)", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{HOME}/.agents/skills/code-review/SKILL.md" } }, "expected": "ALLOW" }
   ]
 }
