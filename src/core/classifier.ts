@@ -6,7 +6,7 @@
 import type { PolicyContext } from "./context.ts";
 import { type Verdict, strictest, verdict } from "./decisions.ts";
 import { classifyPath, looksLikePath, type PathOp } from "./paths.ts";
-import { commandName, parseCommand, type SimpleCommand } from "./shell.ts";
+import { commandName, commandSubstitutions, expandLiteralBindings, parseCommand, type SimpleCommand } from "./shell.ts";
 
 const BYPASS_FLAGS = [
   "--dangerously-skip-permissions",
@@ -49,7 +49,14 @@ interface Ctx {
   ctx: PolicyContext;
 }
 
-export function classifyCommand(command: string, ctx: PolicyContext): Verdict {
+export function classifyCommand(command: string, ctx: PolicyContext, depth = 0): Verdict {
+  // for VAR in <literal>; VAR=<literal>: ตัดสินจากค่าจริงทุก combination แทน ASK
+  const variants = depth < 4 ? expandLiteralBindings(command) : [];
+  if (variants.length > 0) return strictest(variants.map((v) => classifyCommandOnce(v, ctx, depth + 1)));
+  return classifyCommandOnce(command, ctx, depth);
+}
+
+function classifyCommandOnce(command: string, ctx: PolicyContext, depth: number): Verdict {
   const segments = parseCommand(command);
   if (segments.length === 0) return verdict("ALLOW", "SHELL_READ_ONLY", "empty command");
   const verdicts: Verdict[] = [];
@@ -58,12 +65,16 @@ export function classifyCommand(command: string, ctx: PolicyContext): Verdict {
     const next = segments[i + 1];
     verdicts.push(...classifySegment(seg, next, { ctx }));
   }
+  // command ภายใน $(...) / `...` ยังถูก classify แยก: ASK ของ segment นอกคงอยู่ แต่ inner ที่ DENY ต้องชนะ
+  if (depth < 4) for (const inner of commandSubstitutions(command)) verdicts.push(classifyCommand(inner, ctx, depth + 1));
   return strictest(verdicts);
 }
 
 function classifySegment(seg: SimpleCommand, next: SimpleCommand | undefined, c: Ctx): Verdict[] {
   const out: Verdict[] = [];
-  const words = seg.words;
+  let words = seg.words;
+  // shell keyword นำหน้า (do/then/else/if/while/!/{ ...) ไม่ใช่ command: ตัดออกก่อนให้ name/path/print ตรวจจาก command จริง
+  while (words.length > 0 && SHELL_KEYWORDS.has(words[0]) && words[0] !== "for" && words[0] !== "select" && words[0] !== "case") words = words.slice(1);
   const name = commandName(words);
 
   // 1. bypass flag: DENY ก่อนอย่างอื่น
@@ -74,7 +85,7 @@ function classifySegment(seg: SimpleCommand, next: SimpleCommand | undefined, c:
   if (words.length > 0) out.push(...classifyByCommand(name, words, seg, next, c));
 
   // 3. path ใน argument และ redirection (credential/prod env DENY ชนะทุกอย่างผ่าน strictest)
-  out.push(...classifyWordPaths(seg, name, c));
+  out.push(...classifyWordPaths(words === seg.words ? seg : { ...seg, words }, name, c));
 
   // 4. substitution: ทำให้ ALLOW กลายเป็น ASK
   if (seg.hasSubstitution) out.push(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", seg.words.join(" ")));

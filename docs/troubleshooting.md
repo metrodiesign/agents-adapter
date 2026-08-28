@@ -22,7 +22,8 @@ OS / credential store         -> macOS Files and Folders, keychain, gh auth stat
 | Pi ไม่ถามหรือไม่ block | extension ไม่ถูกโหลด (รันด้วย `-ne`) หรือไฟล์หาย | `pi list`, `apply --target pi`; ห้ามใช้ `--no-extensions` |
 | Pi ASK กลายเป็น block ทันที | ไม่มี UI (print/rpc mode) = fail closed | รันแบบ interactive หรือให้ approval ล่วงหน้าไม่ได้ตาม policy |
 | Claude ถาม `gh pr create` | `permissions.allow` ไม่มี entry (ยังไม่ apply) | `apply --target claude` |
-| command ถูก ASK ทั้งที่ควร ALLOW | มี `$(...)`, backtick, `$VAR` หรือ subshell | เขียน command ตรง ๆ โดยไม่ใช้ substitution |
+| command ถูก ASK `SHELL_SUBSTITUTION` | มี `$(...)`, backtick, `$VAR` ที่ค่าไม่รู้ (positional, `read`, output ของ command) หรือ subshell | `for VAR in <literal>` และ `VAR=<literal>` ถูกขยายเป็นค่าจริงให้แล้ว; command ใน `$(...)` ถูก classify แยก (DENY ชนะ); ที่เหลือเขียน command ตรง ๆ หรือย้ายลง `scripts/x.sh` |
+| ASK `OUTSIDE_TRUST_ZONE` บน `~/.agents/skills/...` | `~/.claude/skills` เป็น symlink ไป `~/.agents` ซึ่งไม่อยู่ใน `agent_config_dirs` | `git pull` แล้ว `apply`; `~/.agents` อยู่ใน trust zone แล้ว |
 | path ในโปรเจกต์ถูก OUTSIDE_TRUST_ZONE | `development_roots` ไม่ครอบ path หรือเป็น symlink ออกนอก zone | แก้ config แล้ว apply |
 | Claude: `git push`/`git fetch`/`gh` ตอบ `open ~/.config/gh/config.yml: operation not permitted` | คำสั่งไม่ match `sandbox.excludedCommands` (compound command, pipe หรือ rtk rewrite เป็น `rtk ...`) | รัน `gh` เป็นคำสั่งเดี่ยว; `apply --target claude` เพื่อให้มี pattern `rtk gh *`, `rtk git fetch *`; ห้ามเปิด read `~/.config/gh` ให้ sandbox |
 | Claude: `apply` ถูก auto mode classifier block | เขียน `~/.claude/settings.json` ซึ่ง Claude กันจาก agent | user รันเองด้วย `! node src/cli.ts apply --target claude --yes` |

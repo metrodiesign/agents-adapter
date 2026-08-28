@@ -68,7 +68,7 @@ class World:
             credential_extensions=_yaml_list("credential_extensions"),
             system_config_paths=[expand(p) for p in _yaml_list("system_config_paths")],
             always_writable=[tmp, os.path.join(h, ".cache")],
-            agent_config_dirs=[os.path.join(h, ".claude"), os.path.join(h, ".codex"), os.path.join(h, ".pi")],
+            agent_config_dirs=[os.path.join(h, ".claude"), os.path.join(h, ".codex"), os.path.join(h, ".pi"), os.path.join(h, ".agents")],
         )
 
     def sub(self, value: str) -> str:

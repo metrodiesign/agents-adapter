@@ -18,6 +18,7 @@
 
 ### Fixed
 
+- classifier: `for VAR in <literal...>; do ... done` และ `VAR=<literal>; ...` ถูกขยายเป็นค่าจริงทุก combination (สูงสุด 32) ก่อน classify แทน ASK `SHELL_SUBSTITUTION`; command ใน `$(...)`/backtick ถูก classify แยกและ DENY ชนะ (`echo $(cat ~/.ssh/id_rsa)` = DENY); shell keyword นำหน้า segment ถูกตัดก่อนตรวจ print/path (`for f in .env; do cat $f` = DENY `DEV_ENV_PRINT`); `${HOME}/.agents` เพิ่มใน `agent_config_dirs`
 - classifier: ไฟล์ env ที่ลงท้าย `.example`, `.sample`, `.dist`, `.template` ไม่นับเป็น dev/prod env; native glob ของ Claude (`permissions.deny`) และ Codex (sandbox `:workspace_roots`) เปลี่ยนจาก `.env.prod.*` เป็นชุด suffix เจาะจง (`nativeProdEnvGlobs`) เพราะ glob ไม่มี negation; ชื่อนอกชุดยังถูก classifier/hook DENY ผ่าน wildcard; `SHELL_SUBSTITUTION` ใส่ target เป็น segment ที่มี substitution
 - classifier: shell keyword (`for`, `while`, `until`, `if`, `then`, `else`, `elif`, `do`, `case`, `!`, `{`, `}`, `fi`, `done`, `esac`) ไม่ใช่ command แล้ว: ตัดสินจาก command ที่ตามหลังใน segment เดียวกัน; `for f in *.log; do rm -rf ...` ยังได้ DESTRUCTIVE_DELETE และ `if ...; then git push origin main` ยัง DENY
 - classifier: `bash|sh <script>` (ไม่ใช่ `-c`) ตัดสินจาก path ของ script แทน ASK `unknown command: bash`; Codex collaboration tools (`collaborationwait_agent`, `send_message`, `list_agents`, `followup_task`, `interrupt_agent`) และ `update_plan` เป็น ALLOW; `spawn_agent` ผ่าน provider guard เหมือนเดิม; `pgrep`, `pidof` เป็น read-only

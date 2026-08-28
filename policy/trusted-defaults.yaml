@@ -23,6 +23,7 @@ agent_config_dirs:
   - "${HOME}/.claude"
   - "${HOME}/.codex"
   - "${HOME}/.pi"
+  - "${HOME}/.agents"
 
 # CLI ที่ต้องรันนอก outer sandbox เพราะใช้ keychain/socket/runtime ของตัวเอง
 # git network ops ต้องออกด้วย: git เรียก credential helper (gh auth git-credential) เป็น subprocess

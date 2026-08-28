@@ -252,6 +252,84 @@ export function stripWrappers(words: string[]): string[] {
   return w;
 }
 
+const MAX_EXPANSIONS = 32;
+const FOR_RE = /\bfor\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([^;\n]+?)\s*(?:;|\n)\s*do\b/g;
+const ASSIGN_RE = /(?:^|[;&|\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=("[^"$`]*"|'[^']*'|[^\s;&|$`()]+)(?=\s*(?:[;&|\n]|$))/g;
+const LIST_WORD_RE = /"[^"]*"|'[^']*'|\S+/g;
+
+function stripQuotes(w: string): string {
+  return (w.startsWith('"') && w.endsWith('"')) || (w.startsWith("'") && w.endsWith("'")) ? w.slice(1, -1) : w;
+}
+
+/**
+ * ขยาย `for VAR in <literal...>; do ... done` และ `VAR=<literal>; ...` ให้ $VAR ในตัวคำสั่งกลายเป็นค่าจริง
+ * เพื่อให้ classifier ตัดสินจาก path/argument จริงแทน ASK SHELL_SUBSTITUTION
+ * คืน [] เมื่อไม่มี binding ที่ขยายได้ (ค่าในรายการมี $, backtick หรือ subshell) หรือจำนวน combination เกิน MAX_EXPANSIONS
+ */
+export function expandLiteralBindings(command: string): string[] {
+  const bindings: Array<{ name: string; values: string[] }> = [];
+  for (const m of command.matchAll(FOR_RE)) {
+    const vals = (m[2].match(LIST_WORD_RE) ?? []).filter((w) => w !== "");
+    if (vals.length === 0 || vals.some((v) => /[$`(]/.test(v))) continue;
+    bindings.push({ name: m[1], values: vals.map(stripQuotes) });
+  }
+  for (const m of command.matchAll(ASSIGN_RE)) bindings.push({ name: m[1], values: [stripQuotes(m[2])] });
+  if (bindings.length === 0) return [];
+  let variants = [command];
+  for (const b of bindings) {
+    const re = new RegExp(`\\$\\{${b.name}\\}|\\$${b.name}(?![A-Za-z0-9_])`, "g");
+    const next: string[] = [];
+    for (const v of variants) for (const val of b.values) next.push(v.replace(re, () => val));
+    variants = [...new Set(next)];
+    if (variants.length > MAX_EXPANSIONS) return [];
+  }
+  return variants.length === 1 && variants[0] === command ? [] : variants;
+}
+
+/** คืน command ภายใน $(...) และ `...` ทุกตัว (ระดับนอกสุด) เพื่อ classify แยก */
+export function commandSubstitutions(command: string): string[] {
+  const out: string[] = [];
+  let i = 0;
+  const n = command.length;
+  while (i < n) {
+    const c = command[i];
+    if (c === "'") {
+      i++;
+      while (i < n && command[i] !== "'") i++;
+      i++;
+      continue;
+    }
+    if (c === "\\") {
+      i += 2;
+      continue;
+    }
+    if (c === "`") {
+      const start = ++i;
+      while (i < n && command[i] !== "`") i++;
+      out.push(command.slice(start, i));
+      i++;
+      continue;
+    }
+    if (c === "$" && command[i + 1] === "(") {
+      let depth = 0;
+      const start = i + 2;
+      while (i < n) {
+        if (command[i] === "(") depth++;
+        if (command[i] === ")") {
+          depth--;
+          if (depth === 0) break;
+        }
+        i++;
+      }
+      out.push(command.slice(start, i));
+      i++;
+      continue;
+    }
+    i++;
+  }
+  return out.map((s) => s.trim()).filter((s) => s !== "");
+}
+
 /** ถ้าเป็น sh -c "..." คืน script ภายใน มิฉะนั้น null */
 export function nestedShellScript(words: string[]): string | null {
   if (words.length < 2) return null;

@@ -99,7 +99,8 @@
   "agentConfigDirs": [
     "${HOME}/.claude",
     "${HOME}/.codex",
-    "${HOME}/.pi"
+    "${HOME}/.pi",
+    "${HOME}/.agents"
   ],
   "securityAgentTypes": [
     "auditor",
