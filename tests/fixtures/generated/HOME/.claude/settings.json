@@ -78,8 +78,6 @@
       "Edit(~/.claude.json)",
       "Read(~/.pi/agent/auth.json)",
       "Edit(~/.pi/agent/auth.json)",
-      "Read(~/.config/agents-adapter/config.yaml)",
-      "Edit(~/.config/agents-adapter/config.yaml)",
       "Read(**/.env.production)",
       "Edit(**/.env.production)",
       "Read(**/.env.production.*)",
@@ -211,8 +209,7 @@
         "~/.codex/auth.json",
         "~/.claude/.credentials.json",
         "~/.claude.json",
-        "~/.pi/agent/auth.json",
-        "~/.config/agents-adapter/config.yaml"
+        "~/.pi/agent/auth.json"
       ],
       "denyWrite": [
         "~/.ssh",
@@ -232,7 +229,6 @@
         "~/.claude/.credentials.json",
         "~/.claude.json",
         "~/.pi/agent/auth.json",
-        "~/.config/agents-adapter/config.yaml",
         "~/.zshrc",
         "~/.zprofile",
         "~/.bashrc",
@@ -349,10 +345,6 @@
         },
         {
           "path": "~/.pi/agent/auth.json",
-          "mode": "deny"
-        },
-        {
-          "path": "~/.config/agents-adapter/config.yaml",
           "mode": "deny"
         }
       ],

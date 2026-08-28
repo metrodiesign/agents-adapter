@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- ไฟล์ที่ agents-adapter จัดการเอง (Claude `settings.json`/hooks, Codex `config.toml`/`requirements.toml`/`hooks.json`/hooks/rules, Pi extensions/isolation) ย้ายเป็น `system_config_paths`: อ่านได้ แต่แก้ต้อง ASK แทน ALLOW เพื่อกัน agent แก้ gate ของตัวเอง
+- `~/.config/agents-adapter/config.yaml` ไม่ใช่ credential แล้ว (อ่านได้, แก้ต้อง ASK) ทำให้รัน `plan`/`diff`/`doctor` จากใน agent session ได้
+
+### Fixed
+
+- `doctor`: hash drift รายงานเฉพาะไฟล์ของ target นั้น ไม่เอา drift ของ Claude ไปโผล่ใต้ codex/pi
+
 ## [0.1.0] - 2026-08-28
 
 ### Added

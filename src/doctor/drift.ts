@@ -16,7 +16,10 @@ export function driftReport(env: Environment, target: string): DriftReport {
   const p = plan(env, target);
   const policyDrift = p.changed.map((c) => `${c.kind}: ${c.path.replace(env.home, "~")}`);
   const hashDrift: string[] = [];
+  // เทียบเฉพาะไฟล์ที่ target นี้ render ไม่งั้น drift ของ Claude โผล่ใต้ codex/pi ด้วย
+  const owned = new Set(p.plans.flatMap((a) => a.changes.map((c) => c.path)));
   for (const [file, hash] of Object.entries(state.hashes)) {
+    if (!owned.has(file)) continue;
     if (!fs.existsSync(file)) {
       hashDrift.push(`missing: ${file.replace(env.home, "~")}`);
       continue;
