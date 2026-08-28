@@ -328,6 +328,10 @@
     { "id": "SHELL_SUBSTITUTION", "name": "git query mixed with other substitution", "kind": "command", "command": "echo $(git rev-parse HEAD) $(date)", "expected": "ASK" },
     { "id": "SHELL_SUBSTITUTION", "name": "redirect target from $(git rev-parse)", "kind": "command", "command": "echo x > $(git rev-parse --show-toplevel)/out.txt", "expected": "ASK" },
     { "id": "SHELL_SUBSTITUTION", "name": "git push branch from $(git branch --show-current)", "kind": "command", "command": "git push origin $(git branch --show-current)", "expected": "ASK" },
+    { "id": "SHELL_SUBSTITUTION", "name": "git log --format can smuggle flags", "kind": "command", "command": "npm test $(git log -1 --format=--ignore-scripts)", "expected": "ASK" },
+    { "id": "SHELL_SUBSTITUTION", "name": "git rev-parse --sq-quote echoes args", "kind": "command", "command": "npm test $(git rev-parse --sq-quote --force)", "expected": "ASK" },
+    { "id": "SHELL_SUBSTITUTION", "name": "git symbolic-ref has a write mode", "kind": "command", "command": "echo $(git symbolic-ref HEAD refs/heads/main)", "expected": "ASK" },
+    { "id": "SHELL_READ_ONLY", "name": "branch name from $(git rev-parse --abbrev-ref HEAD)", "kind": "command", "command": "echo $(git rev-parse --abbrev-ref HEAD)", "expected": "ALLOW" },
     { "id": "DEV_ENV_PRINT", "name": "if wraps cat .env", "kind": "command", "command": "if true; then cat .env; fi", "expected": "DENY" },
     { "id": "FS_READ_SOURCE", "name": "read skill under ~/.agents (symlink target of ~/.claude/skills)", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{HOME}/.agents/skills/code-review/SKILL.md" } }, "expected": "ALLOW" }
   ]

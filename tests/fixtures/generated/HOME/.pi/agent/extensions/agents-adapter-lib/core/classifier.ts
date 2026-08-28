@@ -92,8 +92,9 @@ function classifySegment(seg: SimpleCommand, next: SimpleCommand | undefined, c:
   return out;
 }
 
-/** git query ที่ output เป็น SHA/ref/ชื่อ branch: ปลอดภัยพอให้เป็น argument ของ command อื่น */
-const GIT_QUERY_SUBS = new Set(["rev-parse", "merge-base", "describe", "symbolic-ref", "name-rev", "rev-list", "branch", "show-ref", "for-each-ref", "log"]);
+/** git query ที่ output เป็น SHA/ref/path เท่านั้น (ไม่มี --format/--pretty/--sq-quote ให้คุม output); flag ที่รับได้เป็น allowlist */
+const GIT_QUERY_SUBS = new Set(["rev-parse", "merge-base", "show-ref", "rev-list"]);
+const GIT_QUERY_FLAGS = new Set(["--show-toplevel", "--git-dir", "--git-common-dir", "--abbrev-ref", "--verify", "--short", "--quiet", "-q", "--is-inside-work-tree", "--count", "--max-count", "--hash", "--heads", "--tags", "--all", "--octopus", "--is-ancestor"]);
 const GIT_QUERY_SUB_RE = /\$\(\s*git\s+(\S+)([^$`()]*)\)/g;
 
 function verifiedGitQuerySubstitution(seg: SimpleCommand, name: string): boolean {
@@ -102,8 +103,10 @@ function verifiedGitQuerySubstitution(seg: SimpleCommand, name: string): boolean
   if (name === "git" && gitSubcommand(seg.words).sub === "push") return false;
   if ([...seg.redirectWrites, ...seg.redirectReads].some((w) => /[$`(]/.test(w))) return false;
   let sawQuery = false;
-  const rest = seg.words.join(" ").replace(GIT_QUERY_SUB_RE, (_m, sub: string) => {
+  const rest = seg.words.join(" ").replace(GIT_QUERY_SUB_RE, (_m, sub: string, args: string) => {
     if (!GIT_QUERY_SUBS.has(sub)) return "$";
+    // flag นอก allowlist (เช่น --format, --sq-quote) อาจทำให้ output กลายเป็น flag ของ command นอก
+    if (args.split(/\s+/).some((a) => a.startsWith("-") && !GIT_QUERY_FLAGS.has(a.split("=")[0]))) return "$";
     sawQuery = true;
     return "";
   });

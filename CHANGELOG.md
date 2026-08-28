@@ -6,7 +6,7 @@
 
 ### Added
 
-- rule `SECURITY_AGENT_PROVIDER` (DENY) และ `AGENT_SPAWN` (ALLOW): ห้าม spawn security agent (`auditor`, `skeptic`, `security-review`, ...) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic เพราะ content filter แฟล็ก context ถาวร; Claude ใช้ hook ใหม่ `hooks/agents-adapter/provider_guard.py` (PreToolUse `^(Agent|Task)$`, entry ใน `settings.json.hooks` เป็น managed), Codex/Pi ใช้ classifier เดิมที่อ่าน env; fixture 7 กรณี
+- rule `SECURITY_AGENT_PROVIDER` (DENY) และ `AGENT_SPAWN` (ALLOW): ห้าม spawn security agent (`auditor`, `skeptic`, `security-review`, ...) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic เพราะ content filter แฟล็ก context ถาวร; Claude ใช้ hook ใหม่ `hooks/agents-adapter/provider_guard.py` (PreToolUse `^(Agent|Task)$`, entry ใน `settings.json.hooks` เป็น managed), Codex/Pi ใช้ classifier เดิมที่อ่าน env; fixture 11 กรณี
 
 - `docs/usage-guide.md` คู่มือใช้งานต่อสถานการณ์และต่อ CLI; troubleshooting เพิ่มอาการ sandbox/rtk/classifier ที่พบจากการใช้งานจริง
 
@@ -15,7 +15,7 @@
 - Claude `sandbox.excludedCommands` เพิ่ม `git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *` (และ `rtk git fetch *`, `rtk git pull *`, `rtk gh *`, `rtk docker *` สำหรับคำสั่งที่ rtk hook rewrite) เพราะ git เรียก `gh auth git-credential` เป็น subprocess ที่อ่าน `~/.config/gh` ไม่ได้ใน sandbox ทำให้ private repo ใน Development Trust Zone fetch/pull/push ไม่ได้; deny ของ push main/develop, bare/force push ยังบังคับผ่าน `permissions.deny`
 - ไฟล์ที่ agents-adapter จัดการเอง (Claude `settings.json`/hooks, Codex `config.toml`/`requirements.toml`/`hooks.json`/hooks/rules, Pi extensions/isolation) ย้ายเป็น `system_config_paths`: อ่านได้ แต่แก้ต้อง ASK แทน ALLOW เพื่อกัน agent แก้ gate ของตัวเอง
 - `~/.config/agents-adapter/config.yaml` ไม่ใช่ credential แล้ว (อ่านได้, แก้ต้อง ASK) ทำให้รัน `plan`/`diff`/`doctor` จากใน agent session ได้
-- `SHELL_SUBSTITUTION` ผ่อนให้ `$(git <query>)` ที่ query อยู่ใน `rev-parse`, `merge-base`, `describe`, `symbolic-ref`, `name-rev`, `rev-list`, `branch`, `show-ref`, `for-each-ref`, `log` ไม่ต้อง ASK เมื่อ segment นั้นไม่มี substitution อื่น, redirect ไม่มี substitution และ command นอกไม่ใช่ print/write/delete หรือ `git push` (เช่น `python3 scripts/x.py --base $(git merge-base develop HEAD)` เป็น ALLOW; `cat $(git rev-parse --show-toplevel)/x` และ `git push origin $(git branch --show-current)` ยัง ASK); fixture 7 กรณี
+- `SHELL_SUBSTITUTION` ผ่อนให้ `$(git <query>)` ที่ query อยู่ใน `rev-parse`, `merge-base`, `show-ref`, `rev-list` และ flag อยู่ใน allowlist (ไม่มี `--format`/`--sq-quote` ที่คุม output ได้) ไม่ต้อง ASK เมื่อ segment นั้นไม่มี substitution อื่น, redirect ไม่มี substitution และ command นอกไม่ใช่ print/write/delete หรือ `git push` (เช่น `python3 scripts/x.py --base $(git merge-base develop HEAD)` เป็น ALLOW; `cat $(git rev-parse --show-toplevel)/x` และ `git push origin $(git branch --show-current)` ยัง ASK); fixture 7 กรณี
 
 ### Fixed
 

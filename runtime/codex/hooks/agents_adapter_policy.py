@@ -667,8 +667,9 @@ def _classify_segment(seg: SimpleCommand, nxt: Optional[SimpleCommand], ctx: Pol
     return out
 
 
-# git query ที่ output เป็น SHA/ref/ชื่อ branch: ปลอดภัยพอให้เป็น argument ของ command อื่น
-GIT_QUERY_SUBS = {"rev-parse", "merge-base", "describe", "symbolic-ref", "name-rev", "rev-list", "branch", "show-ref", "for-each-ref", "log"}
+# git query ที่ output เป็น SHA/ref/path เท่านั้น (ไม่มี --format/--pretty/--sq-quote ให้คุม output); flag ที่รับได้เป็น allowlist
+GIT_QUERY_SUBS = {"rev-parse", "merge-base", "show-ref", "rev-list"}
+GIT_QUERY_FLAGS = {"--show-toplevel", "--git-dir", "--git-common-dir", "--abbrev-ref", "--verify", "--short", "--quiet", "-q", "--is-inside-work-tree", "--count", "--max-count", "--hash", "--heads", "--tags", "--all", "--octopus", "--is-ancestor"}
 GIT_QUERY_SUB_RE = re.compile(r"\$\(\s*git\s+(\S+)([^$`()]*)\)")
 _UNVERIFIED_RE = re.compile(r"[$`(]")
 
@@ -686,6 +687,9 @@ def _verified_git_query_substitution(seg: SimpleCommand, name: str) -> bool:
     def _sub(m: "re.Match[str]") -> str:
         nonlocal saw_query
         if m.group(1) not in GIT_QUERY_SUBS:
+            return "$"
+        # flag นอก allowlist (เช่น --format, --sq-quote) อาจทำให้ output กลายเป็น flag ของ command นอก
+        if any(a.startswith("-") and a.split("=")[0] not in GIT_QUERY_FLAGS for a in m.group(2).split()):
             return "$"
         saw_query = True
         return ""
