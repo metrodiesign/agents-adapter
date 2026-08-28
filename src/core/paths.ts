@@ -47,6 +47,18 @@ export function isUnder(target: string, root: string): boolean {
 
 /** glob แบบ basename: รองรับ * เท่านั้น */
 const ENV_TEMPLATE_SUFFIXES = [".example", ".sample", ".dist", ".template"];
+/** suffix ที่ native glob (Claude permissions.deny, Codex sandbox) ใช้แทน `*` เพราะ glob ไม่มี negation ให้ยกเว้น template; ชื่ออื่นยังโดน classifier (hook) จับผ่าน wildcard */
+const PROD_ENV_NATIVE_SUFFIXES = ["local", "bak", "backup", "old", "orig", "secret", "secrets", "enc", "vault", "live"];
+
+/** ขยาย prod env pattern ที่มี `*` เป็น glob เจาะจงสำหรับ native layer; pattern ที่ไม่มี `*` คงเดิม */
+export function nativeProdEnvGlobs(patterns: string[]): string[] {
+  const out: string[] = [];
+  for (const pat of patterns) {
+    if (!pat.includes("*")) { out.push(pat); continue; }
+    for (const suf of PROD_ENV_NATIVE_SUFFIXES) out.push(pat.replace("*", suf));
+  }
+  return out;
+}
 
 /** ไฟล์ env ที่เป็น template (.example/.sample/.dist/.template) ไม่ถือเป็น env จริง */
 export function isEnvTemplate(basename: string): boolean {

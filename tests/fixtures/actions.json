@@ -302,9 +302,11 @@
     { "id": "DESTRUCTIVE_DELETE", "name": "for loop rm -rf body", "kind": "command", "command": "for d in dist build; do rm -rf dist; done", "expected": "ASK" },
     { "id": "GIT_PUSH_PROTECTED", "name": "if wraps push to main", "kind": "command", "command": "if true; then git push origin main; fi", "expected": "DENY" },
 
-    { "id": "FS_READ_SOURCE", "name": "read .env.prod.example template", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{CWD}/.env.prod.example" } }, "expected": "ALLOW", "expectedByAdapter": { "claude": "DENY" } },
-    { "id": "FS_WRITE_SOURCE", "name": "edit .env.production.sample template", "kind": "tool", "tool": { "name": "Edit", "input": { "file_path": "{CWD}/.env.production.sample" } }, "expected": "ALLOW", "expectedByAdapter": { "claude": "DENY" } },
+    { "id": "FS_READ_SOURCE", "name": "read .env.prod.example template", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{CWD}/.env.prod.example" } }, "expected": "ALLOW" },
+    { "id": "FS_WRITE_SOURCE", "name": "edit .env.production.sample template", "kind": "tool", "tool": { "name": "Edit", "input": { "file_path": "{CWD}/.env.production.sample" } }, "expected": "ALLOW" },
     { "id": "SHELL_READ_ONLY", "name": "cat .env.prod.example", "kind": "command", "command": "cat .env.prod.example", "expected": "ALLOW", "ruleAny": ["SHELL_READ_ONLY", "FS_READ_SOURCE"] },
-    { "id": "PROD_ENV_READ", "name": "read .env.prod.example.bak is still prod", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{CWD}/.env.prod.example.bak" } }, "expected": "DENY" }
+    { "id": "PROD_ENV_READ", "name": "read .env.prod.example.bak is still prod", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{CWD}/.env.prod.example.bak" } }, "expected": "DENY" },
+    { "id": "PROD_ENV_READ", "name": "read .env.prod.local (native glob)", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{CWD}/.env.prod.local" } }, "expected": "DENY" },
+    { "id": "PROD_ENV_WRITE", "name": "edit .env.production.backup (classifier wildcard)", "kind": "tool", "tool": { "name": "Edit", "input": { "file_path": "{CWD}/.env.production.backup" } }, "expected": "DENY" }
   ]
 }

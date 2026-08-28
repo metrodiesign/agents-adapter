@@ -25,8 +25,6 @@ export interface FixtureCase {
   cwd?: string;
   /** จำลอง host ของ ANTHROPIC_BASE_URL; ไม่ระบุ = Anthropic โดยตรง */
   providerHost?: string;
-  /** ข้อยกเว้นต่อ adapter เมื่อ native layer ตัดสินต่างจาก classifier โดยตั้งใจ (เช่น Claude deny glob ไม่มี negation) */
-  expectedByAdapter?: Partial<Record<TargetName, Decision>>;
 }
 
 export interface ParityFailure {
@@ -117,12 +115,11 @@ export async function runParity(env: Environment, opts: { world?: FixtureWorld; 
       for (const t of applicable) {
         const v = await ADAPTERS[t].evaluate(action, caseCtx, env);
         results[t] = { decision: v.decision, ruleId: v.ruleId, reason: v.reason };
-        const expected = c.expectedByAdapter?.[t] ?? c.expected;
         const ruleOk = c.ruleAny ? c.ruleAny.includes(v.ruleId) : v.ruleId === (c.rule ?? c.id);
-        if (v.decision !== expected) problems.push(`${t}: ${v.decision} != ${expected}`);
-        else if (!ruleOk && expected === c.expected) problems.push(`${t}: rule ${v.ruleId} != ${c.rule ?? c.id}`);
+        if (v.decision !== c.expected) problems.push(`${t}: ${v.decision} != ${c.expected}`);
+        else if (!ruleOk) problems.push(`${t}: rule ${v.ruleId} != ${c.rule ?? c.id}`);
       }
-      const decisions = new Set(Object.entries(results).filter(([t]) => c.expectedByAdapter?.[t as TargetName] === undefined).map(([, r]) => r.decision));
+      const decisions = new Set(Object.values(results).map((r) => r.decision));
       if (decisions.size > 1) problems.push(`adapters disagree: ${JSON.stringify(Object.fromEntries(Object.entries(results).map(([k, v]) => [k, v.decision])))}`);
       for (const t of applicable) {
         if (problems.some((p) => p.startsWith(t + ":")) || decisions.size > 1) perAdapter[t].disagree++;

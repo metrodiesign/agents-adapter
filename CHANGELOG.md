@@ -18,7 +18,7 @@
 
 ### Fixed
 
-- classifier: ไฟล์ env ที่ลงท้าย `.example`, `.sample`, `.dist`, `.template` ไม่นับเป็น dev/prod env (Codex/Pi อ่านและแก้ได้ตาม trust zone); Claude ยัง deny ผ่าน glob native ที่ไม่มี negation (fixture ระบุ `expectedByAdapter`); `SHELL_SUBSTITUTION` ใส่ target เป็น segment ที่มี substitution
+- classifier: ไฟล์ env ที่ลงท้าย `.example`, `.sample`, `.dist`, `.template` ไม่นับเป็น dev/prod env; native glob ของ Claude (`permissions.deny`) และ Codex (sandbox `:workspace_roots`) เปลี่ยนจาก `.env.prod.*` เป็นชุด suffix เจาะจง (`nativeProdEnvGlobs`) เพราะ glob ไม่มี negation; ชื่อนอกชุดยังถูก classifier/hook DENY ผ่าน wildcard; `SHELL_SUBSTITUTION` ใส่ target เป็น segment ที่มี substitution
 - classifier: shell keyword (`for`, `while`, `until`, `if`, `then`, `else`, `elif`, `do`, `case`, `!`, `{`, `}`, `fi`, `done`, `esac`) ไม่ใช่ command แล้ว: ตัดสินจาก command ที่ตามหลังใน segment เดียวกัน; `for f in *.log; do rm -rf ...` ยังได้ DESTRUCTIVE_DELETE และ `if ...; then git push origin main` ยัง DENY
 - classifier: `bash|sh <script>` (ไม่ใช่ `-c`) ตัดสินจาก path ของ script แทน ASK `unknown command: bash`; Codex collaboration tools (`collaborationwait_agent`, `send_message`, `list_agents`, `followup_task`, `interrupt_agent`) และ `update_plan` เป็น ALLOW; `spawn_agent` ผ่าน provider guard เหมือนเดิม; `pgrep`, `pidof` เป็น read-only
 - `doctor`: hash drift รายงานเฉพาะไฟล์ของ target นั้น ไม่เอา drift ของ Claude ไปโผล่ใต้ codex/pi

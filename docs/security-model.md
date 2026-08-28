@@ -41,7 +41,7 @@ DENY ต้องมีอย่างน้อยสองชั้นในท
 - substitution `$(...)`, backtick, `$VAR`, subshell `(...)`
 - path traversal `../`, `$HOME`, `${HOME}`, `~`, symlink escape (รวม target ที่ยังไม่มี)
 - refspec: `HEAD`, `HEAD:main`, `HEAD~1:x`, `refs/heads/main`, `feature:main`, `:main`, `--delete main`, `+ref`, `--force-with-lease=ref`, `-uf`, `--mirror`, `--all`, `-C dir`
-- nested `.env.production`, `.env.prod.*`, quoted path, uppercase command
+- nested `.env.production`, `.env.prod.*` (classifier; native glob ใช้ suffix เจาะจงเพื่อยกเว้น `.example`), quoted path, uppercase command
 - `gh api` merge/gist/secrets/repo delete, connector tool names (`github.*`, `mcp__github__*`), `apply_patch` headers
 - Docker compose destructive variants (`-v`, `--volumes`, combined flags, legacy `docker-compose`)
 - Pi `!` และ `!!`, `/share`
