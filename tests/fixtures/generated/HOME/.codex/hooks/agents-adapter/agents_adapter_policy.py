@@ -414,7 +414,8 @@ def classify_path_kind(raw: str, ctx: PolicyContext) -> tuple[str, str]:
         resolve_real(expand_path(p, ctx), ctx)
         for p in (list(ctx.development_roots) + [ctx.cwd] + list(ctx.always_writable) + list(ctx.agent_config_dirs))
     ]
-    in_zone = any(is_under(c, root) for c in candidates for root in trusted_roots)
+    # trust zone is decided on the resolved path only: a symlink inside the project pointing outside must not count as in-zone
+    in_zone = any(is_under(resolved, root) for root in trusted_roots)
 
     system_roots = [resolve_real(expand_path(p, ctx), ctx) for p in ctx.system_config_paths]
     if any(is_under(c, root) for c in candidates for root in system_roots):

@@ -82,7 +82,8 @@ export function classifyPathKind(raw: string, ctx: PolicyContext): PathClass {
   const trustedRoots = [...ctx.developmentRoots, ctx.cwd, ...ctx.alwaysWritable, ...ctx.agentConfigDirs]
     .map((p) => expandPath(p, ctx))
     .map((p) => resolveReal(p, ctx));
-  const inZone = candidates.some((c) => trustedRoots.some((root) => isUnder(c, root)));
+  // trust zone ตัดสินจาก resolved path เท่านั้น: symlink ในโปรเจกต์ที่ชี้ออกนอก zone ต้องไม่นับว่าอยู่ใน zone
+  const inZone = trustedRoots.some((root) => isUnder(resolved, root));
 
   const systemRoots = ctx.systemConfigPaths.map((p) => resolveReal(expandPath(p, ctx), ctx));
   if (candidates.some((c) => systemRoots.some((root) => isUnder(c, root)))) return { kind: "system_config", resolved };
