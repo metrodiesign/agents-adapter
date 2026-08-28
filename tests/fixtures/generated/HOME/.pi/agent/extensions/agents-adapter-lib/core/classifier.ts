@@ -21,7 +21,7 @@ const READ_ONLY_CMDS = new Set([
   "ls", "pwd", "echo", "printf", "cat", "head", "tail", "less", "more", "grep", "rg", "egrep", "fgrep", "find", "fd", "wc", "sort", "uniq", "cut",
   "awk", "sed", "diff", "file", "stat", "du", "df", "which", "whereis", "type", "tree", "date", "whoami", "uname", "env", "printenv", "true",
   "false", "test", "[", "jq", "yq", "xargs", "tr", "basename", "dirname", "realpath", "readlink", "ps", "sleep", "cd", "export", "source", ".",
-  "alias", "man", "bat", "nl", "tac", "hostname", "id", "kill", "pkill", "killall", "lsof", "netstat", "ping", "curl", "wget", "tee", "mkdir",
+  "alias", "man", "bat", "nl", "tac", "hostname", "id", "kill", "pkill", "killall", "pgrep", "pidof", "lsof", "netstat", "ping", "curl", "wget", "tee", "mkdir",
   "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "zip", "tar", "gzip", "gunzip", "rm", "column",
   "seq", "expr", "bc", "md5", "md5sum", "shasum", "sha256sum", "openssl", "ssh-keygen", "cmp", "comm", "join", "paste", "split", "rev", "fold",
   "watch", "time", "wait", "clear", "tput", "stty", "read", "set", "unset", "shift", "exit", "return", "trap", "ulimit", "umask", "declare", "local", "eval",
@@ -200,6 +200,14 @@ function classifyByCommand(name: string, words: string[], seg: SimpleCommand, ne
       if (target.length === 0) return [verdict("ALLOW", "SHELL_READ_ONLY", name)];
     }
     return [verdict("ALLOW", "SHELL_READ_ONLY", name)];
+  }
+  if (SHELL_NAMES.has(name)) {
+    // `bash scripts/x.sh args` (ไม่ใช่ -c ซึ่ง parser unwrap ไปแล้ว): ตัดสินจาก path ของ script
+    const script = words.slice(1).find((w) => !w.startsWith("-"));
+    if (script === undefined) return [verdict("ASK", "UNKNOWN_COMMAND", `interactive shell: ${name}`, name)];
+    const v = classifyPath("read", script, ctx);
+    if (v.decision !== "ALLOW") return [v];
+    return [verdict("ALLOW", "BUILD", `shell script: ${script}`)];
   }
   if (name.endsWith(".sh") || name.endsWith(".py") || name.endsWith(".js") || name.endsWith(".ts")) {
     const v = classifyPath("read", words[0], ctx);
@@ -623,13 +631,18 @@ export function classifyTool(call: ToolCall, ctx: PolicyContext): Verdict {
   if (READ_TOOLS.has(name)) return p === null ? verdict("ALLOW", "FS_READ_SOURCE", `${raw} without path`) : classifyPath("read", p, ctx);
   if (WRITE_TOOLS.has(name)) return p === null ? verdict("ASK", "UNKNOWN_COMMAND", `${raw} without path`) : classifyPath("write", p, ctx);
   if (DELETE_TOOLS.has(name)) return p === null ? verdict("ASK", "UNKNOWN_COMMAND", `${raw} without path`) : classifyPath("delete", p, ctx);
-  if (name === "webfetch" || name === "web_fetch" || name === "websearch" || name === "web_search" || name === "fetch") return verdict("ALLOW", "SHELL_READ_ONLY", raw);
+  if (name === "webfetch" || name === "web_fetch" || name === "websearch" || name === "web_search" || name === "fetch" || name === "webrun") return verdict("ALLOW", "SHELL_READ_ONLY", raw);
   if (name === "share" || name === "share_session" || name === "export_session") return verdict("DENY", "PI_SHARE", "session share is blocked", raw);
+  // Codex ส่ง namespace ติดกับชื่อ tool เช่น collaborationwait_agent
+  if (name.startsWith("collaboration")) name = name.slice("collaboration".length);
   if (AGENT_TOOLS.has(name)) return classifyAgentSpawn(raw, input, ctx);
+  if (AGENT_COORDINATION_TOOLS.has(name)) return verdict("ALLOW", "AGENT_SPAWN", `agent coordination: ${raw}`, raw);
+  if (name === "update_plan" || name === "todowrite" || name === "todoread") return verdict("ALLOW", "SHELL_READ_ONLY", `plan tool: ${raw}`);
   return verdict("ASK", "UNKNOWN_COMMAND", `unknown tool: ${raw}`, raw);
 }
 
 const AGENT_TOOLS = new Set(["agent", "task", "spawn_agent", "dispatch_agent", "subagent"]);
+const AGENT_COORDINATION_TOOLS = new Set(["wait_agent", "send_message", "list_agents", "followup_task", "interrupt_agent", "close_agent", "resume_agent", "send_input"]);
 
 /** security agent บน provider ที่ไม่ใช่ Anthropic = DENY: content filter ของ provider อื่นแฟล็ก context ถาวร */
 export function classifyAgentSpawn(raw: string, input: Record<string, unknown>, ctx: PolicyContext): Verdict {

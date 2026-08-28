@@ -509,7 +509,7 @@ READ_ONLY_CMDS = {
     "ls", "pwd", "echo", "printf", "cat", "head", "tail", "less", "more", "grep", "rg", "egrep", "fgrep", "find", "fd", "wc", "sort", "uniq", "cut",
     "awk", "sed", "diff", "file", "stat", "du", "df", "which", "whereis", "type", "tree", "date", "whoami", "uname", "env", "printenv", "true",
     "false", "test", "[", "jq", "yq", "xargs", "tr", "basename", "dirname", "realpath", "readlink", "ps", "sleep", "cd", "export", "source", ".",
-    "alias", "man", "bat", "nl", "tac", "hostname", "id", "kill", "pkill", "killall", "lsof", "netstat", "ping", "curl", "wget", "tee", "mkdir",
+    "alias", "man", "bat", "nl", "tac", "hostname", "id", "kill", "pkill", "killall", "pgrep", "pidof", "lsof", "netstat", "ping", "curl", "wget", "tee", "mkdir",
     "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "zip", "tar", "gzip", "gunzip", "rm", "column",
     "seq", "expr", "bc", "md5", "md5sum", "shasum", "sha256sum", "openssl", "ssh-keygen", "cmp", "comm", "join", "paste", "split", "rev", "fold",
     "watch", "time", "wait", "clear", "tput", "stty", "read", "set", "unset", "shift", "exit", "return", "trap", "ulimit", "umask", "declare", "local", "eval",
@@ -700,6 +700,15 @@ def _classify_by_command(name: str, words: list[str], seg: SimpleCommand, nxt: O
         return [verdict("ALLOW", "BUILD", name)]
     if name in READ_ONLY_CMDS:
         return [verdict("ALLOW", "SHELL_READ_ONLY", name)]
+    if name in SHELL_NAMES:
+        # `bash scripts/x.sh args` (ไม่ใช่ -c ซึ่ง parser unwrap ไปแล้ว): ตัดสินจาก path ของ script
+        script = next((w for w in words[1:] if not w.startswith("-")), None)
+        if script is None:
+            return [verdict("ASK", "UNKNOWN_COMMAND", f"interactive shell: {name}", name)]
+        v = classify_path("read", script, ctx)
+        if v.decision != "ALLOW":
+            return [v]
+        return [verdict("ALLOW", "BUILD", f"shell script: {script}")]
     if name.endswith((".sh", ".py", ".js", ".ts")):
         v = classify_path("read", words[0], ctx)
         if v.decision != "ALLOW":
@@ -1216,16 +1225,24 @@ def classify_tool(tool_name: str, inp: Optional[dict], ctx: PolicyContext) -> Ve
         return verdict("ASK", "UNKNOWN_COMMAND", f"{raw} without path") if p is None else classify_path("write", p, ctx)
     if name in DELETE_TOOLS:
         return verdict("ASK", "UNKNOWN_COMMAND", f"{raw} without path") if p is None else classify_path("delete", p, ctx)
-    if name in ("webfetch", "web_fetch", "websearch", "web_search", "fetch"):
+    if name in ("webfetch", "web_fetch", "websearch", "web_search", "fetch", "webrun"):
         return verdict("ALLOW", "SHELL_READ_ONLY", raw)
     if name in ("share", "share_session", "export_session"):
         return verdict("DENY", "PI_SHARE", "session share is blocked", raw)
+    # Codex ส่ง namespace ติดกับชื่อ tool เช่น collaborationwait_agent
+    if name.startswith("collaboration"):
+        name = name[len("collaboration"):]
+    if name in AGENT_COORDINATION_TOOLS:
+        return verdict("ALLOW", "AGENT_SPAWN", f"agent coordination: {raw}", raw)
+    if name in ("update_plan", "todowrite", "todoread"):
+        return verdict("ALLOW", "SHELL_READ_ONLY", f"plan tool: {raw}")
     if name in AGENT_TOOLS:
         return classify_agent_spawn(raw, inp, ctx)
     return verdict("ASK", "UNKNOWN_COMMAND", f"unknown tool: {raw}", raw)
 
 
 AGENT_TOOLS = {"agent", "task", "spawn_agent", "dispatch_agent", "subagent"}
+AGENT_COORDINATION_TOOLS = {"wait_agent", "send_message", "list_agents", "followup_task", "interrupt_agent", "close_agent", "resume_agent", "send_input"}
 
 
 def classify_agent_spawn(raw: str, inp: dict, ctx: PolicyContext) -> Verdict:
