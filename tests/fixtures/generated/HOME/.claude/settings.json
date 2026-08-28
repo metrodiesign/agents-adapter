@@ -245,7 +245,12 @@
       "gh *",
       "docker *",
       "codex *",
-      "dotnet test *"
+      "dotnet test *",
+      "git push *",
+      "git fetch *",
+      "git pull *",
+      "git ls-remote *",
+      "git clone *"
     ],
     "network": {
       "allowedDomains": [

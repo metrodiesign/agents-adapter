@@ -6,6 +6,7 @@
 
 ### Changed
 
+- Claude `sandbox.excludedCommands` เพิ่ม `git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *` เพราะ git เรียก `gh auth git-credential` เป็น subprocess ที่อ่าน `~/.config/gh` ไม่ได้ใน sandbox ทำให้ private repo ใน Development Trust Zone fetch/pull/push ไม่ได้; deny ของ push main/develop, bare/force push ยังบังคับผ่าน `permissions.deny`
 - ไฟล์ที่ agents-adapter จัดการเอง (Claude `settings.json`/hooks, Codex `config.toml`/`requirements.toml`/`hooks.json`/hooks/rules, Pi extensions/isolation) ย้ายเป็น `system_config_paths`: อ่านได้ แต่แก้ต้อง ASK แทน ALLOW เพื่อกัน agent แก้ gate ของตัวเอง
 - `~/.config/agents-adapter/config.yaml` ไม่ใช่ credential แล้ว (อ่านได้, แก้ต้อง ASK) ทำให้รัน `plan`/`diff`/`doctor` จากใน agent session ได้
 
