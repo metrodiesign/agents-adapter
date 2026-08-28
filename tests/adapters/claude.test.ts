@@ -90,3 +90,14 @@ test("claude CLAUDE.md managed block is inserted once", () => {
     t.cleanup();
   }
 });
+
+test("claude sandbox excludes git network ops so the gh credential helper can run", () => {
+  const t = makeTestEnv();
+  try {
+    const s = JSON.parse(renderClaudeSettings(null, t.env, { mode: "apply", previousManaged: {} }).content);
+    for (const c of ["git push *", "git fetch *", "git pull *", "rtk git fetch *", "rtk git pull *", "rtk gh *", "rtk docker *"]) assert.ok(s.sandbox.excludedCommands.includes(c), c);
+    assert.ok(s.permissions.deny.includes("Bash(git push * main)"), "push to protected branch still denied");
+  } finally {
+    t.cleanup();
+  }
+});

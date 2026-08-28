@@ -25,11 +25,24 @@ agent_config_dirs:
   - "${HOME}/.pi"
 
 # CLI ที่ต้องรันนอก outer sandbox เพราะใช้ keychain/socket/runtime ของตัวเอง
+# git network ops ต้องออกด้วย: git เรียก credential helper (gh auth git-credential) เป็น subprocess
+# ซึ่งอ่าน ~/.config/gh ไม่ได้ใน sandbox ทำให้ fetch/pull/push ของ private repo พัง
+# การออกนอก sandbox ไม่ใช่ bypass permission: deny ของ push main/develop, bare push, force push ยังบังคับตามเดิม
 excluded_commands:
   - "gh *"
   - "docker *"
   - "codex *"
   - "dotnet test *"
+  - "git push *"
+  - "git fetch *"
+  - "git pull *"
+  - "git ls-remote *"
+  - "git clone *"
+  # rtk hook (Rust Token Killer) rewrite `git fetch`/`git pull`/`gh`/`docker` เป็น `rtk ...` ก่อนถึง sandbox จึงต้อง match รูปนั้นด้วย
+  - "rtk git fetch *"
+  - "rtk git pull *"
+  - "rtk gh *"
+  - "rtk docker *"
 
 # domain สาธารณะสำหรับ dependency install (รวมกับ trusted_domains ของ user)
 public_registries:

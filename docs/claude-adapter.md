@@ -19,7 +19,7 @@ Claude Code เป็น reference adapter: policy ถูกสกัดจา�
 | `sandbox.enabled`, `sandbox.autoAllowBashIfSandboxed` | บังคับ `true` |
 | `sandbox.filesystem.denyRead`, `denyWrite`, `allowWrite` | เติม credential path, shell startup file, development roots |
 | `sandbox.credentials.files`, `sandbox.credentials.envVars` | เติม credential path/env var แบบ `mode: deny` |
-| `sandbox.excludedCommands` | เติม `gh *`, `docker *`, `codex *`, `dotnet test *` |
+| `sandbox.excludedCommands` | เติม `gh *`, `docker *`, `codex *`, `dotnet test *` และ git network ops (`git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *`, รวมรูป `rtk git fetch *`, `rtk git pull *`, `rtk gh *`, `rtk docker *` ที่ rtk hook rewrite) เพราะ git เรียก `gh auth git-credential` ที่ต้องอ่าน `~/.config/gh`; permission rules ยังบังคับตามเดิม |
 | `sandbox.network.allowedDomains` | เติม trusted domains + public registries |
 | `autoMode.allow/soft_deny/hard_deny/environment` | entries ที่ขึ้นต้นด้วย `[agents-adapter] `; `$defaults` และ entries ของ user คงอยู่ |
 | `autoMode.classifyAllShell` | `true` |
