@@ -36,6 +36,8 @@ export interface TrustedDefaults {
   always_writable: string[];
   agent_config_dirs: string[];
   excluded_commands: string[];
+  security_agent_types: string[];
+  anthropic_hosts: string[];
   public_registries: string[];
 }
 
@@ -113,6 +115,17 @@ export interface ContextOptions {
   tmpdir?: string;
   cwd?: string;
   realpath?: (p: string) => string;
+  providerHost?: string;
+}
+
+/** host จาก URL เช่น http://127.0.0.1:8317 -> 127.0.0.1; ค่าว่าง/parse ไม่ได้ -> undefined */
+export function hostFromUrl(url: string | undefined): string | undefined {
+  if (!url || url.trim() === "") return undefined;
+  try {
+    return new URL(url.trim()).hostname.toLowerCase();
+  } catch {
+    return url.trim().toLowerCase();
+  }
 }
 
 /** สร้าง PolicyContext จาก user config + policy files (แทนค่า ${HOME}) */
@@ -137,8 +150,11 @@ export function buildContext(config: UserConfig, opts: ContextOptions = {}): Pol
     systemConfigPaths: protectedPaths.system_config_paths.map(expand),
     alwaysWritable: defaults.always_writable.map(expand),
     agentConfigDirs: defaults.agent_config_dirs.map(expand),
+    securityAgentTypes: defaults.security_agent_types,
+    anthropicHosts: defaults.anthropic_hosts,
   };
   if (opts.realpath) ctx.realpath = opts.realpath;
+  if (opts.providerHost) ctx.providerHost = opts.providerHost;
   return ctx;
 }
 

@@ -23,6 +23,8 @@ export interface FixtureCase {
   rule?: string;
   ruleAny?: string[];
   cwd?: string;
+  /** จำลอง host ของ ANTHROPIC_BASE_URL; ไม่ระบุ = Anthropic โดยตรง */
+  providerHost?: string;
 }
 
 export interface ParityFailure {
@@ -109,8 +111,9 @@ export async function runParity(env: Environment, opts: { world?: FixtureWorld; 
       const results: ParityFailure["results"] = {};
       const problems: string[] = [];
       const applicable = PI_ONLY.includes(c.kind) ? targets.filter((t) => t === "pi") : targets;
+      const caseCtx = c.providerHost ? { ...ctx, providerHost: c.providerHost } : ctx;
       for (const t of applicable) {
-        const v = await ADAPTERS[t].evaluate(action, ctx, env);
+        const v = await ADAPTERS[t].evaluate(action, caseCtx, env);
         results[t] = { decision: v.decision, ruleId: v.ruleId, reason: v.reason };
         const ruleOk = c.ruleAny ? c.ruleAny.includes(v.ruleId) : v.ruleId === (c.rule ?? c.id);
         if (v.decision !== c.expected) problems.push(`${t}: ${v.decision} != ${c.expected}`);

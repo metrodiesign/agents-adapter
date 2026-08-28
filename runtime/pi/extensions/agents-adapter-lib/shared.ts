@@ -60,10 +60,22 @@ export function loadContext(cwd: string): PolicyContext {
         systemConfigPaths: [`${home}/.zshrc`, `${home}/.bashrc`, `${home}/.zprofile`, `${home}/.bash_profile`],
         alwaysWritable: [os.tmpdir()],
         agentConfigDirs: [`${home}/.pi`],
+        securityAgentTypes: ["auditor", "skeptic", "security-review", "security-reviewer", "security-auditor"],
+        anthropicHosts: ["api.anthropic.com"],
       };
     }
   }
-  return { ...cached, cwd };
+  const providerHost = cached.providerHost ?? hostFromEnv(process.env.ANTHROPIC_BASE_URL);
+  return providerHost ? { ...cached, cwd, providerHost } : { ...cached, cwd };
+}
+
+function hostFromEnv(url: string | undefined): string | undefined {
+  if (!url || url.trim() === "") return undefined;
+  try {
+    return new URL(url.trim()).hostname.toLowerCase();
+  } catch {
+    return url.trim().toLowerCase();
+  }
 }
 
 /** approval cache ต่อ session: key = rule + target (+ environment marker) */

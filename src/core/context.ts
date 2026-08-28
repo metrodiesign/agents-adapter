@@ -17,6 +17,11 @@ export interface PolicyContext {
   systemConfigPaths: string[];
   alwaysWritable: string[];
   agentConfigDirs: string[];
+  /** agent type ที่ห้ามรันบน provider ที่ไม่ใช่ Anthropic */
+  securityAgentTypes: string[];
+  anthropicHosts: string[];
+  /** host ของ ANTHROPIC_BASE_URL ขณะรัน; undefined = Anthropic โดยตรง */
+  providerHost?: string;
   /** resolve symlink; inject ได้ใน test */
   realpath?: (p: string) => string;
 }

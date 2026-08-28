@@ -33,6 +33,7 @@ approval ที่ได้รับใช้กับขั้นตอนต�
 - อ่าน/แก้ credential file, keychain และ production env (.env.production, .env.production.*, .env.prod, .env.prod.*)
 - `--dangerously-bypass-approvals-and-sandbox`, `--sandbox danger-full-access`, bypass flag อื่น
 - `sudo`, pipe จาก curl/wget เข้า shell
+- spawn security agent (auditor, skeptic, security-review) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic (`SECURITY_AGENT_PROVIDER`); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume
 
 ## GitHub
 

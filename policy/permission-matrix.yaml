@@ -243,6 +243,14 @@ rules:
     category: security
     decision: DENY
     description: permission/sandbox/hook bypass flag
+  - id: AGENT_SPAWN
+    category: security
+    decision: ALLOW
+    description: spawn subagent/teammate ทั่วไป
+  - id: SECURITY_AGENT_PROVIDER
+    category: security
+    decision: DENY
+    description: spawn security agent (auditor, skeptic, security-review) บน provider ที่ไม่ใช่ Anthropic เพราะ content filter แฟล็ก context ถาวร
   - id: PRIVILEGE_ESCALATION
     category: security
     decision: DENY

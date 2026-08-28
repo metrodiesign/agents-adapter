@@ -22,7 +22,9 @@ test("claude settings merge preserves user keys, unknown keys and user entries",
     const out = JSON.parse(r.content) as typeof USER_SETTINGS & { permissions: { ask: string[] }; language: string };
     assert.equal(out.model, "custom-model");
     assert.deepEqual(out.enabledPlugins, USER_SETTINGS.enabledPlugins);
-    assert.deepEqual(out.hooks, USER_SETTINGS.hooks);
+    const pre = (out.hooks as { PreToolUse: Array<{ matcher?: string; hooks: Array<{ command: string }> }> }).PreToolUse;
+    assert.ok(pre.some((g) => g.hooks.some((h) => h.command === "echo hi")), "user hook preserved");
+    assert.ok(pre.some((g) => g.matcher === "^(Agent|Task)$" && g.hooks.some((h) => h.command.includes("/hooks/agents-adapter/provider_guard.py"))), "provider guard hook added");
     assert.deepEqual(out.unknownFutureKey, USER_SETTINGS.unknownFutureKey);
     assert.ok(out.permissions.allow.includes("Bash(my-tool *)"));
     assert.ok(out.permissions.deny.includes("Bash(rm -rf /)"));
@@ -97,6 +99,25 @@ test("claude sandbox excludes git network ops so the gh credential helper can ru
     const s = JSON.parse(renderClaudeSettings(null, t.env, { mode: "apply", previousManaged: {} }).content);
     for (const c of ["git push *", "git fetch *", "git pull *", "rtk git fetch *", "rtk git pull *", "rtk gh *", "rtk docker *"]) assert.ok(s.sandbox.excludedCommands.includes(c), c);
     assert.ok(s.permissions.deny.includes("Bash(git push * main)"), "push to protected branch still denied");
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("claude provider guard hook is added once, removed on uninstall, and the runtime file is rendered", () => {
+  const t = makeTestEnv();
+  try {
+    const first = renderClaudeSettings(JSON.stringify(USER_SETTINGS), t.env, { mode: "apply", previousManaged: {} });
+    const second = renderClaudeSettings(first.content, t.env, { mode: "apply", previousManaged: {} });
+    const pre = (JSON.parse(second.content).hooks as { PreToolUse: Array<{ hooks: Array<{ command: string }> }> }).PreToolUse;
+    assert.equal(pre.filter((g) => g.hooks.some((h) => h.command.includes("provider_guard.py"))).length, 1, "idempotent");
+    const removed = JSON.parse(renderClaudeSettings(second.content, t.env, { mode: "remove", previousManaged: {} }).content) as { hooks: { PreToolUse: Array<{ hooks: Array<{ command: string }> }> } };
+    assert.ok(!removed.hooks.PreToolUse.some((g) => g.hooks.some((h) => h.command.includes("provider_guard.py"))), "removed on uninstall");
+    assert.ok(removed.hooks.PreToolUse.some((g) => g.hooks.some((h) => h.command === "echo hi")), "user hook survives uninstall");
+    const plan = renderClaude(t.env, { mode: "apply", previousManaged: {} });
+    assert.ok(plan.changes.some((c) => c.path.endsWith("/hooks/agents-adapter/provider_guard.py") && c.after !== null));
+    const cfg = plan.changes.find((c) => c.path.endsWith("/hooks/agents-adapter/agents-adapter.config.json"));
+    assert.ok(cfg && cfg.after && JSON.parse(cfg.after).securityAgentTypes.includes("auditor"));
   } finally {
     t.cleanup();
   }

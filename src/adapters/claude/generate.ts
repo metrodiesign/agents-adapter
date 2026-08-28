@@ -3,7 +3,7 @@ import * as path from "node:path";
 import type { Environment } from "../../config/loader.ts";
 import { trustedDomains } from "../../config/loader.ts";
 import { getPath, isObject, mergeManagedList, renderTemplate, setPath, stableJson, stripManagedList, upsertBlock, removeBlock, type Json } from "../../config/merger.ts";
-import { loadProtectedPaths, loadTrustedDefaults } from "../../core/policy-loader.ts";
+import { loadProtectedPaths, loadTrustedDefaults, serializableContext } from "../../core/policy-loader.ts";
 import { change, readIfExists, validateJson } from "../fs-helpers.ts";
 import type { AdapterPlan, RenderMode } from "../types.ts";
 import { autoModeEntries, claudePatterns } from "./rules.ts";
@@ -55,7 +55,7 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
   const remove = mode.mode === "remove";
   const managedKeys: string[] = [];
   const conflicts: string[] = [];
-  const preservedTop = Object.keys(settings).filter((k) => !["permissions", "sandbox", "autoMode", "language"].includes(k));
+  const preservedTop = Object.keys(settings).filter((k) => !["permissions", "sandbox", "autoMode", "language", "hooks"].includes(k));
 
   const lists: Array<[string[], keyof ClaudeManaged, string]> = [
     [["permissions", "deny"], "deny", "claude.permissions.deny"],
@@ -124,11 +124,50 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
     setPath(settings, p, value);
     managedKeys.push(p.join("."));
   }
+  // hooks: เฉพาะ entry ที่ command ชี้ hooks/agents-adapter/ เป็น managed; entry ของ user คงอยู่
+  mergeClaudeHooks(settings, env.home, remove);
+  managedKeys.push("hooks.PreToolUse (agents-adapter entries)");
+
   if (!remove && getPath(settings, ["permissions", "defaultMode"]) === "bypassPermissions") {
     conflicts.push("permissions.defaultMode was bypassPermissions; reset to default");
     setPath(settings, ["permissions", "defaultMode"], "default");
   }
   return { content: stableJson(settings), managedKeys, preserved: preservedTop, conflicts };
+}
+
+export const CLAUDE_HOOK_DIR_NAME = "agents-adapter";
+const CLAUDE_RUNTIME_HOOKS = ["provider_guard.py"];
+
+export function claudeHookCommand(home: string, file: string): string {
+  const script = path.join(home, ".claude", "hooks", CLAUDE_HOOK_DIR_NAME, file);
+  // fail-open เมื่อไม่มี python3 หรือไฟล์หาย ตามกฎ hook ของ Claude reference
+  return `/bin/sh -c 'if command -v python3 >/dev/null 2>&1 && [ -f "${script}" ]; then exec python3 "${script}"; fi'`;
+}
+
+function mergeClaudeHooks(settings: Record<string, Json>, home: string, remove: boolean): void {
+  const marker = `/hooks/${CLAUDE_HOOK_DIR_NAME}/`;
+  const hooksRaw = getPath(settings, ["hooks"]);
+  const hooks: Record<string, Json> = isObject(hooksRaw) ? hooksRaw : {};
+  const wanted: Record<string, Array<{ matcher: string; file: string; timeout: number }>> = {
+    PreToolUse: [{ matcher: "^(Agent|Task)$", file: "provider_guard.py", timeout: 5 }],
+  };
+  for (const [event, entries] of Object.entries(wanted)) {
+    const cur = Array.isArray(hooks[event]) ? (hooks[event] as Json[]) : [];
+    const kept = cur.filter((group) => {
+      if (!isObject(group)) return true;
+      const inner = Array.isArray(group.hooks) ? (group.hooks as Json[]) : [];
+      return !inner.some((h) => isObject(h) && typeof h.command === "string" && h.command.includes(marker));
+    });
+    if (remove) {
+      if (kept.length === 0) delete hooks[event];
+      else hooks[event] = kept;
+      continue;
+    }
+    const ours: Json[] = entries.map((e) => ({ matcher: e.matcher, hooks: [{ type: "command", command: claudeHookCommand(home, e.file), timeout: e.timeout }] }));
+    hooks[event] = [...ours, ...kept];
+  }
+  if (Object.keys(hooks).length === 0) delete settings.hooks;
+  else settings.hooks = hooks;
 }
 
 export function claudeBlockVars(env: Environment): Record<string, string> {
@@ -151,18 +190,31 @@ export function renderClaude(env: Environment, mode: RenderMode): AdapterPlan {
   const template = fs.readFileSync(path.join(env.repoRoot, "templates", "claude", "CLAUDE.md.tmpl"), "utf8");
   const existingMd = readIfExists(mdPath);
   const md = mode.mode === "remove" ? removeBlock(existingMd) : upsertBlock(existingMd, renderTemplate(template, claudeBlockVars(env)));
+  const remove = mode.mode === "remove";
   const changes = [
     change(settingsPath, existingSettings, rendered.content, validateJson, 0o600),
     change(mdPath, existingMd, md === "" ? null : md),
   ];
+  // runtime hook + serialized PolicyContext (provider guard อ่าน securityAgentTypes/anthropicHosts จากไฟล์นี้)
+  const hookDir = path.join(dir, "hooks", CLAUDE_HOOK_DIR_NAME);
+  const runtimeDir = path.join(env.repoRoot, "runtime", "claude", "hooks");
+  for (const f of CLAUDE_RUNTIME_HOOKS) {
+    const target = path.join(hookDir, f);
+    changes.push(change(target, readIfExists(target), remove ? null : fs.readFileSync(path.join(runtimeDir, f), "utf8"), undefined, 0o755));
+  }
+  const ctxPath = path.join(hookDir, "agents-adapter.config.json");
+  changes.push(change(ctxPath, readIfExists(ctxPath), remove ? null : stableJson(serializableContext(env.ctx)), validateJson));
   return {
     target: "claude",
     changes,
-    managedKeys: rendered.managedKeys.concat(["CLAUDE.md managed block"]),
+    managedKeys: rendered.managedKeys.concat(["CLAUDE.md managed block", `hooks/${CLAUDE_HOOK_DIR_NAME}/*`]),
     preserved: rendered.preserved,
     conflicts: rendered.conflicts,
     unsupported: [],
-    notes: ["Claude uses native permissions.allow/ask/deny + sandbox + autoMode; no hook required"],
+    notes: [
+      "Claude uses native permissions.allow/ask/deny + sandbox + autoMode; the only hook is provider_guard.py (PreToolUse Agent|Task)",
+      "provider guard denies security agents (auditor, skeptic, security-review) when ANTHROPIC_BASE_URL is not Anthropic",
+    ],
   };
 }
 

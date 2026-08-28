@@ -31,6 +31,7 @@ approval ถูก cache ใน session สำหรับ target เดิม�
 - credential file, keychain, production env ({{production_env_patterns}})
 - `/share`, public gist, session export ไปบริการภายนอก
 - bypass flag รวม `pi --no-extensions`, `sudo`, curl/wget pipe เข้า shell
+- spawn security agent (auditor, skeptic, security-review) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic (`SECURITY_AGENT_PROVIDER`); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume
 
 `!command` และ `!!command` ของ user ผ่าน gate เดียวกัน
 

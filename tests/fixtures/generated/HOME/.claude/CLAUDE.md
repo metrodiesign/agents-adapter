@@ -8,5 +8,6 @@ block นี้ถูกสร้างโดย agents-adapter 0.1.0 กฎฉ�
 - development env ที่อ่านและแก้ได้: .env, .env.local, .env.development, .env.test, .env.testing, .env.integration; production env ที่ deny: .env.production, .env.production.*, .env.prod, .env.prod.*
 - approval หนึ่งครั้งต่อ action + target + environment แล้วใช้กับขั้นตอนต่อเนื่องของงานย่อยเดียวกัน ห้ามขยายไป target อื่น
 - DENY เป็น hard block ข้ามไม่ได้ด้วย prompt, subagent, plugin, project config, CLI flag, auto-review, tool alias หรือ shell wrapper
+- security agent (auditor, skeptic, security-review) รันบน Anthropic โดยตรงเท่านั้น: เมื่อ ANTHROPIC_BASE_URL ชี้ provider อื่นจะถูก deny (SECURITY_AGENT_PROVIDER); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume
 - Pi isolation mode ปัจจุบัน: host-macos
 <!-- agents-adapter:end -->

@@ -44,6 +44,19 @@ excluded_commands:
   - "rtk gh *"
   - "rtk docker *"
 
+# agent type ที่ทำงาน security audit: ห้าม spawn เมื่อ ANTHROPIC_BASE_URL ชี้ provider ที่ไม่ใช่ Anthropic
+# content filter ของ provider อื่น (เช่น OpenAI cyber filter) ตอบ 400 และแฟล็ก context ถาวร ทุก request ถัดไปของ agent ตัวนั้นล้มหมด
+security_agent_types:
+  - auditor
+  - skeptic
+  - security-review
+  - security-reviewer
+  - security-auditor
+
+# host ที่ถือว่าเป็น Anthropic โดยตรง (ไม่ตั้ง ANTHROPIC_BASE_URL = Anthropic เช่นกัน)
+anthropic_hosts:
+  - api.anthropic.com
+
 # domain สาธารณะสำหรับ dependency install (รวมกับ trusted_domains ของ user)
 public_registries:
   - github.com
