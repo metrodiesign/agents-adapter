@@ -805,6 +805,9 @@ def _classify_by_command(name: str, words: list[str], seg: SimpleCommand, nxt: O
         return [verdict("DENY", "PIPE_TO_SHELL", f"{name} piped into shell")]
     if name == "git":
         return [classify_git(words, ctx)]
+    if name == "apply_patch":
+        # shell form: apply_patch '*** Begin Patch ...' (heredoc body ไม่อยู่ใน argument จึงยัง ASK)
+        return [classify_apply_patch("\n".join(words[1:]), ctx)]
     if name == "gh":
         return [classify_gh(words)]
     if name in ("docker", "docker-compose", "podman"):
@@ -899,6 +902,18 @@ def _git_subcommand(words: list[str]) -> tuple[str, list[str]]:
 
 GIT_READ = {"status", "diff", "log", "show", "blame", "fetch", "ls-files", "ls-remote", "rev-parse", "describe", "shortlog", "reflog", "grep", "cat-file", "show-ref", "for-each-ref", "worktree", "config", "help", "version", "--version", "remote", "branch", "tag", "stash", "name-rev", "merge-base", "cherry", "bisect", "count-objects", "fsck", "gc", "notes"}
 GIT_LOCAL_WRITE = {"add", "commit", "switch", "checkout", "merge", "rebase", "cherry-pick", "revert", "restore", "mv", "rm", "apply", "am", "init", "pull", "submodule", "sparse-checkout", "mergetool", "format-patch", "clone", "reset"}
+
+
+def classify_apply_patch(patch: str, ctx: PolicyContext) -> Verdict:
+    """ตัดสิน apply_patch จาก file header ใน patch: Add/Update = write, Delete = delete, Move to = write"""
+    verdicts = []
+    for mm in re.finditer(r"^\*\*\* (Add|Update|Delete) File: (.+)$", patch, re.M):
+        verdicts.append(classify_path("delete" if mm.group(1) == "Delete" else "write", mm.group(2).strip(), ctx))
+    for mm in re.finditer(r"^\*\*\* Move to: (.+)$", patch, re.M):
+        verdicts.append(classify_path("write", mm.group(1).strip(), ctx))
+    if not verdicts:
+        return verdict("ASK", "UNKNOWN_COMMAND", "apply_patch without file headers")
+    return strictest(verdicts)
 
 
 def classify_git(words: list[str], ctx: PolicyContext) -> Verdict:
@@ -1374,15 +1389,8 @@ def classify_tool(tool_name: str, inp: Optional[dict], ctx: PolicyContext) -> Ve
             return verdict("ASK", "UNKNOWN_COMMAND", f"shell tool without command: {raw}")
         return classify_command(cmd, ctx)
     if name == "apply_patch":
-        patch = str(inp.get("patch", inp.get("input", "")))
-        verdicts = []
-        for mm in re.finditer(r"^\*\*\* (Add|Update|Delete) File: (.+)$", patch, re.M):
-            verdicts.append(classify_path("delete" if mm.group(1) == "Delete" else "write", mm.group(2).strip(), ctx))
-        for mm in re.finditer(r"^\*\*\* Move to: (.+)$", patch, re.M):
-            verdicts.append(classify_path("write", mm.group(1).strip(), ctx))
-        if not verdicts:
-            return verdict("ASK", "UNKNOWN_COMMAND", "apply_patch without file headers")
-        return strictest(verdicts)
+        # Codex freeform apply_patch ส่ง tool_input เป็น patch string ล้วน; policy_gate ห่อเป็น {"command"} จึงต้องอ่าน command ด้วย
+        return classify_apply_patch(str(inp.get("patch", inp.get("input", inp.get("command", "")))), ctx)
     p = _path_from_input(inp)
     if name in READ_TOOLS:
         return verdict("ALLOW", "FS_READ_SOURCE", f"{raw} without path") if p is None else classify_path("read", p, ctx)

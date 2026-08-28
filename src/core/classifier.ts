@@ -200,6 +200,8 @@ function classifyByCommand(name: string, words: string[], seg: SimpleCommand, ne
   }
   if (name === "git") return [classifyGit(words, ctx)];
   if (name === "gh") return [classifyGh(words)];
+  // shell form: apply_patch '*** Begin Patch ...' (heredoc body ไม่อยู่ใน argument จึงยัง ASK)
+  if (name === "apply_patch") return [classifyApplyPatch(words.slice(1).join("\n"), ctx)];
   if (name === "docker" || name === "docker-compose" || name === "podman") return [classifyDocker(name, words)];
   if (PKG_MANAGERS.has(name)) return [classifyPackageManager(name, lower)];
   if (name === "rm") {
@@ -287,6 +289,17 @@ function gitSubcommand(words: string[]): { sub: string; args: string[] } {
 
 const GIT_READ = new Set(["status", "diff", "log", "show", "blame", "fetch", "ls-files", "ls-remote", "rev-parse", "describe", "shortlog", "reflog", "grep", "cat-file", "show-ref", "for-each-ref", "worktree", "config", "help", "version", "--version", "remote", "branch", "tag", "stash", "name-rev", "merge-base", "cherry", "bisect", "count-objects", "fsck", "gc", "notes"]);
 const GIT_LOCAL_WRITE = new Set(["add", "commit", "switch", "checkout", "merge", "rebase", "cherry-pick", "revert", "restore", "mv", "rm", "apply", "am", "init", "pull", "submodule", "sparse-checkout", "mergetool", "format-patch", "clone", "reset"]);
+
+/** ตัดสิน apply_patch จาก file header ใน patch: Add/Update = write, Delete = delete, Move to = write */
+export function classifyApplyPatch(patch: string, ctx: PolicyContext): Verdict {
+  const verdicts: Verdict[] = [];
+  for (const m of patch.matchAll(/^\*\*\* (Add|Update|Delete) File: (.+)$/gm)) {
+    const op: PathOp = m[1] === "Delete" ? "delete" : "write";
+    verdicts.push(classifyPath(op, m[2].trim(), ctx));
+  }
+  for (const m of patch.matchAll(/^\*\*\* Move to: (.+)$/gm)) verdicts.push(classifyPath("write", m[1].trim(), ctx));
+  return verdicts.length === 0 ? verdict("ASK", "UNKNOWN_COMMAND", "apply_patch without file headers") : strictest(verdicts);
+}
 
 export function classifyGit(words: string[], ctx: PolicyContext): Verdict {
   const { sub, args } = gitSubcommand(words);
@@ -667,16 +680,8 @@ export function classifyTool(call: ToolCall, ctx: PolicyContext): Verdict {
     if (cmd === null) return verdict("ASK", "UNKNOWN_COMMAND", `shell tool without command: ${raw}`);
     return classifyCommand(cmd, ctx);
   }
-  if (name === "apply_patch") {
-    const patch = String(input.patch ?? input.input ?? "");
-    const verdicts: Verdict[] = [];
-    for (const m of patch.matchAll(/^\*\*\* (Add|Update|Delete) File: (.+)$/gm)) {
-      const op: PathOp = m[1] === "Delete" ? "delete" : "write";
-      verdicts.push(classifyPath(op, m[2].trim(), ctx));
-    }
-    for (const m of patch.matchAll(/^\*\*\* Move to: (.+)$/gm)) verdicts.push(classifyPath("write", m[1].trim(), ctx));
-    return verdicts.length === 0 ? verdict("ASK", "UNKNOWN_COMMAND", "apply_patch without file headers") : strictest(verdicts);
-  }
+  // Codex freeform apply_patch ส่ง tool_input เป็น patch string ล้วน; hook ห่อเป็น {command} จึงต้องอ่าน command ด้วย
+  if (name === "apply_patch") return classifyApplyPatch(String(input.patch ?? input.input ?? input.command ?? ""), ctx);
   const p = pathFromInput(input);
   if (READ_TOOLS.has(name)) return p === null ? verdict("ALLOW", "FS_READ_SOURCE", `${raw} without path`) : classifyPath("read", p, ctx);
   if (WRITE_TOOLS.has(name)) return p === null ? verdict("ASK", "UNKNOWN_COMMAND", `${raw} without path`) : classifyPath("write", p, ctx);
