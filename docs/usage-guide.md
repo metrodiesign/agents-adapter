@@ -90,6 +90,10 @@ Claude Code กันไฟล์ของตัวเอง (`~/.claude/setting
 | นอก zone | ASK | ASK |
 | credential path, `.env.production*` | DENY | DENY |
 
+### Security agent บน profile ที่ใช้ proxy
+
+profile ที่ตั้ง `ANTHROPIC_BASE_URL` ไป provider อื่น (เช่น `claudex` ผ่าน cliproxyapi ไป GPT) ห้ามรัน `auditor`, `skeptic`, `security-review`: hook `provider_guard.py` จะ deny ทันทีพร้อมเหตุผล ให้ย้ายงาน audit ไปรันใน session `claude` ปกติแทน ถ้า agent ตัวเดิมโดน `400 ... flagged for possible cybersecurity risk` แล้ว ให้ kill และ spawn ใหม่เท่านั้น การ retry หรือ resume ไม่มีทางผ่าน
+
 ## ใช้งานผ่าน Codex CLI
 
 รัน `codex` ตรง ๆ ได้ทันที profile default คือ `Auto mode`

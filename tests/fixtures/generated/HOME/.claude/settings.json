@@ -459,5 +459,19 @@
     ],
     "classifyAllShell": true
   },
-  "language": "thai"
+  "language": "thai",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Agent|Task)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh -c 'if command -v python3 >/dev/null 2>&1 && [ -f \"${HOME}/.claude/hooks/agents-adapter/provider_guard.py\" ]; then exec python3 \"${HOME}/.claude/hooks/agents-adapter/provider_guard.py\"; fi'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
 }

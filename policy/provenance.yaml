@@ -59,5 +59,7 @@ rules:
   LOCAL_DESTRUCTIVE_DB: { source: claude_md, section: "Approval boundary (destructive migration, database reset)" }
   DESTRUCTIVE_DELETE: { source: settings, path: "permissions.ask[rm -rf *]" }
   SAFETY_BYPASS: { source: settings, path: "permissions.deny[*--dangerously-skip-permissions*]" }
+  AGENT_SPAWN: { source: claude_md, section: "Agent และ workflow routing" }
+  SECURITY_AGENT_PROVIDER: { source: derived, note: "incident 2026-08-28: auditor บน GPT proxy โดน cyber filter 400 ถาวร ต้อง kill + spawn ใหม่บน Anthropic" }
   PRIVILEGE_ESCALATION: { source: settings, path: "permissions.deny[sudo *]" }
   SHELL_SUBSTITUTION: { source: derived, note: "Codex rules ข้าม command ที่มี substitution; ทำให้เป็น ASK ทุก CLI เพื่อ parity" }

@@ -625,7 +625,21 @@ export function classifyTool(call: ToolCall, ctx: PolicyContext): Verdict {
   if (DELETE_TOOLS.has(name)) return p === null ? verdict("ASK", "UNKNOWN_COMMAND", `${raw} without path`) : classifyPath("delete", p, ctx);
   if (name === "webfetch" || name === "web_fetch" || name === "websearch" || name === "web_search" || name === "fetch") return verdict("ALLOW", "SHELL_READ_ONLY", raw);
   if (name === "share" || name === "share_session" || name === "export_session") return verdict("DENY", "PI_SHARE", "session share is blocked", raw);
+  if (AGENT_TOOLS.has(name)) return classifyAgentSpawn(raw, input, ctx);
   return verdict("ASK", "UNKNOWN_COMMAND", `unknown tool: ${raw}`, raw);
+}
+
+const AGENT_TOOLS = new Set(["agent", "task", "spawn_agent", "dispatch_agent", "subagent"]);
+
+/** security agent บน provider ที่ไม่ใช่ Anthropic = DENY: content filter ของ provider อื่นแฟล็ก context ถาวร */
+export function classifyAgentSpawn(raw: string, input: Record<string, unknown>, ctx: PolicyContext): Verdict {
+  const agentType = String(input.subagent_type ?? input.agent_type ?? input.subagentType ?? input.agentType ?? input.type ?? "").trim().toLowerCase();
+  const host = ctx.providerHost?.toLowerCase();
+  const thirdParty = host !== undefined && host !== "" && !ctx.anthropicHosts.map((h) => h.toLowerCase()).includes(host);
+  if (thirdParty && ctx.securityAgentTypes.map((t) => t.toLowerCase()).includes(agentType)) {
+    return verdict("DENY", "SECURITY_AGENT_PROVIDER", `security agent '${agentType}' on third-party provider ${host}: its content filter flags audit context permanently; run this agent on Anthropic directly`, agentType);
+  }
+  return verdict("ALLOW", "AGENT_SPAWN", `spawn agent ${agentType || raw}`, agentType || raw);
 }
 
 const GITHUB_TOOL_NAMES = new Set([

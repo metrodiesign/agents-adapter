@@ -41,6 +41,8 @@
 | PI_SHARE | DENY | native (ไม่มี share command) | native (ไม่มี share command) | runtime (input + tool_call) | runtime |
 | STAGING_DEPLOY / PROD_DEPLOY / PROD_DB_WRITE / PROD_DESTRUCTIVE_DB / LOCAL_DESTRUCTIVE_DB | ASK | native | native (rules prompt) + hook context | runtime | runtime |
 | DESTRUCTIVE_DELETE | ASK | native | native (rules prompt) | runtime | runtime |
+| AGENT_SPAWN | ALLOW | native | native | runtime | runtime |
+| SECURITY_AGENT_PROVIDER | DENY | runtime (PreToolUse `provider_guard.py`) | runtime (hook อ่าน `ANTHROPIC_BASE_URL`; Codex native ไม่ใช้ตัวแปรนี้) | runtime | runtime |
 | SAFETY_BYPASS | DENY | native (`disableBypassPermissionsMode`) | runtime + requirements (`:danger-full-access = false`) | best-effort (`pi -ne` ที่ user พิมพ์เองบังคับไม่ได้) | isolation |
 | PRIVILEGE_ESCALATION | DENY | native | runtime + rules forbidden | runtime | runtime |
 | SHELL_SUBSTITUTION | ASK | native (classifier) | native (rules skip -> approval) | runtime | runtime |

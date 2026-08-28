@@ -7,6 +7,7 @@ classifier so the Python implementation is verified even without Node.
 from __future__ import annotations
 
 import io
+import dataclasses
 import json
 import os
 import shutil
@@ -95,7 +96,8 @@ class FixtureParity(unittest.TestCase):
                 v = policy.classify_command(self.world.sub(c["command"]), self.ctx)
             elif kind == "tool":
                 inp = {k: (self.world.sub(x) if isinstance(x, str) else x) for k, x in c["tool"].get("input", {}).items()}
-                v = policy.classify_tool(c["tool"]["name"], inp, self.ctx)
+                ctx = dataclasses.replace(self.ctx, provider_host=c["providerHost"]) if c.get("providerHost") else self.ctx
+                v = policy.classify_tool(c["tool"]["name"], inp, ctx)
             elif kind == "user_input":
                 v = policy.classify_user_input(c["text"]) or policy.verdict("ALLOW", "SHELL_READ_ONLY", "input")
             else:
@@ -161,3 +163,29 @@ class HookProtocol(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProviderGuard(unittest.TestCase):
+    """provider_guard.py ของ Claude ใช้ logic เดียวกับ classify_agent_spawn"""
+
+    def setUp(self) -> None:
+        guard_dir = os.path.join(ROOT, "runtime", "claude", "hooks")
+        sys.path.insert(0, guard_dir)
+        import provider_guard  # noqa: E402
+
+        self.guard = provider_guard
+
+    def test_deny_only_security_agent_on_third_party(self) -> None:
+        sec, hosts = ["auditor", "skeptic"], ["api.anthropic.com"]
+        deny = self.guard.decide({"tool_input": {"subagent_type": "Auditor"}}, sec, hosts, "127.0.0.1")
+        self.assertIsNotNone(deny)
+        self.assertIn("SECURITY_AGENT_PROVIDER", deny or "")
+        self.assertIsNone(self.guard.decide({"tool_input": {"subagent_type": "auditor"}}, sec, hosts, None))
+        self.assertIsNone(self.guard.decide({"tool_input": {"subagent_type": "auditor"}}, sec, hosts, "api.anthropic.com"))
+        self.assertIsNone(self.guard.decide({"tool_input": {"subagent_type": "coder"}}, sec, hosts, "127.0.0.1"))
+
+    def test_host_from_url(self) -> None:
+        self.assertEqual(self.guard.host_from_url("http://127.0.0.1:8317"), "127.0.0.1")
+        self.assertEqual(self.guard.host_from_url("https://api.anthropic.com"), "api.anthropic.com")
+        self.assertIsNone(self.guard.host_from_url(""))
+        self.assertIsNone(self.guard.host_from_url(None))

@@ -253,6 +253,13 @@
     { "id": "FS_WRITE_SOURCE", "name": "rm single file", "kind": "command", "command": "rm src/old.ts", "expected": "ALLOW" },
     { "id": "OUTSIDE_TRUST_ZONE", "name": "rm -rf outside zone", "kind": "command", "command": "rm -rf ~/Documents/old", "expected": "ASK", "ruleAny": ["OUTSIDE_TRUST_ZONE", "DESTRUCTIVE_DELETE"] },
 
+    { "id": "AGENT_SPAWN", "name": "spawn coder on Anthropic", "kind": "tool", "tool": { "name": "Agent", "input": { "subagent_type": "coder", "prompt": "implement" } }, "expected": "ALLOW" },
+    { "id": "AGENT_SPAWN", "name": "spawn auditor on Anthropic", "kind": "tool", "tool": { "name": "Agent", "input": { "subagent_type": "auditor", "prompt": "audit" } }, "expected": "ALLOW" },
+    { "id": "AGENT_SPAWN", "name": "spawn auditor with explicit anthropic host", "kind": "tool", "tool": { "name": "Agent", "input": { "subagent_type": "auditor" } }, "providerHost": "api.anthropic.com", "expected": "ALLOW" },
+    { "id": "AGENT_SPAWN", "name": "spawn coder on third-party proxy", "kind": "tool", "tool": { "name": "Agent", "input": { "subagent_type": "coder" } }, "providerHost": "127.0.0.1", "expected": "ALLOW" },
+    { "id": "SECURITY_AGENT_PROVIDER", "name": "spawn auditor on third-party proxy", "kind": "tool", "tool": { "name": "Agent", "input": { "subagent_type": "auditor", "prompt": "audit" } }, "providerHost": "127.0.0.1", "expected": "DENY" },
+    { "id": "SECURITY_AGENT_PROVIDER", "name": "spawn skeptic on third-party proxy (Task tool, mixed case)", "kind": "tool", "tool": { "name": "Task", "input": { "subagent_type": "Skeptic" } }, "providerHost": "api.z.ai", "expected": "DENY" },
+    { "id": "SECURITY_AGENT_PROVIDER", "name": "spawn security-review via agent_type key", "kind": "tool", "tool": { "name": "spawn_agent", "input": { "agent_type": "security-review" } }, "providerHost": "proxy.internal", "expected": "DENY" },
     { "id": "SAFETY_BYPASS", "name": "claude skip permissions", "kind": "command", "command": "claude --dangerously-skip-permissions -p 'x'", "expected": "DENY" },
     { "id": "SAFETY_BYPASS", "name": "codex bypass sandbox", "kind": "command", "command": "codex --dangerously-bypass-approvals-and-sandbox", "expected": "DENY" },
     { "id": "SAFETY_BYPASS", "name": "codex danger-full-access", "kind": "command", "command": "codex --sandbox danger-full-access exec 'ls'", "expected": "DENY" },

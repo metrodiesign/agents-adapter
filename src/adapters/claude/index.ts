@@ -19,6 +19,10 @@ export const claudeAdapter: Adapter = {
         out[rule.id] = { level: "native", note: "Claude has no share command" };
         continue;
       }
+      if (rule.id === "SECURITY_AGENT_PROVIDER") {
+        out[rule.id] = { level: "runtime", note: "PreToolUse hook provider_guard.py on Agent|Task" };
+        continue;
+      }
       if (rule.id === "UNKNOWN_COMMAND" || rule.id === "SHELL_SUBSTITUTION") {
         out[rule.id] = { level: "native", note: "autoMode classifier decides; classifyAllShell=true" };
         continue;

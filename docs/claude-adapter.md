@@ -8,6 +8,7 @@ Claude Code เป็น reference adapter: policy ถูกสกัดจา�
 |---|---|
 | `~/.claude/settings.json` | managed keys (ดูด้านล่าง); user-owned และ unknown keys preserve |
 | `~/.claude/CLAUDE.md` | managed block ระหว่าง `<!-- agents-adapter:start -->` และ `<!-- agents-adapter:end -->` |
+| `~/.claude/hooks/agents-adapter/provider_guard.py` + `agents-adapter.config.json` | copy จาก `runtime/claude/hooks` + serialized PolicyContext; entry ใน `settings.json` `hooks.PreToolUse` (matcher `^(Agent\|Task)$`) เป็น managed, entry ของ user คงอยู่ |
 
 ## Managed keys ใน settings.json
 
@@ -33,6 +34,7 @@ key อื่น (`model`, `hooks`, `enabledPlugins`, `extraKnownMarketplaces`, 
 - production env และ credential ถูก deny ทั้ง `Read(...)`/`Edit(...)` rules และ sandbox `denyRead`/`denyWrite`/`credentials`
 - `gh`, `docker`, `codex` รันนอก outer sandbox เพื่อใช้ keychain/socket ของตัวเอง แต่ยังผ่าน permission rules
 - bypass permission mode ถูกปิดผ่าน `disableBypassPermissionsMode`
+- provider guard: เมื่อ `ANTHROPIC_BASE_URL` ชี้ host ที่ไม่ใช่ `api.anthropic.com` (เช่น proxy ไป GPT) การ spawn agent ใน `security_agent_types` (`auditor`, `skeptic`, `security-review`, ...) ถูก deny ด้วย `SECURITY_AGENT_PROVIDER` เพราะ content filter ของ provider อื่นตอบ 400 และแฟล็ก context ของ agent นั้นถาวร; hook fail-open เมื่อไม่มี python3 หรือไฟล์หาย
 
 ## Evaluator
 

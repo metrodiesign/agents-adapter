@@ -20,6 +20,16 @@ path นอก zone -> `OUTSIDE_TRUST_ZONE` (ASK) ยกเว้น system path
 - Pi cache approval ในหน่วยความจำของ session; Claude และ Codex ใช้กลไก approval ของตัวเอง แต่ prompt (autoMode soft_deny / approvals reviewer policy) บอกให้ใช้ approval เดิมกับขั้นตอนต่อเนื่องของงานย่อยเดียวกัน
 - approval หนึ่งรายการห้ามครอบ target อื่นโดยอัตโนมัติ
 
+## Provider routing สำหรับ security agent
+
+| เงื่อนไข | decision |
+|---|---|
+| spawn agent ทั่วไป (coder, researcher, ...) ทุก provider | `AGENT_SPAWN` ALLOW |
+| spawn `auditor`, `skeptic`, `security-review`, `security-reviewer`, `security-auditor` เมื่อไม่ตั้ง `ANTHROPIC_BASE_URL` หรือชี้ `api.anthropic.com` | `AGENT_SPAWN` ALLOW |
+| spawn agent กลุ่มเดียวกันเมื่อ `ANTHROPIC_BASE_URL` ชี้ host อื่น | `SECURITY_AGENT_PROVIDER` DENY |
+
+เหตุผล: content filter ของ provider อื่น (เช่น OpenAI cyber filter) ตอบ `400 This content was flagged for possible cybersecurity risk` กับ context ของงาน audit (symlink, race, TOCTOU) และข้อความที่โดนแฟล็กอยู่ใน history แล้ว ทุก request ถัดไปของ agent ตัวนั้นล้มหมด กู้ไม่ได้ ต้อง kill แล้ว spawn ใหม่บน Anthropic รายชื่อ agent และ host อยู่ใน `trusted-defaults.yaml` (`security_agent_types`, `anthropic_hosts`)
+
 ## Production requirements
 
 action ที่เป็น `PROD_DEPLOY`, `PROD_DB_WRITE`, `PROD_DESTRUCTIVE_DB` ต้องมีข้อมูลก่อนอนุมัติ:

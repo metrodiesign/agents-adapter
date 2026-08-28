@@ -67,6 +67,9 @@ class PolicyContext:
     always_writable: list[str]
     agent_config_dirs: list[str]
     realpath: object = field(default=None)  # callable(path) -> str, raises when missing
+    security_agent_types: list[str] = field(default_factory=lambda: ["auditor", "skeptic", "security-review", "security-reviewer", "security-auditor"])
+    anthropic_hosts: list[str] = field(default_factory=lambda: ["api.anthropic.com"])
+    provider_host: Optional[str] = None  # host ของ ANTHROPIC_BASE_URL; None = Anthropic โดยตรง
 
     @staticmethod
     def from_json(data: dict, cwd: str, realpath=None) -> "PolicyContext":
@@ -85,7 +88,23 @@ class PolicyContext:
             always_writable=list(data["alwaysWritable"]),
             agent_config_dirs=list(data["agentConfigDirs"]),
             realpath=realpath,
+            security_agent_types=list(data.get("securityAgentTypes") or ["auditor", "skeptic", "security-review", "security-reviewer", "security-auditor"]),
+            anthropic_hosts=list(data.get("anthropicHosts") or ["api.anthropic.com"]),
+            provider_host=data.get("providerHost") or host_from_url(os.environ.get("ANTHROPIC_BASE_URL")),
         )
+
+
+def host_from_url(url: Optional[str]) -> Optional[str]:
+    """mirror ของ hostFromUrl ใน policy-loader.ts"""
+    if not url or not url.strip():
+        return None
+    try:
+        from urllib.parse import urlparse
+
+        host = urlparse(url.strip()).hostname
+        return host.lower() if host else url.strip().lower()
+    except Exception:
+        return url.strip().lower()
 
 
 # ---------------------------------------------------------------------------
@@ -1201,7 +1220,32 @@ def classify_tool(tool_name: str, inp: Optional[dict], ctx: PolicyContext) -> Ve
         return verdict("ALLOW", "SHELL_READ_ONLY", raw)
     if name in ("share", "share_session", "export_session"):
         return verdict("DENY", "PI_SHARE", "session share is blocked", raw)
+    if name in AGENT_TOOLS:
+        return classify_agent_spawn(raw, inp, ctx)
     return verdict("ASK", "UNKNOWN_COMMAND", f"unknown tool: {raw}", raw)
+
+
+AGENT_TOOLS = {"agent", "task", "spawn_agent", "dispatch_agent", "subagent"}
+
+
+def classify_agent_spawn(raw: str, inp: dict, ctx: PolicyContext) -> Verdict:
+    """mirror ของ classifyAgentSpawn: security agent บน provider ที่ไม่ใช่ Anthropic = DENY"""
+    agent_type = ""
+    for key in ("subagent_type", "agent_type", "subagentType", "agentType", "type"):
+        v = inp.get(key)
+        if isinstance(v, str) and v.strip():
+            agent_type = v.strip().lower()
+            break
+    host = (ctx.provider_host or "").lower()
+    third_party = host != "" and host not in [h.lower() for h in ctx.anthropic_hosts]
+    if third_party and agent_type in [t.lower() for t in ctx.security_agent_types]:
+        return verdict(
+            "DENY",
+            "SECURITY_AGENT_PROVIDER",
+            f"security agent '{agent_type}' on third-party provider {host}: its content filter flags audit context permanently; run this agent on Anthropic directly",
+            agent_type,
+        )
+    return verdict("ALLOW", "AGENT_SPAWN", f"spawn agent {agent_type or raw}", agent_type or raw)
 
 
 def _classify_github_tool(name: str, inp: dict, ctx: PolicyContext) -> Verdict:

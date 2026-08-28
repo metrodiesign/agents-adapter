@@ -100,5 +100,15 @@
     "${HOME}/.claude",
     "${HOME}/.codex",
     "${HOME}/.pi"
+  ],
+  "securityAgentTypes": [
+    "auditor",
+    "skeptic",
+    "security-review",
+    "security-reviewer",
+    "security-auditor"
+  ],
+  "anthropicHosts": [
+    "api.anthropic.com"
   ]
 }

@@ -28,6 +28,8 @@ OS / credential store         -> macOS Files and Folders, keychain, gh auth stat
 | Claude: `apply` ถูก auto mode classifier block | เขียน `~/.claude/settings.json` ซึ่ง Claude กันจาก agent | user รันเองด้วย `! node src/cli.ts apply --target claude --yes` |
 | autoMode มีข้อความ `YOUR_GITHUB_USER` ซ้ำ | apply ด้วย config example ที่ยังไม่แก้ | แก้ `github.owner` ใน config แล้ว `apply`; managed state ลบ entry เก่าให้ |
 | `doctor` รายงาน hash drift ของ Claude ใต้ codex/pi | build ก่อน PR #7 วน hash ทุกไฟล์ไม่กรอง target | `git pull` แล้วรัน doctor ใหม่ |
+| subagent ตอบ `400 This content was flagged for possible cybersecurity risk` ซ้ำทุก request | รัน security agent ผ่าน proxy ไป provider อื่น (`ANTHROPIC_BASE_URL`); context ถูกแฟล็กถาวร | kill agent ตัวนั้นทันที ห้าม resume; spawn ใหม่บน `claude` ปกติ; หลัง apply hook `provider_guard.py` จะ deny การ spawn แบบนี้ตั้งแต่ต้น |
+| Claude: spawn auditor ถูก deny `SECURITY_AGENT_PROVIDER` ทั้งที่ตั้งใจใช้ proxy | policy กันไว้ตามออกแบบ | รัน audit ใน session Claude ปกติ หรือเปลี่ยนชื่อ agent ให้อยู่นอก `security_agent_types` เฉพาะเมื่อ prompt ไม่มีเนื้อหา security จริง |
 | `apply` ล้มด้วย validation error | ไฟล์เดิม parse ไม่ได้ (JSON/TOML) | แก้ไฟล์ให้ถูกต้องก่อน; agents-adapter ไม่แทนที่ไฟล์ที่ validate ไม่ผ่าน |
 | `rollback` รายงาน failed บางไฟล์ | สิทธิ์ไฟล์หรือไฟล์ถูกล็อก | แก้สิทธิ์แล้วรัน rollback ซ้ำ; backup ยังอยู่ |
 | generate-check CI fail | render output เปลี่ยนหลังแก้ policy | `node src/cli.ts generate-check` แล้ว commit `tests/fixtures/generated` |
