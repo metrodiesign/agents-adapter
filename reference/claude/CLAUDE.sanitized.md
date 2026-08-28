@@ -170,7 +170,7 @@ ANTHROPIC_DEFAULT_HAIKU_MODEL
 ## Sandbox และ CLI rules
 
 - Bash sandbox เปิดเป็นค่าเริ่มต้น และ sandboxed command ที่ผ่าน policy ให้ auto-approve
-- `gh *`, `docker *`, `codex *` และ `dotnet test *` รันนอก outer Claude sandbox ผ่าน `excludedCommands` เพราะต้องใช้ keychain/socket/runtime ของตัวเอง
+- `gh *`, `docker *`, `codex *`, `dotnet test *` และ git network ops (`git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *`) รันนอก outer Claude sandbox ผ่าน `excludedCommands` เพราะต้องใช้ keychain/socket/runtime ของตัวเอง หรือเรียก `gh auth git-credential` ที่ต้องอ่าน `~/.config/gh`; รวมรูปที่ rtk hook rewrite (`rtk gh *`, `rtk docker *`, `rtk git fetch *`, `rtk git pull *`) และ pattern match ทั้งบรรทัด จึงต้องรัน `gh` เป็นคำสั่งเดี่ยว ไม่ต่อด้วย `&&` หรือ pipe
 - การออกนอก outer sandbox ไม่เท่ากับ bypass permission; ยังต้องผ่าน permission rules และ Auto classifier
 - ห้ามเปิด Docker socket ให้ sandboxed subprocess เมื่อ `docker *` ถูก exclude อยู่แล้ว
 - หาก Go binary พบ `tls: failed to verify certificate: x509: OSStatus -26276` ให้เพิ่ม binary นั้นใน `excludedCommands` แบบเจาะจง แทนการลด network isolation ทั้งระบบ
