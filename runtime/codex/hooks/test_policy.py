@@ -117,7 +117,7 @@ class HookProtocol(unittest.TestCase):
     def tearDown(self) -> None:
         self.world.cleanup()
 
-    def _run(self, tool: str, tool_input: dict) -> tuple[int, str, str]:
+    def _run(self, tool: str, tool_input: object) -> tuple[int, str, str]:
         payload = {"cwd": self.world.cwd, "hook_event_name": "PreToolUse", "tool_name": tool, "tool_input": tool_input}
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
@@ -151,6 +151,14 @@ class HookProtocol(unittest.TestCase):
         code, _, err = self._run("apply_patch", {"patch": "*** Begin Patch\n*** Add File: ../../../.ssh/authorized_keys\n+x\n*** End Patch"})
         self.assertEqual(code, 2)
         self.assertIn("CREDENTIAL_WRITE", err)
+
+    def test_apply_patch_freeform_string_input(self) -> None:
+        # Codex freeform apply_patch: tool_input is the raw patch string, not an object
+        code, out, err = self._run("apply_patch", "*** Begin Patch\n*** Update File: src/a.ts\n@@\n-a\n+b\n*** End Patch")
+        self.assertEqual((code, out, err), (0, "", ""))
+        code, _, err = self._run("apply_patch", "*** Begin Patch\n*** Update File: .env.production\n@@\n-a\n+b\n*** End Patch")
+        self.assertEqual(code, 2)
+        self.assertIn("PROD_ENV_WRITE", err)
 
     def test_missing_config_fails_open_but_warns(self) -> None:
         os.environ["AGENTS_ADAPTER_CONFIG"] = "/nonexistent/agents-adapter.config.json"
