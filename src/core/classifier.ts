@@ -88,7 +88,9 @@ function classifySegment(seg: SimpleCommand, next: SimpleCommand | undefined, c:
   out.push(...classifyWordPaths(words === seg.words ? seg : { ...seg, words }, name, c));
 
   // 4. substitution: ทำให้ ALLOW กลายเป็น ASK ยกเว้น $(git <read-only query>) ล้วนที่ส่งให้ command ที่ไม่ใช่ print/write/delete
-  if (seg.hasSubstitution && !verifiedGitQuerySubstitution(seg, name)) out.push(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", seg.words.join(" ")));
+  if (seg.hasSubstitution && !verifiedGitQuerySubstitution(seg, name) && !outputSinkSubstitution(seg, name)) {
+    out.push(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", seg.words.length > 0 ? seg.words.join(" ") : "subshell"));
+  }
   return out;
 }
 
@@ -96,6 +98,14 @@ function classifySegment(seg: SimpleCommand, next: SimpleCommand | undefined, c:
 const GIT_QUERY_SUBS = new Set(["rev-parse", "merge-base", "show-ref", "rev-list"]);
 const GIT_QUERY_FLAGS = new Set(["--show-toplevel", "--git-dir", "--git-common-dir", "--abbrev-ref", "--verify", "--short", "--quiet", "-q", "--is-inside-work-tree", "--count", "--max-count", "--hash", "--heads", "--tags", "--all", "--octopus", "--is-ancestor"]);
 const GIT_QUERY_SUB_RE = /\$\(\s*git\s+(\S+)([^$`()]*)\)/g;
+
+/** echo/printf แค่พิมพ์ argument: ค่าที่ขยายมาทำอะไรไม่ได้ ส่วน command ใน $(...) ถูก classify แยกอยู่แล้ว (DENY ชนะ) */
+const OUTPUT_SINKS = new Set(["echo", "printf"]);
+
+function outputSinkSubstitution(seg: SimpleCommand, name: string): boolean {
+  if (!OUTPUT_SINKS.has(name)) return false;
+  return ![...seg.redirectWrites, ...seg.redirectReads].some((w) => /[$`(]/.test(w));
+}
 
 function verifiedGitQuerySubstitution(seg: SimpleCommand, name: string): boolean {
   if (PRINT_CMDS.has(name) || WRITE_CMDS.has(name) || name === "rm" || name === "rmdir") return false;
