@@ -109,6 +109,7 @@ scripts/verify-parity.sh   # รัน fixture ทุกตัวผ่านท
 
 | ไฟล์ | เนื้อหา |
 |---|---|
+| `docs/usage-guide.md` | คู่มือใช้งาน: ติดตั้ง, อัปเดต, ใช้ผ่าน Claude/Codex/Pi, ข้อจำกัดที่พบจริง |
 | `docs/architecture.md` | โครงสร้าง, diagram, flow ของ policy และ installer |
 | `docs/implementation-plan.md` | แผน 8 phase พร้อม gate |
 | `docs/permission-model.md` | ความหมาย ALLOW/ASK/DENY, approval scope, production requirements |

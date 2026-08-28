@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `docs/usage-guide.md` คู่มือใช้งานต่อสถานการณ์และต่อ CLI; troubleshooting เพิ่มอาการ sandbox/rtk/classifier ที่พบจากการใช้งานจริง
+
 ### Changed
 
 - Claude `sandbox.excludedCommands` เพิ่ม `git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *` (และ `rtk git fetch *`, `rtk git pull *`, `rtk gh *`, `rtk docker *` สำหรับคำสั่งที่ rtk hook rewrite) เพราะ git เรียก `gh auth git-credential` เป็น subprocess ที่อ่าน `~/.config/gh` ไม่ได้ใน sandbox ทำให้ private repo ใน Development Trust Zone fetch/pull/push ไม่ได้; deny ของ push main/develop, bare/force push ยังบังคับผ่าน `permissions.deny`
