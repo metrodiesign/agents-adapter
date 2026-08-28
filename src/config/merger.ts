@@ -52,9 +52,8 @@ export function mergeManagedList<T>(current: T[] | undefined, previousManaged: T
     const k = key(item);
     if (seen.has(k)) continue;
     if (prev.has(k) && !next.has(k)) continue; // stale managed entry
-    if (next.has(k)) continue; // managed: จะเติมท้ายตามลำดับใหม่
     seen.add(k);
-    out.push(item);
+    out.push(item); // entry ที่มีอยู่แล้ว (ของ user หรือ managed) คงตำแหน่งเดิม
   }
   for (const [k, item] of next) {
     if (!seen.has(k)) {

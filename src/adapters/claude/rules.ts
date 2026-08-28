@@ -2,7 +2,10 @@
  * Claude Code permission patterns ที่สกัดจาก permission matrix
  * pattern semantics ของ Claude: Bash(prefix *) = prefix match, Bash(exact) = exact, * = wildcard
  */
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { PolicyContext } from "../../core/context.ts";
+import { REPO_ROOT } from "../../core/policy-loader.ts";
 import type { UserConfig } from "../../core/policy-loader.ts";
 
 export interface ClaudePatterns {
@@ -42,9 +45,6 @@ export function claudePatterns(config: UserConfig, ctx: PolicyContext): ClaudePa
     "Bash(*--dangerously-bypass-approvals-and-sandbox*)",
     "Bash(*--dangerously-bypass-hook-trust*)",
     "Bash(*--permission-mode bypassPermissions*)",
-    "Bash(*--sandbox danger-full-access*)",
-    "Bash(*--sandbox=danger-full-access*)",
-    "Bash(codex -s danger-full-access*)",
     "Bash(pi --no-extensions*)",
     "Bash(pi -ne*)",
   ];
@@ -60,7 +60,8 @@ export function claudePatterns(config: UserConfig, ctx: PolicyContext): ClaudePa
   }
   for (const p of ctx.credentialPaths) {
     const tilde = p.replace(ctx.home, "~");
-    deny.push(`Read(${tilde}${tilde.endsWith(".json") || tilde.endsWith("credentials") || tilde.endsWith("rc") ? "" : "/**"})`, `Edit(${tilde}${tilde.endsWith(".json") || tilde.endsWith("credentials") || tilde.endsWith("rc") ? "" : "/**"})`);
+    const suffix = isFileLike(tilde) ? "" : "/**";
+    deny.push(`Read(${tilde}${suffix})`, `Edit(${tilde}${suffix})`);
   }
   for (const pat of ctx.prodEnvPatterns) {
     deny.push(`Read(**/${pat})`, `Edit(**/${pat})`);
@@ -137,6 +138,7 @@ export function claudePatterns(config: UserConfig, ctx: PolicyContext): ClaudePa
     "Bash(php artisan migrate:reset *)",
     "Bash(php artisan db:wipe *)",
     "Bash(dotnet ef database drop *)",
+    "Bash(codex *--sandbox danger-full-access*)",
   ];
 
   const allow: string[] = [
@@ -167,38 +169,34 @@ export function claudePatterns(config: UserConfig, ctx: PolicyContext): ClaudePa
   return { deny, ask, allow };
 }
 
-export const AUTO_MODE_PREFIX = "[agents-adapter] ";
+/** path ที่เป็นไฟล์ (ไม่ใช่ directory) ไม่ต้องต่อ /** */
+function isFileLike(p: string): boolean {
+  return /\.(json|yaml|yml|toml)$/.test(p) || /(credentials|rc|\.netrc|\.git-credentials)$/.test(p);
+}
 
-export function autoModeEntries(config: UserConfig, ctx: PolicyContext): { allow: string[]; soft_deny: string[]; hard_deny: string[]; environment: string[] } {
-  const p = AUTO_MODE_PREFIX;
-  const roots = ctx.developmentRoots.join(", ");
-  const branches = config.protected_branches.join(", ");
+export interface AutoModeSets {
+  allow: string[];
+  soft_deny: string[];
+  hard_deny: string[];
+  environment: string[];
+}
+
+/**
+ * autoMode entries มาจาก Claude reference (reference/claude/settings.sanitized.json) โดยตรง
+ * แทน placeholder ด้วยค่าจาก user config เพื่อให้ผลตรงกับไฟล์ต้นทางของ user ที่เป็น reference
+ */
+export function autoModeEntries(config: UserConfig, ctx: PolicyContext): AutoModeSets {
+  const ref = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "reference", "claude", "settings.sanitized.json"), "utf8")) as { autoMode: AutoModeSets };
+  const sub = (s: string): string =>
+    s
+      .replace(/\$\{HOME\}/g, ctx.home)
+      .replace(/\{\{github_owner\}\}/g, config.github?.owner ?? "{{github_owner}}")
+      .replace(/\{\{trusted_domains\}\}/g, (config.trusted_domains ?? []).filter((d) => !["localhost", "127.0.0.1", "host.docker.internal", "github.com", "api.github.com"].includes(d)).join(", ") || "{{trusted_domains}}");
+  const pick = (list: string[]): string[] => list.filter((x) => x !== "$defaults").map(sub);
   return {
-    allow: [
-      `${p}อนุญาตงานพัฒนา routine ภายใน Development Trust Zone (${roots}): อ่าน/เขียน source, build, test, lint, formatter, code generation, static analysis`,
-      `${p}อนุญาตอ่านและแก้ development env (${ctx.devEnvPatterns.join(", ")}) ภายใน trusted repo เพื่อ build/test/debug แต่ห้ามแสดงหรือ commit secret`,
-      `${p}อนุญาตติดตั้งและอัปเดต dependency แบบ project-local พร้อม lock file`,
-      `${p}อนุญาต local Docker build/pull/up/start/stop/restart/logs/exec/run เมื่อไม่มี destructive volume removal`,
-      `${p}อนุญาต commit และ push เฉพาะ feature branch ที่ระบุชื่อชัดเจน รวมถึงสร้างหรืออัปเดต PR, issue, comment และตรวจ CI`,
-    ],
-    soft_deny: [
-      `${p}ต้องมี user intent ที่ระบุ action และ target ก่อน rm -rf, git reset --hard, git clean, ลบ branch/tag แบบบังคับ, ลบ remote branch, destructive database, Docker prune หรือ volume removal`,
-      `${p}ต้องมี user intent ชัดเจนก่อนติดตั้ง package แบบ global, แก้ shell startup file, system-wide configuration หรือ path นอก Development Trust Zone`,
-      `${p}ต้องมี user intent ชัดเจนก่อนเพิ่ม เปลี่ยน หรือลบ Git remote และก่อนเปลี่ยน GitHub authentication`,
-      `${p}ต้องมี user intent ชัดเจนก่อน deploy staging หรือแก้ shared CI/CD; production ต้องระบุ target, impact, backup และ rollback plan`,
-    ],
-    hard_deny: [
-      `${p}ห้าม push ตรงเข้า ${branches}; ห้าม bare git push หรือ push ด้วย HEAD; ต้องระบุ remote และ feature branch`,
-      `${p}ห้าม force push ทุกแบบ รวม --force-with-lease และ +refspec`,
-      `${p}ห้าม merge pull request, ลบ repository หรือสร้าง gist แทน user`,
-      `${p}ห้ามใช้ dangerous permission, sandbox หรือ hook bypass flag และห้าม sudo`,
-      `${p}ห้ามอ่าน แสดง คัดลอก หรือแก้ credential store และ production env; ห้ามพิมพ์ค่า secret จาก development env`,
-      `${p}ห้าม commit, log, paste หรือ upload secret, token, password, private key หรือ connection string`,
-    ],
-    environment: [
-      `${p}Trusted repo: current repository และทุก Git repository ภายใต้ ${roots} เป็น Development Trust Zone`,
-      `${p}Protected branches: ${branches}; PR merge เป็นการตัดสินใจของ user`,
-      `${p}Sensitive data: ${ctx.prodEnvPatterns.join(", ")}, credential store และ keychain ใช้ได้เฉพาะผ่าน CLI เจ้าของ credential`,
-    ],
+    allow: pick(ref.autoMode.allow),
+    soft_deny: pick(ref.autoMode.soft_deny),
+    hard_deny: pick(ref.autoMode.hard_deny),
+    environment: pick(ref.autoMode.environment),
   };
 }

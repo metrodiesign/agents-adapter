@@ -30,9 +30,6 @@
       "Bash(*--dangerously-bypass-approvals-and-sandbox*)",
       "Bash(*--dangerously-bypass-hook-trust*)",
       "Bash(*--permission-mode bypassPermissions*)",
-      "Bash(*--sandbox danger-full-access*)",
-      "Bash(*--sandbox=danger-full-access*)",
-      "Bash(codex -s danger-full-access*)",
       "Bash(pi --no-extensions*)",
       "Bash(pi -ne*)",
       "Bash(git push * main)",
@@ -81,8 +78,8 @@
       "Edit(~/.claude.json)",
       "Read(~/.pi/agent/auth.json)",
       "Edit(~/.pi/agent/auth.json)",
-      "Read(~/.config/agents-adapter/config.yaml/**)",
-      "Edit(~/.config/agents-adapter/config.yaml/**)",
+      "Read(~/.config/agents-adapter/config.yaml)",
+      "Edit(~/.config/agents-adapter/config.yaml)",
       "Read(**/.env.production)",
       "Edit(**/.env.production)",
       "Read(**/.env.production.*)",
@@ -162,7 +159,8 @@
       "Bash(php artisan migrate:fresh *)",
       "Bash(php artisan migrate:reset *)",
       "Bash(php artisan db:wipe *)",
-      "Bash(dotnet ef database drop *)"
+      "Bash(dotnet ef database drop *)",
+      "Bash(codex *--sandbox danger-full-access*)"
     ],
     "allow": [
       "Bash(gh auth status)",
@@ -237,11 +235,8 @@
         "~/.config/agents-adapter/config.yaml",
         "~/.zshrc",
         "~/.zprofile",
-        "~/.zshenv",
         "~/.bashrc",
-        "~/.bash_profile",
-        "~/.profile",
-        "~/.gitconfig"
+        "~/.bash_profile"
       ],
       "allowWrite": [
         "${HOME}/Desktop/Project",
@@ -418,33 +413,48 @@
   "autoMode": {
     "allow": [
       "$defaults",
-      "[agents-adapter] อนุญาตงานพัฒนา routine ภายใน Development Trust Zone (${HOME}/Desktop/Project): อ่าน/เขียน source, build, test, lint, formatter, code generation, static analysis",
-      "[agents-adapter] อนุญาตอ่านและแก้ development env (.env, .env.local, .env.development, .env.test, .env.testing, .env.integration) ภายใน trusted repo เพื่อ build/test/debug แต่ห้ามแสดงหรือ commit secret",
-      "[agents-adapter] อนุญาตติดตั้งและอัปเดต dependency แบบ project-local พร้อม lock file",
-      "[agents-adapter] อนุญาต local Docker build/pull/up/start/stop/restart/logs/exec/run เมื่อไม่มี destructive volume removal",
-      "[agents-adapter] อนุญาต commit และ push เฉพาะ feature branch ที่ระบุชื่อชัดเจน รวมถึงสร้างหรืออัปเดต PR, issue, comment และตรวจ CI"
+      "อนุญาตงานพัฒนา routine ภายใน Development Trust Zone ได้แก่ อ่าน/เขียน source, build, test, lint, formatter, code generation และ static analysis",
+      "อนุญาตอ่านและแก้ .env, .env.local, .env.development, .env.test และ .env.testing ภายใน trusted repo เพื่อ build/test/debug แต่ห้ามแสดงหรือ commit secret",
+      "อนุญาตติดตั้งและอัปเดต dependency แบบ project-local พร้อม lock file ผ่าน npm, pnpm, yarn, composer, dotnet, pip, CocoaPods, Gradle, Maven, Go, Cargo และ SwiftPM",
+      "อนุญาต local Docker operations สำหรับ build, pull, up, start, stop, restart, logs, exec และ run เมื่อ target เป็น local development และไม่มี destructive volume removal",
+      "อนุญาต commit และ push เฉพาะ feature branch ที่ระบุชื่อชัดเจนหลัง review/verify gate ผ่าน รวมถึงสร้างหรืออัปเดต PR, issue, comment และตรวจ CI ใน GitHub namespace YOUR_GITHUB_USER",
+      "อนุญาตเรียก codex CLI/plugin เพื่อ review, วิเคราะห์ หรือ delegate งานใน current workspace โดยคง sandbox และ approval policy ของ Codex เอง",
+      "อนุญาตแก้ ~/.claude และ ~/.codex เมื่อ task ปัจจุบันระบุชัดว่าเป็นการตั้งค่า Agent/tool แต่ไม่อนุญาตอ่านหรือแก้ credential files"
     ],
     "soft_deny": [
       "$defaults",
-      "[agents-adapter] ต้องมี user intent ที่ระบุ action และ target ก่อน rm -rf, git reset --hard, git clean, ลบ branch/tag แบบบังคับ, ลบ remote branch, destructive database, Docker prune หรือ volume removal",
-      "[agents-adapter] ต้องมี user intent ชัดเจนก่อนติดตั้ง package แบบ global, แก้ shell startup file, system-wide configuration หรือ path นอก Development Trust Zone",
-      "[agents-adapter] ต้องมี user intent ชัดเจนก่อนเพิ่ม เปลี่ยน หรือลบ Git remote และก่อนเปลี่ยน GitHub authentication",
-      "[agents-adapter] ต้องมี user intent ชัดเจนก่อน deploy staging หรือแก้ shared CI/CD; production ต้องระบุ target, impact, backup และ rollback plan"
+      "ต้องมี user intent ที่ระบุ action และ target ก่อน local destructive cleanup, destructive migration, database reset, remote branch/tag/release deletion หรือ history rewrite ที่ไม่ใช่ force push",
+      "ต้องมี user intent ชัดเจนก่อนติดตั้ง package แบบ global, แก้ shell startup file, system-wide configuration หรือ path นอก Development Trust Zone",
+      "ต้องมี user intent ชัดเจนก่อนเพิ่ม เปลี่ยน หรือลบ Git remote รวมถึงเปลี่ยน GitHub authentication",
+      "ต้องมี user intent ชัดเจนก่อน deploy staging, แก้ shared CI/CD, shared environment หรือ cloud resource",
+      "production deploy, production database mutation และ production infrastructure change ต้องระบุ target, impact, backup และ rollback plan ก่อนทำ"
     ],
     "hard_deny": [
       "$defaults",
-      "[agents-adapter] ห้าม push ตรงเข้า main, develop; ห้าม bare git push หรือ push ด้วย HEAD; ต้องระบุ remote และ feature branch",
-      "[agents-adapter] ห้าม force push ทุกแบบ รวม --force-with-lease และ +refspec",
-      "[agents-adapter] ห้าม merge pull request, ลบ repository หรือสร้าง gist แทน user",
-      "[agents-adapter] ห้ามใช้ dangerous permission, sandbox หรือ hook bypass flag และห้าม sudo",
-      "[agents-adapter] ห้ามอ่าน แสดง คัดลอก หรือแก้ credential store และ production env; ห้ามพิมพ์ค่า secret จาก development env",
-      "[agents-adapter] ห้าม commit, log, paste หรือ upload secret, token, password, private key หรือ connection string"
+      "ห้าม push ตรงเข้า main หรือ develop; ต้องใช้ feature branch ที่ระบุชื่อชัดเจนและ PR",
+      "ห้าม bare git push หรือ push ด้วย HEAD เพราะไม่ระบุปลายทาง branch ชัดเจน",
+      "ห้าม force push ทุกแบบ รวม --force-with-lease",
+      "ห้าม merge pull request แทน user",
+      "ห้ามลบ repository หรือเผยแพร่ repository content ผ่าน public gist",
+      "ห้ามใช้ dangerous permission, sandbox หรือ hook bypass flags",
+      "ห้ามอ่าน แสดง คัดลอก หรือแก้เนื้อหา credential store โดยตรง; อนุญาตเฉพาะ CLI เจ้าของ credential ใช้ภายในของตัวเอง",
+      "ห้าม commit, log, paste, upload หรือส่ง secret, token, password, private key, connection string หรือ credential file ไปยัง repository, PR, issue, log หรือบริการภายนอก"
     ],
     "environment": [
       "$defaults",
-      "[agents-adapter] Trusted repo: current repository และทุก Git repository ภายใต้ ${HOME}/Desktop/Project เป็น Development Trust Zone",
-      "[agents-adapter] Protected branches: main, develop; PR merge เป็นการตัดสินใจของ user",
-      "[agents-adapter] Sensitive data: .env.production, .env.production.*, .env.prod, .env.prod.*, credential store และ keychain ใช้ได้เฉพาะผ่าน CLI เจ้าของ credential"
+      "Organization: ใช้บัญชี GitHub YOUR_GITHUB_USER สำหรับงานพัฒนาซอฟต์แวร์ส่วนตัวและ private repositories",
+      "Primary use of Claude Code: software development, code review, testing, local containers และ multi-agent engineering workflow",
+      "Source control: github.com/YOUR_GITHUB_USER และ repositories ภายใต้ namespace นี้เป็น trusted source-control destination",
+      "Trusted repo: current repository และทุก Git repository ภายใต้ ${HOME}/Desktop/Project เป็น Development Trust Zone",
+      "Repository visibility: ใช้สถานะจริงของแต่ละ repository; private repository รับ confidential source ได้แต่ไม่รับ secret",
+      "Trusted internal domains: registry.npmjs.org, localhost, 127.0.0.1 และ host.docker.internal",
+      "Key internal services: local development services, local databases, local Docker และ internal API ที่ registry.npmjs.org",
+      "Internal package registry: ไม่มี private registry ที่ประกาศไว้; public registries ใน sandbox.network.allowedDomains ใช้สำหรับ dependency installation",
+      "Secrets management: development secret อยู่ในไฟล์ env ที่ถูก gitignore หรือ credential store ของ CLI; ห้ามพิมพ์หรือ commit ค่า secret",
+      "Sensitive data locations & audiences: .env.production*, .env.prod*, credential stores, keychains, ~/.ssh, ~/.aws, ~/.azure, ~/.kube, ~/.config/gh และ ~/.codex/auth.json ใช้ได้เฉพาะผ่าน CLI เจ้าของ credential และห้ามเปิดเผยเนื้อหา",
+      "Sensitive remote targets: hostname, namespace, container, database หรือ environment ที่มี prod หรือ production เป็นชื่อหรือ segment ให้ถือเป็น production",
+      "Protected IaC scopes: IAM, RBAC, network, DNS, quota, node pool และ resource ที่อยู่ใน production",
+      "Additional context: main และ develop เป็น protected branches ตาม policy; PR merge เป็นการตัดสินใจของ user"
     ],
     "classifyAllShell": true
   },

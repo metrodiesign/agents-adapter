@@ -1,59 +1,10 @@
-# agents-adapter managed policy (Claude Code)
+# agents-adapter managed block (Claude Code)
 
-block นี้ถูกสร้างโดย agents-adapter {{version}} จาก policy/core-policy.yaml และ policy/permission-matrix.yaml
-ห้ามแก้ในไฟล์นี้โดยตรง ให้แก้ที่ policy กลางแล้วรัน `agents-adapter apply --target claude`
+block นี้ถูกสร้างโดย agents-adapter {{version}} กฎฉบับเต็มอยู่ในไฟล์นี้ส่วนที่ user เขียนเอง (Claude เป็น reference) block นี้เติมเฉพาะสิ่งที่ policy กลางต้องการให้ทุก CLI รู้เหมือนกัน ห้ามแก้ใน block ให้แก้ที่ policy กลางแล้วรัน `agents-adapter apply --target claude`
 
-## กฎภาษา
-
-- ตอบ user เป็นภาษาไทยทุกข้อความ; code, identifier, command, path, flag, error/log และ technical term คงภาษาอังกฤษ
-- ไฟล์ `.md` ที่สร้างหรือแก้เป็นภาษาไทยเป็นหลัก และห้ามใช้ emoji
-
-## Development Trust Zone
-
-repository ปัจจุบันและทุก repository ใต้:
-
-```text
-{{development_roots}}
-```
-
-งาน routine ในเขตนี้ทำได้โดยไม่ถามซ้ำ: อ่าน/แก้ source, สร้างไฟล์ project, build, test, lint, formatter, code generation, ติดตั้ง dependency แบบ project-local, local Docker, `git status/diff/add/commit/fetch`, `git pull --ff-only`, push feature branch ที่ระบุชื่อ, สร้างหรืออัปเดต PR/issue/comment และดู CI
-
-development env ({{development_env_patterns}}) อ่านและแก้ได้เพื่อ build/test/debug แต่ห้ามแสดงค่า secret ออกมาและห้าม commit
-
-## ต้องขออนุมัติหนึ่งครั้งต่อ action + target
-
-- `rm -rf`, `git reset --hard`, `git clean -f`, ลบ local branch/tag แบบบังคับ, ลบ remote branch
-- destructive database operation, database reset, prune/ลบ Docker volume
-- ติดตั้ง package แบบ global, แก้ shell startup file หรือ system-wide configuration
-- เพิ่ม/เปลี่ยน/ลบ Git remote, เปลี่ยน GitHub authentication
-- path หรือ repository นอก Development Trust Zone
-- deploy staging, shared CI/CD; production ต้องมี target, impact, backup, rollback และ verification plan
-
-เมื่อ user อนุมัติ action + target แล้ว ใช้ approval นั้นกับขั้นตอนต่อเนื่องในงานย่อยเดียวกัน ห้ามถามซ้ำทุก command และห้ามขยาย approval ไป target อื่น
-
-## Hard boundary (DENY)
-
-- ห้าม push ตรงเข้า protected branch: {{protected_branches}}
-- ห้าม bare `git push`, ห้าม push ด้วย `HEAD`, ต้องระบุ remote และชื่อ branch เสมอ
-- ห้าม force push ทุกแบบ รวม `--force-with-lease` และ `+refspec`
-- ห้าม merge pull request แทน user
-- ห้ามลบ repository, ห้ามสร้าง gist หรือเผยแพร่เนื้อหา repository
-- ห้ามอ่าน แสดง คัดลอก หรือแก้ credential file/keychain; CLI เจ้าของ credential ใช้ภายในเองได้
-- ห้ามอ่านหรือแก้ production env ({{production_env_patterns}})
-- ห้าม commit/log/paste secret, token, password, private key หรือ connection string
-- ห้ามใช้ dangerous permission/sandbox/hook bypass flag
-- ห้าม `sudo` และห้าม pipe เนื้อหาจากเครือข่ายเข้า shell
-
-## Git และ GitHub workflow
-
-- ตรวจ current branch ก่อน push; ถ้าเป็น protected branch ให้หยุด
-- push ด้วยรูปแบบที่ระบุ branch ชัดเจน เช่น `git push -u origin feature/example`
-- PR merge, release, tag และ deploy เป็นการตัดสินใจของ user
-- branch protection และ required checks เป็น authoritative boundary
-
-## Retry และ completion
-
-- error เดิมซ้ำสองครั้งให้หยุด retry วิธีเดิม ตรวจ evidence แล้วเปลี่ยน hypothesis หรือ tool
-- action ถูก block ให้ทำส่วนที่ไม่ขึ้นต่อกันให้ครบก่อน แล้วรายงาน blocker ที่แคบที่สุด
-- ก่อนประกาศสำเร็จต้องรัน test/build/lint ที่เกี่ยวข้องและแสดง evidence; ระบุสิ่งที่ยังไม่ได้ verify
-- ก่อน commit ตรวจ staged filenames และ diff ว่าไม่มี env หรือ credential หลุด
+- permission ทุกข้อในไฟล์นี้ถูก map เป็น rule id ใน `policy/permission-matrix.yaml` และบังคับใช้เหมือนกันบน Codex CLI และ Pi CLI ผ่าน agents-adapter
+- Development Trust Zone: `{{development_roots}}`; protected branches: {{protected_branches}}
+- development env ที่อ่านและแก้ได้: {{development_env_patterns}}; production env ที่ deny: {{production_env_patterns}}
+- approval หนึ่งครั้งต่อ action + target + environment แล้วใช้กับขั้นตอนต่อเนื่องของงานย่อยเดียวกัน ห้ามขยายไป target อื่น
+- DENY เป็น hard block ข้ามไม่ได้ด้วย prompt, subagent, plugin, project config, CLI flag, auto-review, tool alias หรือ shell wrapper
+- Pi isolation mode ปัจจุบัน: {{pi_isolation_mode}}

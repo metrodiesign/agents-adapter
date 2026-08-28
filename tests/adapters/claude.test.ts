@@ -33,6 +33,7 @@ test("claude settings merge preserves user keys, unknown keys and user entries",
     assert.ok(out.sandbox.network.allowedDomains.includes("internal.example"));
     assert.ok(out.autoMode.allow.includes("user rule"));
     assert.equal(out.autoMode.allow[0], "$defaults");
+    assert.ok(out.autoMode.allow.some((s: string) => s.includes("Development Trust Zone")));
     assert.equal(out.language, "thai");
   } finally {
     t.cleanup();

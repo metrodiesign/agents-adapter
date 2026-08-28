@@ -6,7 +6,7 @@ import { getPath, isObject, mergeManagedList, renderTemplate, setPath, stableJso
 import { loadProtectedPaths, loadTrustedDefaults } from "../../core/policy-loader.ts";
 import { change, readIfExists, validateJson } from "../fs-helpers.ts";
 import type { AdapterPlan, RenderMode } from "../types.ts";
-import { autoModeEntries, claudePatterns, AUTO_MODE_PREFIX } from "./rules.ts";
+import { autoModeEntries, claudePatterns } from "./rules.ts";
 import { VERSION } from "../../version.ts";
 
 export interface ClaudeManaged {
@@ -34,7 +34,7 @@ export function claudeManaged(env: Environment): ClaudeManaged {
     ask: pats.ask,
     allow: pats.allow,
     denyRead: ctx.credentialPaths.map(tilde),
-    denyWrite: [...ctx.credentialPaths.map(tilde), ...ctx.systemConfigPaths.filter((p) => p.startsWith(ctx.home)).map(tilde)],
+    denyWrite: [...ctx.credentialPaths.map(tilde), ...ctx.systemConfigPaths.filter((p) => p.startsWith(ctx.home) && /\/\.(zshrc|zprofile|bashrc|bash_profile)$/.test(p)).map(tilde)],
     credentialFiles: ctx.credentialPaths.map(tilde),
     credentialEnvVars: protectedPaths.credential_env_vars,
     excludedCommands: defaults.excluded_commands,
@@ -91,14 +91,15 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
   setPath(settings, envPath, remove ? stripManagedList(envs, nextEnv, envKey) : mergeManagedList(envs, prev<Record<string, Json>>(mode, "claude.sandbox.credentials.envVars"), nextEnv, envKey));
   managedKeys.push("sandbox.credentials.files", "sandbox.credentials.envVars");
 
-  // autoMode text entries (prefix-tagged)
+  // autoMode text entries (จาก Claude reference; managed ผ่าน state ไม่ใช่ prefix)
   const am = autoModeEntries(env.config, env.ctx);
   for (const key of ["allow", "soft_deny", "hard_deny", "environment"] as const) {
     const p = ["autoMode", key];
     const cur = getPath(settings, p);
     const list = Array.isArray(cur) ? (cur as string[]) : ["$defaults"];
-    const withoutOurs = list.filter((s) => !s.startsWith(AUTO_MODE_PREFIX));
-    setPath(settings, p, remove ? withoutOurs : [...withoutOurs, ...am[key]]);
+    const stateKey = `claude.autoMode.${key}`;
+    const next = remove ? stripManagedList(list, prev<string>(mode, stateKey).concat(am[key])) : mergeManagedList(list, prev<string>(mode, stateKey), am[key]);
+    setPath(settings, p, next.includes("$defaults") ? next : ["$defaults", ...next]);
     managedKeys.push(p.join("."));
   }
 
@@ -179,5 +180,6 @@ export function claudeManagedState(env: Environment): Record<string, unknown> {
     "claude.sandbox.network.allowedDomains": m.allowedDomains,
     "claude.sandbox.credentials.files": m.credentialFiles.map((p) => ({ path: p, mode: "deny" })),
     "claude.sandbox.credentials.envVars": m.credentialEnvVars.map((n) => ({ name: n, mode: "deny" })),
+    ...Object.fromEntries(Object.entries(autoModeEntries(env.config, env.ctx)).map(([k, v]) => [`claude.autoMode.${k}`, v])),
   };
 }
