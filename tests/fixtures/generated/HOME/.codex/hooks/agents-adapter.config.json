@@ -39,8 +39,7 @@
     "${HOME}/.codex/auth.json",
     "${HOME}/.claude/.credentials.json",
     "${HOME}/.claude.json",
-    "${HOME}/.pi/agent/auth.json",
-    "${HOME}/.config/agents-adapter/config.yaml"
+    "${HOME}/.pi/agent/auth.json"
   ],
   "credentialBasenames": [
     "id_rsa",
@@ -60,6 +59,16 @@
     ".keystore"
   ],
   "systemConfigPaths": [
+    "${HOME}/.config/agents-adapter/config.yaml",
+    "${HOME}/.claude/settings.json",
+    "${HOME}/.claude/hooks",
+    "${HOME}/.codex/config.toml",
+    "${HOME}/.codex/requirements.toml",
+    "${HOME}/.codex/hooks.json",
+    "${HOME}/.codex/hooks",
+    "${HOME}/.codex/rules",
+    "${HOME}/.pi/agent/extensions",
+    "${HOME}/.pi/agent/agents-adapter-isolation.yaml",
     "${HOME}/.zshrc",
     "${HOME}/.zprofile",
     "${HOME}/.zshenv",

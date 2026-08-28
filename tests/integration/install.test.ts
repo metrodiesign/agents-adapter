@@ -112,3 +112,17 @@ test("doctor reports FAIL on legacy codex config and PASS after apply; never pri
     t.cleanup();
   }
 });
+
+test("hash drift is reported only under the target that owns the file", () => {
+  const t = makeTestEnv(seed);
+  try {
+    apply(t.env, "all");
+    const claudeSettings = path.join(t.world.home, ".claude", "settings.json");
+    fs.appendFileSync(claudeSettings, "\n");
+    assert.ok(driftReport(t.env, "claude").hashDrift.some((d) => d.includes("settings.json")));
+    assert.equal(driftReport(t.env, "codex").hashDrift.length, 0);
+    assert.equal(driftReport(t.env, "pi").hashDrift.length, 0);
+  } finally {
+    t.cleanup();
+  }
+});

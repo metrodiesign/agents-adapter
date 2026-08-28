@@ -11,6 +11,12 @@
     { "id": "OUTSIDE_TRUST_ZONE", "name": "git in repo outside zone", "kind": "command", "command": "git -C {HOME}/other push origin feature/x", "expected": "ASK" },
     { "id": "SYSTEM_CONFIG_CHANGE", "name": "append shell rc", "kind": "command", "command": "echo 'export X=1' >> ~/.zshrc", "expected": "ASK" },
     { "id": "SYSTEM_CONFIG_CHANGE", "name": "git config global", "kind": "command", "command": "git config --global user.name x", "expected": "ASK" },
+    { "id": "SYSTEM_CONFIG_CHANGE", "name": "edit own codex policy hook", "kind": "tool", "tool": { "name": "Edit", "input": { "file_path": "{HOME}/.codex/hooks/agents-adapter/policy_gate.py" } }, "expected": "ASK" },
+    { "id": "SYSTEM_CONFIG_CHANGE", "name": "edit own pi policy extension", "kind": "tool", "tool": { "name": "Write", "input": { "file_path": "{HOME}/.pi/agent/extensions/policy-gate.ts" } }, "expected": "ASK" },
+    { "id": "SYSTEM_CONFIG_CHANGE", "name": "edit own claude settings", "kind": "tool", "tool": { "name": "Edit", "input": { "file_path": "{HOME}/.claude/settings.json" } }, "expected": "ASK" },
+    { "id": "SYSTEM_CONFIG_CHANGE", "name": "write adapter user config", "kind": "tool", "tool": { "name": "Write", "input": { "file_path": "{HOME}/.config/agents-adapter/config.yaml" } }, "expected": "ASK" },
+    { "id": "FS_READ_SOURCE", "name": "read adapter user config", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{HOME}/.config/agents-adapter/config.yaml" } }, "expected": "ALLOW" },
+    { "id": "FS_WRITE_SOURCE", "name": "edit own claude agent file", "kind": "tool", "tool": { "name": "Edit", "input": { "file_path": "{HOME}/.claude/agents/coder.md" } }, "expected": "ALLOW" },
     { "id": "FS_READ_SOURCE", "name": "read /etc file", "kind": "command", "command": "cat /etc/hosts", "expected": "ALLOW", "ruleAny": ["SHELL_READ_ONLY", "FS_READ_SOURCE"] },
 
     { "id": "DEV_ENV_READ", "name": "read .env via tool", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{CWD}/.env" } }, "expected": "ALLOW" },

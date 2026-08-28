@@ -10,7 +10,7 @@
 
 ## Development Trust Zone
 
-repository ปัจจุบัน (cwd) และทุก repository ใต้ `development_roots` ใน user config รวม temp/cache ใน `trusted-defaults.yaml` และ config dir ของ agent (`~/.claude`, `~/.codex`, `~/.pi`) ยกเว้น credential file ที่ deny ทับเสมอ
+repository ปัจจุบัน (cwd) และทุก repository ใต้ `development_roots` ใน user config รวม temp/cache ใน `trusted-defaults.yaml` และ config dir ของ agent (`~/.claude`, `~/.codex`, `~/.pi`) ยกเว้น credential file ที่ deny ทับเสมอ และไฟล์ที่ agents-adapter จัดการเอง (`settings.json`, `config.toml`, hooks, rules, Pi extensions และ `~/.config/agents-adapter/config.yaml`) ที่อ่านได้แต่แก้ต้อง `SYSTEM_CONFIG_CHANGE` (ASK) เพื่อไม่ให้ agent แก้ gate ของตัวเองโดยไม่ถาม
 
 path นอก zone -> `OUTSIDE_TRUST_ZONE` (ASK) ยกเว้น system path (`/usr`, `/opt`, `/etc`, ...) ที่อ่านได้
 

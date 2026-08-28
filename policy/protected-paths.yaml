@@ -19,7 +19,6 @@ credential_paths:
   - "${HOME}/.claude/.credentials.json"
   - "${HOME}/.claude.json"
   - "${HOME}/.pi/agent/auth.json"
-  - "${HOME}/.config/agents-adapter/config.yaml"
 
 # basename ที่ถือเป็น credential ไม่ว่าอยู่ที่ไหน
 credential_basenames:
@@ -40,8 +39,19 @@ credential_extensions:
   - ".jks"
   - ".keystore"
 
-# shell startup และ system config: ASK ก่อนแก้
+# shell startup, system config และไฟล์ที่ agents-adapter จัดการเอง: อ่านได้ แต่ ASK ก่อนแก้
+# ไฟล์ managed ของ adapter อยู่ใน agent config dir (trusted) จึงต้อง list ตรงนี้ ไม่งั้น agent แก้ gate ของตัวเองได้โดยไม่ถาม
 system_config_paths:
+  - "${HOME}/.config/agents-adapter/config.yaml"
+  - "${HOME}/.claude/settings.json"
+  - "${HOME}/.claude/hooks"
+  - "${HOME}/.codex/config.toml"
+  - "${HOME}/.codex/requirements.toml"
+  - "${HOME}/.codex/hooks.json"
+  - "${HOME}/.codex/hooks"
+  - "${HOME}/.codex/rules"
+  - "${HOME}/.pi/agent/extensions"
+  - "${HOME}/.pi/agent/agents-adapter-isolation.yaml"
   - "${HOME}/.zshrc"
   - "${HOME}/.zprofile"
   - "${HOME}/.zshenv"
