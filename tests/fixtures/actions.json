@@ -36,6 +36,10 @@
     { "id": "PROD_ENV_WRITE", "name": "redirect into .env.prod", "kind": "command", "command": "echo x > .env.prod", "expected": "DENY" },
     { "id": "PROD_ENV_WRITE", "name": "sed -i on prod env", "kind": "command", "command": "sed -i 's/a/b/' .env.production.local", "expected": "DENY" },
     { "id": "PROD_ENV_READ", "name": "apply_patch prod env", "kind": "tool", "tool": { "name": "apply_patch", "input": { "patch": "*** Begin Patch\n*** Update File: .env.production\n@@\n-A=1\n+A=2\n*** End Patch" } }, "expected": "DENY", "rule": "PROD_ENV_WRITE" },
+    { "id": "FS_WRITE_SOURCE", "name": "apply_patch freeform string wrapped as command (Codex)", "kind": "tool", "tool": { "name": "apply_patch", "input": { "command": "*** Begin Patch\n*** Update File: src/index.ts\n@@\n-a\n+b\n*** End Patch" } }, "expected": "ALLOW" },
+    { "id": "PROD_ENV_READ", "name": "apply_patch freeform string prod env stays DENY", "kind": "tool", "tool": { "name": "apply_patch", "input": { "command": "*** Begin Patch\n*** Update File: .env.production\n@@\n-A=1\n+A=2\n*** End Patch" } }, "expected": "DENY", "rule": "PROD_ENV_WRITE" },
+    { "id": "FS_WRITE_SOURCE", "name": "apply_patch shell form", "kind": "command", "command": "apply_patch '*** Begin Patch\n*** Update File: src/index.ts\n@@\n-a\n+b\n*** End Patch'", "expected": "ALLOW" },
+    { "id": "CREDENTIAL_WRITE", "name": "apply_patch shell form credential path", "kind": "command", "command": "apply_patch '*** Begin Patch\n*** Add File: {HOME}/.ssh/authorized_keys\n+x\n*** End Patch'", "expected": "DENY" },
 
     { "id": "CREDENTIAL_READ", "name": "cat ssh key", "kind": "command", "command": "cat ~/.ssh/id_ed25519", "expected": "DENY" },
     { "id": "CREDENTIAL_READ", "name": "credential via ../", "kind": "command", "command": "cat ../../../.ssh/config", "expected": "DENY" },
