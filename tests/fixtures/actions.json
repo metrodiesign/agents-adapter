@@ -284,6 +284,16 @@
     { "id": "GIT_PUSH_PROTECTED", "name": "pi user bash push main", "kind": "pi_bash", "command": "git push origin main", "expected": "DENY" },
     { "id": "CREDENTIAL_READ", "name": "pi user bash !! cat ssh", "kind": "pi_bash", "command": "cat ~/.ssh/id_rsa", "excludeFromContext": true, "expected": "DENY" },
     { "id": "SHELL_READ_ONLY", "name": "pi user bash ls", "kind": "pi_bash", "command": "ls", "expected": "ALLOW" },
-    { "id": "DESTRUCTIVE_DELETE", "name": "pi user bash rm -rf", "kind": "pi_bash", "command": "rm -rf dist", "expected": "ASK" }
+    { "id": "DESTRUCTIVE_DELETE", "name": "pi user bash rm -rf", "kind": "pi_bash", "command": "rm -rf dist", "expected": "ASK" },
+
+    { "id": "BUILD", "name": "bash project script", "kind": "command", "command": "bash scripts/ci-check.sh", "expected": "ALLOW" },
+    { "id": "BUILD", "name": "sh project script with flags", "kind": "command", "command": "sh -x ./scripts/run.sh --fast", "expected": "ALLOW" },
+    { "id": "UNKNOWN_COMMAND", "name": "bare interactive bash", "kind": "command", "command": "bash", "expected": "ASK" },
+    { "id": "OUTSIDE_TRUST_ZONE", "name": "bash script outside trust zone", "kind": "command", "command": "bash ~/Documents/deploy.sh", "expected": "ASK" },
+    { "id": "SHELL_READ_ONLY", "name": "pgrep", "kind": "command", "command": "pgrep -fl 'phpunit' || true", "expected": "ALLOW" },
+    { "id": "AGENT_SPAWN", "name": "codex collaboration wait_agent", "kind": "tool", "tool": { "name": "collaborationwait_agent", "input": {} }, "expected": "ALLOW" },
+    { "id": "AGENT_SPAWN", "name": "codex collaboration spawn coder", "kind": "tool", "tool": { "name": "collaborationspawn_agent", "input": { "agent_type": "coder" } }, "expected": "ALLOW" },
+    { "id": "SECURITY_AGENT_PROVIDER", "name": "codex collaboration spawn auditor on proxy", "kind": "tool", "tool": { "name": "collaborationspawn_agent", "input": { "agent_type": "auditor" } }, "providerHost": "127.0.0.1", "expected": "DENY" },
+    { "id": "SHELL_READ_ONLY", "name": "codex update_plan", "kind": "tool", "tool": { "name": "update_plan", "input": {} }, "expected": "ALLOW" }
   ]
 }
