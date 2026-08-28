@@ -38,6 +38,9 @@ excluded_commands:
   - "git pull *"
   - "git ls-remote *"
   - "git clone *"
+  # rtk hook (Rust Token Killer) rewrite `git fetch`/`git pull` เป็น `rtk git ...` ก่อนถึง sandbox จึงต้อง match รูปนั้นด้วย
+  - "rtk git fetch *"
+  - "rtk git pull *"
 
 # domain สาธารณะสำหรับ dependency install (รวมกับ trusted_domains ของ user)
 public_registries:
