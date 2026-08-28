@@ -149,6 +149,7 @@ export function classifyPath(op: PathOp, raw: string, ctx: PolicyContext): Verdi
 export function looksLikePath(word: string, ctx: PolicyContext): boolean {
   if (word.startsWith("-")) return false;
   if (word.includes("://")) return false;
+  if (/[(|]/.test(word)) return false; // regex/alternation เช่น /(testA|testB)/ ไม่ใช่ path
   if (word.startsWith("/") || word.startsWith("~") || word.startsWith("./") || word.startsWith("../") || word.startsWith("$HOME") || word.startsWith("${HOME}")) return true;
   if (word.includes("/")) return true;
   const base = path.basename(word);

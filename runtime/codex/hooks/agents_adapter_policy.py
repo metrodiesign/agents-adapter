@@ -126,6 +126,10 @@ class SimpleCommand:
     piped_from_previous: bool = False
 
 
+# special parameter ที่ขยายเป็นตัวเลขเสมอ (exit status, pid, argc) จึงไม่ใช่ path/flag ที่ตรวจไม่ได้
+NUMERIC_PARAM = {"?", "$", "!", "#"}
+
+
 def _tokenize(inp: str) -> list[tuple[str, str, bool]]:
     tokens: list[tuple[str, str, bool]] = []
     i, n = 0, len(inp)
@@ -159,7 +163,7 @@ def _tokenize(inp: str) -> list[tuple[str, str, bool]]:
                     cur += inp[i + 1]
                     i += 2
                     continue
-                if inp[i] in "$`":
+                if (inp[i] == "$" and inp[i + 1 : i + 2] not in NUMERIC_PARAM) or inp[i] == "`":
                     subst = True
                 cur += inp[i]
                 i += 1
@@ -204,7 +208,9 @@ def _tokenize(inp: str) -> list[tuple[str, str, bool]]:
             while j < n and re.match(r"[A-Za-z0-9_]", inp[j]):
                 name += inp[j]
                 j += 1
-            if name not in ("HOME", "TMPDIR", "PWD"):
+            if name == "" and inp[j : j + 1] in NUMERIC_PARAM:
+                j += 1  # $? $$ $! $# ขยายเป็นตัวเลขเสมอ ตรวจได้
+            elif name not in ("HOME", "TMPDIR", "PWD"):
                 subst = True
             cur += inp[i:j]
             i = j
@@ -569,6 +575,8 @@ def looks_like_path(word: str, ctx: PolicyContext) -> bool:
         return False
     if "://" in word:
         return False
+    if re.search(r"[(|]", word):
+        return False  # regex/alternation เช่น /(testA|testB)/ ไม่ใช่ path
     if word.startswith(("/", "~", "./", "../", "$HOME", "${HOME}")):
         return True
     if "/" in word:
@@ -662,8 +670,8 @@ def _classify_segment(seg: SimpleCommand, nxt: Optional[SimpleCommand], ctx: Pol
         out.extend(_classify_by_command(name, words, seg, nxt, ctx))
     out.extend(_classify_word_paths(seg if words is seg.words else dataclasses.replace(seg, words=words), name, ctx))
     # substitution ทำให้ ALLOW กลายเป็น ASK ยกเว้น $(git <read-only query>) ล้วนที่ส่งให้ command ที่ไม่ใช่ print/write/delete
-    if seg.has_substitution and not _verified_git_query_substitution(seg, name):
-        out.append(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", " ".join(seg.words)))
+    if seg.has_substitution and not _verified_git_query_substitution(seg, name) and not _output_sink_substitution(seg, name):
+        out.append(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", " ".join(seg.words) if seg.words else "subshell"))
     return out
 
 
@@ -672,6 +680,16 @@ GIT_QUERY_SUBS = {"rev-parse", "merge-base", "show-ref", "rev-list"}
 GIT_QUERY_FLAGS = {"--show-toplevel", "--git-dir", "--git-common-dir", "--abbrev-ref", "--verify", "--short", "--quiet", "-q", "--is-inside-work-tree", "--count", "--max-count", "--hash", "--heads", "--tags", "--all", "--octopus", "--is-ancestor"}
 GIT_QUERY_SUB_RE = re.compile(r"\$\(\s*git\s+(\S+)([^$`()]*)\)")
 _UNVERIFIED_RE = re.compile(r"[$`(]")
+
+
+# echo/printf แค่พิมพ์ argument: ค่าที่ขยายมาทำอะไรไม่ได้ ส่วน command ใน $(...) ถูก classify แยกอยู่แล้ว (DENY ชนะ)
+OUTPUT_SINKS = {"echo", "printf"}
+
+
+def _output_sink_substitution(seg: SimpleCommand, name: str) -> bool:
+    if name not in OUTPUT_SINKS:
+        return False
+    return not any(_UNVERIFIED_RE.search(w) for w in seg.redirect_writes + seg.redirect_reads)
 
 
 def _verified_git_query_substitution(seg: SimpleCommand, name: str) -> bool:
