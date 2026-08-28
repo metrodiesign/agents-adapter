@@ -252,7 +252,9 @@
       "git ls-remote *",
       "git clone *",
       "rtk git fetch *",
-      "rtk git pull *"
+      "rtk git pull *",
+      "rtk gh *",
+      "rtk docker *"
     ],
     "network": {
       "allowedDomains": [
