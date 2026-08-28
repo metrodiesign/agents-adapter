@@ -1,0 +1,53 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '${HOME}/.codex/hooks/agents-adapter/policy_gate.py'",
+            "timeout": 10,
+            "statusMessage": "agents-adapter policy gate"
+          }
+        ],
+        "matcher": ".*"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '${HOME}/.codex/hooks/agents-adapter/protected_paths.py'",
+            "timeout": 10,
+            "statusMessage": "agents-adapter protected paths"
+          }
+        ],
+        "matcher": "^(Read|Write|Edit|MultiEdit|apply_patch|read_file|write_file)$"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '${HOME}/.codex/hooks/agents-adapter/startup_preflight.py'",
+            "timeout": 5,
+            "statusMessage": "agents-adapter preflight"
+          }
+        ],
+        "matcher": "startup|resume"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '${HOME}/.codex/hooks/agents-adapter/lang_guard.py'",
+            "timeout": 5,
+            "statusMessage": "agents-adapter language guard"
+          }
+        ]
+      }
+    ]
+  }
+}

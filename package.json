@@ -1,0 +1,33 @@
+{
+  "name": "agents-adapter",
+  "version": "0.1.0",
+  "description": "Provider-neutral permission policy with adapters for Claude Code, Codex CLI and Pi CLI",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "agents-adapter": "./src/cli.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test --test-concurrency=1 \"tests/**/*.test.ts\"",
+    "test:parity": "node --test \"tests/parity/*.test.ts\"",
+    "test:python": "python3 -m unittest discover -s runtime/codex/hooks -p \"test_*.py\"",
+    "lint:md": "node scripts/check-markdown.mjs",
+    "lint:data": "node scripts/check-data-files.mjs",
+    "secret-scan": "bash scripts/secret-scan.sh",
+    "generate:check": "node src/cli.ts generate-check",
+    "check": "npm run typecheck && npm test && npm run test:python && npm run lint:md && npm run lint:data && npm run secret-scan"
+  },
+  "dependencies": {
+    "smol-toml": "1.8.0",
+    "yaml": "2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3"
+  }
+}

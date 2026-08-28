@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# local configuration (never commit)
+config/config.yaml
+config/*.local.yaml
+.env
+.env.*
+!.env.example
+
+# generated / backup / machine specific
+*.backup
+*.bak
+*.orig
+backups/
+.agents-adapter-state/
+dist/
+coverage/
+__pycache__/
+*.pyc
+
+# editor and OS
+.DS_Store
+.idea/
+.vscode/

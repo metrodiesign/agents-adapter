@@ -1,0 +1,10 @@
+allowed_sandbox_modes = [ "read-only", "workspace-write" ]
+allowed_approval_policies = [ "untrusted", "on-request" ]
+allowed_approvals_reviewers = [ "user", "auto_review" ]
+
+[allowed_permission_profiles]
+"Auto mode" = true
+":read-only" = true
+":workspace" = true
+":danger-full-access" = false
+

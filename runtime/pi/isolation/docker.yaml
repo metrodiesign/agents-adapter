@@ -1,0 +1,45 @@
+# Pi isolation profile: docker
+# ใช้กับงาน Node.js, PHP, .NET, Python, backend, database, unit/integration test และ repository analysis
+# container mount เฉพาะ development root และ Pi config ที่จำเป็น; ไม่มี credential dir, ไม่มี docker socket
+profile: docker
+enforcement:
+  policy_gate: extension
+  protected_paths: extension + os_isolation
+  user_bash: extension
+  share: extension
+  os_isolation: docker
+capabilities_required:
+  - docker >= 24
+image: node:24-bookworm-slim
+mounts:
+  - source: "{{development_root}}"
+    target: /workspace
+    mode: rw
+  - source: "${HOME}/.pi/agent/extensions"
+    target: /root/.pi/agent/extensions
+    mode: ro
+  - source: "${HOME}/.pi/agent/settings.json"
+    target: /root/.pi/agent/settings.json
+    mode: ro
+  - source: "${HOME}/.pi/agent/AGENTS.md"
+    target: /root/.pi/agent/AGENTS.md
+    mode: ro
+env_passthrough:
+  # provider key ที่ Pi ต้องใช้ ส่งผ่านเป็น env เท่านั้น ไม่ mount auth.json
+  - PI_PROVIDER_API_KEY
+network: bridge
+never_mount:
+  - "${HOME}/.ssh"
+  - "${HOME}/.aws"
+  - "${HOME}/.config/gh"
+  - "${HOME}/.codex/auth.json"
+  - "${HOME}/.claude.json"
+  - "${HOME}/.pi/agent/auth.json"
+  - /var/run/docker.sock
+hard_boundaries_enforced_by_isolation:
+  - CREDENTIAL_READ
+  - CREDENTIAL_WRITE
+  - PROD_ENV_READ
+  - PROD_ENV_WRITE
+  - OUTSIDE_TRUST_ZONE
+launch: scripts/pi-isolated.sh docker

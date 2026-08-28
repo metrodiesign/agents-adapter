@@ -1,0 +1,31 @@
+# Pi isolation profile: gondolin
+# ใช้เมื่อเครื่องมี gondolin CLI; ตรวจด้วย `which gondolin` ใน doctor
+# โครงสร้างเดียวกับ docker.yaml แต่ launcher เป็น gondolin sandbox
+profile: gondolin
+enforcement:
+  policy_gate: extension
+  protected_paths: extension + os_isolation
+  user_bash: extension
+  share: extension
+  os_isolation: gondolin
+capabilities_required:
+  - gondolin
+status: unsupported-until-detected
+mounts:
+  - source: "{{development_root}}"
+    target: /workspace
+    mode: rw
+never_mount:
+  - "${HOME}/.ssh"
+  - "${HOME}/.aws"
+  - "${HOME}/.config/gh"
+  - "${HOME}/.codex/auth.json"
+  - "${HOME}/.claude.json"
+  - "${HOME}/.pi/agent/auth.json"
+hard_boundaries_enforced_by_isolation:
+  - CREDENTIAL_READ
+  - CREDENTIAL_WRITE
+  - PROD_ENV_READ
+  - PROD_ENV_WRITE
+  - OUTSIDE_TRUST_ZONE
+launch: scripts/pi-isolated.sh gondolin

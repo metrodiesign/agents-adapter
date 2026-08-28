@@ -1,0 +1,295 @@
+# agents-adapter:start
+prefix_rule(
+    pattern = ["sudo"],
+    decision = "forbidden",
+    justification = "agents-adapter PRIVILEGE_ESCALATION: privileged execution is never allowed",
+)
+
+prefix_rule(
+    pattern = ["doas"],
+    decision = "forbidden",
+    justification = "agents-adapter PRIVILEGE_ESCALATION",
+)
+
+prefix_rule(
+    pattern = ["git", "push", ["--force", "-f", "--force-with-lease", "--force-if-includes", "--mirror"]],
+    decision = "forbidden",
+    justification = "agents-adapter GIT_FORCE_PUSH: force push is never allowed",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "merge"],
+    decision = "forbidden",
+    justification = "agents-adapter GH_PR_MERGE: merge is a user decision",
+)
+
+prefix_rule(
+    pattern = ["gh", "repo", "delete"],
+    decision = "forbidden",
+    justification = "agents-adapter GH_REPO_DELETE",
+)
+
+prefix_rule(
+    pattern = ["gh", "gist"],
+    decision = "forbidden",
+    justification = "agents-adapter PUBLIC_GIST",
+)
+
+prefix_rule(
+    pattern = ["gh", "secret"],
+    decision = "forbidden",
+    justification = "agents-adapter GH_SECRET_MANAGE",
+)
+
+prefix_rule(
+    pattern = ["gh", "auth", "token"],
+    decision = "forbidden",
+    justification = "agents-adapter CREDENTIAL_READ: never print credentials",
+)
+
+prefix_rule(
+    pattern = ["rm", ["-rf", "-fr", "-Rf", "-fR", "-r", "-R", "--recursive"]],
+    decision = "prompt",
+    justification = "agents-adapter DESTRUCTIVE_DELETE: recursive delete requires approval",
+)
+
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "prompt",
+    justification = "agents-adapter GIT_RESET_HARD",
+)
+
+prefix_rule(
+    pattern = ["git", "clean", ["-f", "-fd", "-fdx", "-fx", "-df", "-dfx", "-ffd", "-ffdx", "--force", "-xf", "-xdf", "-dxf"]],
+    decision = "prompt",
+    justification = "agents-adapter GIT_CLEAN",
+)
+
+prefix_rule(
+    pattern = ["git", "branch", "-D"],
+    decision = "prompt",
+    justification = "agents-adapter GIT_BRANCH_FORCE_DELETE",
+)
+
+prefix_rule(
+    pattern = ["git", "tag", "-d"],
+    decision = "prompt",
+    justification = "agents-adapter GIT_BRANCH_FORCE_DELETE",
+)
+
+prefix_rule(
+    pattern = ["git", "push", ["--delete", "-d"]],
+    decision = "prompt",
+    justification = "agents-adapter GIT_REMOTE_DELETE",
+)
+
+prefix_rule(
+    pattern = ["git", "remote", ["add", "set-url", "remove", "rm", "rename"]],
+    decision = "prompt",
+    justification = "agents-adapter GIT_REMOTE_CHANGE",
+)
+
+prefix_rule(
+    pattern = ["git", "config", ["--global", "--system"]],
+    decision = "prompt",
+    justification = "agents-adapter SYSTEM_CONFIG_CHANGE",
+)
+
+prefix_rule(
+    pattern = ["gh", "auth", ["login", "logout", "refresh", "switch"]],
+    decision = "prompt",
+    justification = "agents-adapter GH_AUTH_CHANGE",
+)
+
+prefix_rule(
+    pattern = ["gh", "repo", ["create", "fork", "archive", "rename", "edit"]],
+    decision = "prompt",
+    justification = "agents-adapter GH_REPO_CREATE",
+)
+
+prefix_rule(
+    pattern = ["gh", "release", ["create", "edit", "upload", "delete"]],
+    decision = "prompt",
+    justification = "agents-adapter GH_REPO_CREATE",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "close"],
+    decision = "prompt",
+    justification = "agents-adapter GH_REPO_CREATE",
+)
+
+prefix_rule(
+    pattern = ["docker", "system", "prune"],
+    decision = "prompt",
+    justification = "agents-adapter DOCKER_PRUNE",
+)
+
+prefix_rule(
+    pattern = ["docker", ["image", "container", "network"], ["prune", "rm"]],
+    decision = "prompt",
+    justification = "agents-adapter DOCKER_PRUNE",
+)
+
+prefix_rule(
+    pattern = ["docker", ["rmi", "rm"]],
+    decision = "prompt",
+    justification = "agents-adapter DOCKER_PRUNE",
+)
+
+prefix_rule(
+    pattern = ["docker", "volume", ["rm", "prune"]],
+    decision = "prompt",
+    justification = "agents-adapter DOCKER_DELETE_VOLUME",
+)
+
+prefix_rule(
+    pattern = ["docker", "push"],
+    decision = "prompt",
+    justification = "agents-adapter STAGING_DEPLOY",
+)
+
+prefix_rule(
+    pattern = ["npm", ["install", "i"], ["-g", "--global"]],
+    decision = "prompt",
+    justification = "agents-adapter GLOBAL_DEP_INSTALL",
+)
+
+prefix_rule(
+    pattern = ["pnpm", "add", "-g"],
+    decision = "prompt",
+    justification = "agents-adapter GLOBAL_DEP_INSTALL",
+)
+
+prefix_rule(
+    pattern = ["yarn", "global"],
+    decision = "prompt",
+    justification = "agents-adapter GLOBAL_DEP_INSTALL",
+)
+
+prefix_rule(
+    pattern = ["brew", ["install", "uninstall", "upgrade"]],
+    decision = "prompt",
+    justification = "agents-adapter GLOBAL_DEP_INSTALL",
+)
+
+prefix_rule(
+    pattern = ["pipx", "install"],
+    decision = "prompt",
+    justification = "agents-adapter GLOBAL_DEP_INSTALL",
+)
+
+prefix_rule(
+    pattern = ["cargo", "install"],
+    decision = "prompt",
+    justification = "agents-adapter GLOBAL_DEP_INSTALL",
+)
+
+prefix_rule(
+    pattern = ["kubectl", ["apply", "delete", "rollout", "scale", "exec"]],
+    decision = "prompt",
+    justification = "agents-adapter STAGING_DEPLOY",
+)
+
+prefix_rule(
+    pattern = ["terraform", ["apply", "destroy", "import"]],
+    decision = "prompt",
+    justification = "agents-adapter STAGING_DEPLOY",
+)
+
+prefix_rule(
+    pattern = ["vercel"],
+    decision = "prompt",
+    justification = "agents-adapter STAGING_DEPLOY",
+)
+
+prefix_rule(
+    pattern = ["firebase", "deploy"],
+    decision = "prompt",
+    justification = "agents-adapter STAGING_DEPLOY",
+)
+
+prefix_rule(
+    pattern = ["dropdb"],
+    decision = "prompt",
+    justification = "agents-adapter LOCAL_DESTRUCTIVE_DB",
+)
+
+prefix_rule(
+    pattern = ["prisma", "migrate", "reset"],
+    decision = "prompt",
+    justification = "agents-adapter LOCAL_DESTRUCTIVE_DB",
+)
+
+prefix_rule(
+    pattern = ["php", "artisan", ["migrate:fresh", "migrate:reset", "db:wipe", "migrate:refresh"]],
+    decision = "prompt",
+    justification = "agents-adapter LOCAL_DESTRUCTIVE_DB",
+)
+
+prefix_rule(
+    pattern = ["dotnet", "ef", "database", "drop"],
+    decision = "prompt",
+    justification = "agents-adapter LOCAL_DESTRUCTIVE_DB",
+)
+
+prefix_rule(
+    pattern = ["git", ["status", "diff", "log", "show", "fetch", "branch", "add", "commit", "switch", "checkout", "merge", "rebase", "stash"]],
+    decision = "allow",
+    justification = "agents-adapter GIT_STATUS / GIT_COMMIT routine git",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "create"],
+    decision = "allow",
+    justification = "agents-adapter GH_PR_CREATE",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", ["view", "list", "checks", "diff", "comment", "edit", "review"]],
+    decision = "allow",
+    justification = "agents-adapter GH_READ / GH_PR_UPDATE",
+)
+
+prefix_rule(
+    pattern = ["gh", "auth", "status"],
+    decision = "allow",
+    justification = "agents-adapter GH_READ",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "origin", "main"],
+    decision = "forbidden",
+    justification = "agents-adapter GIT_PUSH_PROTECTED: main is protected",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "origin", "HEAD:main"],
+    decision = "forbidden",
+    justification = "agents-adapter GIT_PUSH_PROTECTED: main is protected",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "origin", "refs/heads/main"],
+    decision = "forbidden",
+    justification = "agents-adapter GIT_PUSH_PROTECTED: main is protected",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "origin", "develop"],
+    decision = "forbidden",
+    justification = "agents-adapter GIT_PUSH_PROTECTED: develop is protected",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "origin", "HEAD:develop"],
+    decision = "forbidden",
+    justification = "agents-adapter GIT_PUSH_PROTECTED: develop is protected",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "origin", "refs/heads/develop"],
+    decision = "forbidden",
+    justification = "agents-adapter GIT_PUSH_PROTECTED: develop is protected",
+)
+# agents-adapter:end

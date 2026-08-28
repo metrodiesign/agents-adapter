@@ -1,0 +1,95 @@
+{
+  "home": "${HOME}",
+  "tmpdir": "/tmp",
+  "developmentRoots": [
+    "${HOME}/Desktop/Project"
+  ],
+  "protectedBranches": [
+    "main",
+    "develop"
+  ],
+  "devEnvPatterns": [
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.test",
+    ".env.testing",
+    ".env.integration"
+  ],
+  "prodEnvPatterns": [
+    ".env.production",
+    ".env.production.*",
+    ".env.prod",
+    ".env.prod.*"
+  ],
+  "credentialPaths": [
+    "${HOME}/.ssh",
+    "${HOME}/.aws",
+    "${HOME}/.azure",
+    "${HOME}/.gnupg",
+    "${HOME}/.kube",
+    "${HOME}/.config/gcloud",
+    "${HOME}/.config/gh",
+    "${HOME}/.git-credentials",
+    "${HOME}/.netrc",
+    "${HOME}/.npmrc",
+    "${HOME}/.pypirc",
+    "${HOME}/.docker/config.json",
+    "${HOME}/Library/Keychains",
+    "${HOME}/.codex/auth.json",
+    "${HOME}/.claude/.credentials.json",
+    "${HOME}/.claude.json",
+    "${HOME}/.pi/agent/auth.json",
+    "${HOME}/.config/agents-adapter/config.yaml"
+  ],
+  "credentialBasenames": [
+    "id_rsa",
+    "id_ed25519",
+    "id_ecdsa",
+    "auth.json",
+    "credentials.json",
+    ".git-credentials",
+    ".netrc"
+  ],
+  "credentialExtensions": [
+    ".pem",
+    ".key",
+    ".p12",
+    ".pfx",
+    ".jks",
+    ".keystore"
+  ],
+  "systemConfigPaths": [
+    "${HOME}/.zshrc",
+    "${HOME}/.zprofile",
+    "${HOME}/.zshenv",
+    "${HOME}/.bashrc",
+    "${HOME}/.bash_profile",
+    "${HOME}/.profile",
+    "${HOME}/.gitconfig",
+    "/etc",
+    "/usr/local/etc",
+    "/opt/homebrew/etc"
+  ],
+  "alwaysWritable": [
+    "/tmp",
+    "/private/tmp",
+    "/tmp",
+    "${HOME}/.cache",
+    "${HOME}/.npm",
+    "${HOME}/.pnpm-store",
+    "${HOME}/Library/Caches",
+    "${HOME}/.composer/cache",
+    "${HOME}/.nuget/packages",
+    "${HOME}/.gradle",
+    "${HOME}/.m2",
+    "${HOME}/.cargo",
+    "${HOME}/go/pkg",
+    "${HOME}/.local/state/agents-adapter"
+  ],
+  "agentConfigDirs": [
+    "${HOME}/.claude",
+    "${HOME}/.codex",
+    "${HOME}/.pi"
+  ]
+}

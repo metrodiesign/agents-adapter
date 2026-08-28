@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "agents-adapter core policy",
+  "type": "object",
+  "required": [
+    "version", "language", "trust_zone", "approval", "deny_is_hard_block", "git_workflow",
+    "github_workflow", "ci_gates", "dependency_policy", "destructive_operations",
+    "staging_boundary", "production_boundary", "retry_policy", "completion_checklist"
+  ],
+  "properties": {
+    "version": { "type": "integer", "enum": [1] },
+    "language": { "type": "object", "required": ["reply", "markdown_no_emoji"] },
+    "trust_zone": {
+      "type": "object",
+      "required": ["routine_actions_without_prompt"],
+      "properties": {
+        "routine_actions_without_prompt": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" } }
+      }
+    },
+    "approval": { "type": "object", "required": ["scope", "production_requires"] },
+    "deny_is_hard_block": { "type": "object", "required": ["cannot_be_bypassed_by", "fallback_when_native_enforcement_missing"] },
+    "git_workflow": { "type": "object", "required": ["force_push", "bare_push", "head_push"] },
+    "github_workflow": { "type": "object" },
+    "ci_gates": { "type": "array" },
+    "dependency_policy": { "type": "object" },
+    "destructive_operations": {
+      "type": "object",
+      "required": ["ask_before"],
+      "properties": { "ask_before": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" } } }
+    },
+    "staging_boundary": { "type": "object" },
+    "production_boundary": { "type": "object" },
+    "retry_policy": { "type": "object" },
+    "completion_checklist": { "type": "array" }
+  }
+}
