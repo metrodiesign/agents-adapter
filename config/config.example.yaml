@@ -1,0 +1,48 @@
+# ตัวอย่าง user configuration ของ agents-adapter
+# ไฟล์จริงให้วางที่ ${HOME}/.config/agents-adapter/config.yaml (ห้าม commit)
+version: 1
+
+# ราก Development Trust Zone: ทุก repository ใต้ path เหล่านี้ถือว่า trusted
+development_roots:
+  - "${HOME}/Desktop/Project"
+
+# branch ที่ห้าม push ตรง
+protected_branches:
+  - main
+  - develop
+
+github:
+  owner: "YOUR_GITHUB_USER"
+
+# domain ที่ sandbox network อนุญาต (Claude sandbox, Codex network policy)
+trusted_domains:
+  - github.com
+  - api.github.com
+  - registry.npmjs.org
+  - localhost
+  - 127.0.0.1
+
+# ไฟล์ env ฝั่ง development: อ่านและแก้ได้ แต่ห้ามพิมพ์ค่าออกมา
+development_env_patterns:
+  - ".env"
+  - ".env.local"
+  - ".env.development"
+  - ".env.test"
+  - ".env.testing"
+  - ".env.integration"
+
+# ไฟล์ env ฝั่ง production: deny ทั้งอ่านและเขียน
+production_env_patterns:
+  - ".env.production"
+  - ".env.production.*"
+  - ".env.prod"
+  - ".env.prod.*"
+
+pi:
+  # host-macos | docker | gondolin | openshell
+  isolation_mode: "host-macos"
+
+adapters:
+  claude: true
+  codex: true
+  pi: true

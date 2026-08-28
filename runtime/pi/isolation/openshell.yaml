@@ -1,0 +1,30 @@
+# Pi isolation profile: openshell
+# ใช้เมื่อเครื่องมี openshell CLI; ตรวจด้วย `which openshell` ใน doctor
+profile: openshell
+enforcement:
+  policy_gate: extension
+  protected_paths: extension + os_isolation
+  user_bash: extension
+  share: extension
+  os_isolation: openshell
+capabilities_required:
+  - openshell
+status: unsupported-until-detected
+mounts:
+  - source: "{{development_root}}"
+    target: /workspace
+    mode: rw
+never_mount:
+  - "${HOME}/.ssh"
+  - "${HOME}/.aws"
+  - "${HOME}/.config/gh"
+  - "${HOME}/.codex/auth.json"
+  - "${HOME}/.claude.json"
+  - "${HOME}/.pi/agent/auth.json"
+hard_boundaries_enforced_by_isolation:
+  - CREDENTIAL_READ
+  - CREDENTIAL_WRITE
+  - PROD_ENV_READ
+  - PROD_ENV_WRITE
+  - OUTSIDE_TRUST_ZONE
+launch: scripts/pi-isolated.sh openshell

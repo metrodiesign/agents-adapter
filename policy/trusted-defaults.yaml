@@ -1,0 +1,61 @@
+# ค่าเริ่มต้นที่ทุก adapter ใช้ร่วมกันเมื่อ user config ไม่ระบุ
+version: 1
+
+# path ที่เขียนได้เสมอ (temp และ cache) นอกเหนือจาก development_roots
+always_writable:
+  - "/tmp"
+  - "/private/tmp"
+  - "${TMPDIR}"
+  - "${HOME}/.cache"
+  - "${HOME}/.npm"
+  - "${HOME}/.pnpm-store"
+  - "${HOME}/Library/Caches"
+  - "${HOME}/.composer/cache"
+  - "${HOME}/.nuget/packages"
+  - "${HOME}/.gradle"
+  - "${HOME}/.m2"
+  - "${HOME}/.cargo"
+  - "${HOME}/go/pkg"
+  - "${HOME}/.local/state/agents-adapter"
+
+# path ที่ adapter ของแต่ละ CLI เขียนได้เพื่อจัดการตัวเอง (ยกเว้น credential file ที่ deny ทับ)
+agent_config_dirs:
+  - "${HOME}/.claude"
+  - "${HOME}/.codex"
+  - "${HOME}/.pi"
+
+# CLI ที่ต้องรันนอก outer sandbox เพราะใช้ keychain/socket/runtime ของตัวเอง
+excluded_commands:
+  - "gh *"
+  - "docker *"
+  - "codex *"
+  - "dotnet test *"
+
+# domain สาธารณะสำหรับ dependency install (รวมกับ trusted_domains ของ user)
+public_registries:
+  - github.com
+  - api.github.com
+  - "*.github.com"
+  - "*.githubusercontent.com"
+  - ghcr.io
+  - registry.npmjs.org
+  - "*.npmjs.org"
+  - registry.yarnpkg.com
+  - nodejs.org
+  - "*.nuget.org"
+  - packagist.org
+  - repo.packagist.org
+  - pypi.org
+  - files.pythonhosted.org
+  - "*.rubygems.org"
+  - repo.maven.apache.org
+  - services.gradle.org
+  - proxy.golang.org
+  - sum.golang.org
+  - index.crates.io
+  - static.crates.io
+  - registry-1.docker.io
+  - auth.docker.io
+  - mcr.microsoft.com
+  - localhost
+  - 127.0.0.1

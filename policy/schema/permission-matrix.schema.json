@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "agents-adapter permission matrix",
+  "type": "object",
+  "required": ["version", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "enum": [1] },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "decision", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
+          "category": {
+            "type": "string",
+            "enum": ["filesystem", "env", "credential", "build", "dependency", "docker", "git", "github", "share", "deploy", "destructive", "security"]
+          },
+          "decision": { "type": "string", "enum": ["ALLOW", "ASK", "DENY"] },
+          "description": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

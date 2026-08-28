@@ -1,0 +1,452 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(doas *)",
+      "Bash(git push)",
+      "Bash(git push origin)",
+      "Bash(git push upstream)",
+      "Bash(git push -u origin)",
+      "Bash(git push * HEAD)",
+      "Bash(git push * HEAD:*)",
+      "Bash(git push *--force*)",
+      "Bash(git push -f *)",
+      "Bash(git push * -f *)",
+      "Bash(git push *-uf *)",
+      "Bash(git push --mirror *)",
+      "Bash(git push --all *)",
+      "Bash(git push * +*)",
+      "Bash(gh auth token*)",
+      "Bash(gh auth status --show-token*)",
+      "Bash(gh pr merge *)",
+      "Bash(gh repo delete *)",
+      "Bash(gh gist *)",
+      "Bash(gh secret *)",
+      "Bash(curl* | sh*)",
+      "Bash(curl* | bash*)",
+      "Bash(wget* | sh*)",
+      "Bash(wget* | bash*)",
+      "Bash(*--dangerously-skip-permissions*)",
+      "Bash(*--dangerously-bypass-approvals-and-sandbox*)",
+      "Bash(*--dangerously-bypass-hook-trust*)",
+      "Bash(*--permission-mode bypassPermissions*)",
+      "Bash(*--sandbox danger-full-access*)",
+      "Bash(*--sandbox=danger-full-access*)",
+      "Bash(codex -s danger-full-access*)",
+      "Bash(pi --no-extensions*)",
+      "Bash(pi -ne*)",
+      "Bash(git push * main)",
+      "Bash(git push * main *)",
+      "Bash(git push *:main)",
+      "Bash(git push *:main *)",
+      "Bash(git push *refs/heads/main*)",
+      "Bash(git push * --delete main)",
+      "Bash(git push * develop)",
+      "Bash(git push * develop *)",
+      "Bash(git push *:develop)",
+      "Bash(git push *:develop *)",
+      "Bash(git push *refs/heads/develop*)",
+      "Bash(git push * --delete develop)",
+      "Read(~/.ssh/**)",
+      "Edit(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Edit(~/.aws/**)",
+      "Read(~/.azure/**)",
+      "Edit(~/.azure/**)",
+      "Read(~/.gnupg/**)",
+      "Edit(~/.gnupg/**)",
+      "Read(~/.kube/**)",
+      "Edit(~/.kube/**)",
+      "Read(~/.config/gcloud/**)",
+      "Edit(~/.config/gcloud/**)",
+      "Read(~/.config/gh/**)",
+      "Edit(~/.config/gh/**)",
+      "Read(~/.git-credentials)",
+      "Edit(~/.git-credentials)",
+      "Read(~/.netrc)",
+      "Edit(~/.netrc)",
+      "Read(~/.npmrc)",
+      "Edit(~/.npmrc)",
+      "Read(~/.pypirc)",
+      "Edit(~/.pypirc)",
+      "Read(~/.docker/config.json)",
+      "Edit(~/.docker/config.json)",
+      "Read(~/Library/Keychains/**)",
+      "Edit(~/Library/Keychains/**)",
+      "Read(~/.codex/auth.json)",
+      "Edit(~/.codex/auth.json)",
+      "Read(~/.claude/.credentials.json)",
+      "Edit(~/.claude/.credentials.json)",
+      "Read(~/.claude.json)",
+      "Edit(~/.claude.json)",
+      "Read(~/.pi/agent/auth.json)",
+      "Edit(~/.pi/agent/auth.json)",
+      "Read(~/.config/agents-adapter/config.yaml/**)",
+      "Edit(~/.config/agents-adapter/config.yaml/**)",
+      "Read(**/.env.production)",
+      "Edit(**/.env.production)",
+      "Read(**/.env.production.*)",
+      "Edit(**/.env.production.*)",
+      "Read(**/.env.prod)",
+      "Edit(**/.env.prod)",
+      "Read(**/.env.prod.*)",
+      "Edit(**/.env.prod.*)"
+    ],
+    "ask": [
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(rm -r -f *)",
+      "Bash(rm -Rf *)",
+      "Bash(rm --recursive --force *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean -f*)",
+      "Bash(git clean --force*)",
+      "Bash(git branch -D *)",
+      "Bash(git tag -d *)",
+      "Bash(git stash drop*)",
+      "Bash(git stash clear*)",
+      "Bash(git push * --delete *)",
+      "Bash(git push -d *)",
+      "Bash(git push * :*)",
+      "Bash(git remote add *)",
+      "Bash(git remote set-url *)",
+      "Bash(git remote remove *)",
+      "Bash(git remote rm *)",
+      "Bash(git remote rename *)",
+      "Bash(git config --global *)",
+      "Bash(git config --system *)",
+      "Bash(gh auth login *)",
+      "Bash(gh auth logout *)",
+      "Bash(gh repo create *)",
+      "Bash(gh pr close *)",
+      "Bash(gh issue close *)",
+      "Bash(gh release create *)",
+      "Bash(gh release edit *)",
+      "Bash(gh release upload *)",
+      "Bash(gh release delete *)",
+      "Bash(docker system prune *)",
+      "Bash(docker container prune *)",
+      "Bash(docker image prune *)",
+      "Bash(docker image rm *)",
+      "Bash(docker rmi *)",
+      "Bash(docker volume prune *)",
+      "Bash(docker volume rm *)",
+      "Bash(docker compose * down *--volumes*)",
+      "Bash(docker compose * down * -v*)",
+      "Bash(docker compose down *--volumes*)",
+      "Bash(docker compose down * -v*)",
+      "Bash(docker compose down -v*)",
+      "Bash(docker-compose down -v*)",
+      "Bash(docker push *)",
+      "Bash(npm install -g *)",
+      "Bash(npm i -g *)",
+      "Bash(npm install --global *)",
+      "Bash(npm i --global *)",
+      "Bash(pnpm add -g *)",
+      "Bash(yarn global add *)",
+      "Bash(pipx install *)",
+      "Bash(cargo install *)",
+      "Bash(brew install *)",
+      "Bash(brew uninstall *)",
+      "Bash(brew upgrade *)",
+      "Bash(kubectl apply *)",
+      "Bash(kubectl delete *)",
+      "Bash(terraform apply *)",
+      "Bash(terraform destroy *)",
+      "Bash(vercel --prod*)",
+      "Bash(vercel deploy*)",
+      "Bash(firebase deploy *)",
+      "Bash(dropdb *)",
+      "Bash(prisma migrate reset *)",
+      "Bash(npx prisma migrate reset *)",
+      "Bash(php artisan migrate:fresh *)",
+      "Bash(php artisan migrate:reset *)",
+      "Bash(php artisan db:wipe *)",
+      "Bash(dotnet ef database drop *)"
+    ],
+    "allow": [
+      "Bash(gh auth status)",
+      "Bash(gh repo view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr comment *)",
+      "Bash(gh pr edit *)",
+      "Bash(gh pr review *)",
+      "Bash(gh issue list *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue create *)",
+      "Bash(gh issue comment *)",
+      "Bash(gh run list *)",
+      "Bash(gh run view *)",
+      "Bash(gh run watch *)",
+      "Bash(gh run rerun *)",
+      "Bash(gh workflow list *)",
+      "Bash(gh workflow view *)",
+      "Bash(gh release list *)",
+      "Bash(gh release view *)",
+      "Bash(codex *)"
+    ],
+    "additionalDirectories": [
+      "${HOME}/Desktop/Project"
+    ],
+    "disableBypassPermissionsMode": "disable"
+  },
+  "sandbox": {
+    "filesystem": {
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.azure",
+        "~/.gnupg",
+        "~/.kube",
+        "~/.config/gcloud",
+        "~/.config/gh",
+        "~/.git-credentials",
+        "~/.netrc",
+        "~/.npmrc",
+        "~/.pypirc",
+        "~/.docker/config.json",
+        "~/Library/Keychains",
+        "~/.codex/auth.json",
+        "~/.claude/.credentials.json",
+        "~/.claude.json",
+        "~/.pi/agent/auth.json",
+        "~/.config/agents-adapter/config.yaml"
+      ],
+      "denyWrite": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.azure",
+        "~/.gnupg",
+        "~/.kube",
+        "~/.config/gcloud",
+        "~/.config/gh",
+        "~/.git-credentials",
+        "~/.netrc",
+        "~/.npmrc",
+        "~/.pypirc",
+        "~/.docker/config.json",
+        "~/Library/Keychains",
+        "~/.codex/auth.json",
+        "~/.claude/.credentials.json",
+        "~/.claude.json",
+        "~/.pi/agent/auth.json",
+        "~/.config/agents-adapter/config.yaml",
+        "~/.zshrc",
+        "~/.zprofile",
+        "~/.zshenv",
+        "~/.bashrc",
+        "~/.bash_profile",
+        "~/.profile",
+        "~/.gitconfig"
+      ],
+      "allowWrite": [
+        "${HOME}/Desktop/Project",
+        "${HOME}/.claude",
+        "${HOME}/.codex",
+        "${HOME}/.pi"
+      ]
+    },
+    "excludedCommands": [
+      "gh *",
+      "docker *",
+      "codex *",
+      "dotnet test *"
+    ],
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "api.github.com",
+        "registry.npmjs.org",
+        "localhost",
+        "127.0.0.1",
+        "*.github.com",
+        "*.githubusercontent.com",
+        "ghcr.io",
+        "*.npmjs.org",
+        "registry.yarnpkg.com",
+        "nodejs.org",
+        "*.nuget.org",
+        "packagist.org",
+        "repo.packagist.org",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "*.rubygems.org",
+        "repo.maven.apache.org",
+        "services.gradle.org",
+        "proxy.golang.org",
+        "sum.golang.org",
+        "index.crates.io",
+        "static.crates.io",
+        "registry-1.docker.io",
+        "auth.docker.io",
+        "mcr.microsoft.com"
+      ]
+    },
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.ssh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.aws",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.azure",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.gnupg",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.kube",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/gcloud",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/gh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.git-credentials",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.netrc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.npmrc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.pypirc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.docker/config.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Keychains",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.codex/auth.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude/.credentials.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.pi/agent/auth.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/agents-adapter/config.yaml",
+          "mode": "deny"
+        }
+      ],
+      "envVars": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "ANTHROPIC_AUTH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "GITHUB_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "GH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "NPM_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "NODE_AUTH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "mode": "deny"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "AWS_SESSION_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "AZURE_CLIENT_SECRET",
+          "mode": "deny"
+        },
+        {
+          "name": "CLOUDFLARE_API_TOKEN",
+          "mode": "deny"
+        }
+      ]
+    },
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "[agents-adapter] อนุญาตงานพัฒนา routine ภายใน Development Trust Zone (${HOME}/Desktop/Project): อ่าน/เขียน source, build, test, lint, formatter, code generation, static analysis",
+      "[agents-adapter] อนุญาตอ่านและแก้ development env (.env, .env.local, .env.development, .env.test, .env.testing, .env.integration) ภายใน trusted repo เพื่อ build/test/debug แต่ห้ามแสดงหรือ commit secret",
+      "[agents-adapter] อนุญาตติดตั้งและอัปเดต dependency แบบ project-local พร้อม lock file",
+      "[agents-adapter] อนุญาต local Docker build/pull/up/start/stop/restart/logs/exec/run เมื่อไม่มี destructive volume removal",
+      "[agents-adapter] อนุญาต commit และ push เฉพาะ feature branch ที่ระบุชื่อชัดเจน รวมถึงสร้างหรืออัปเดต PR, issue, comment และตรวจ CI"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "[agents-adapter] ต้องมี user intent ที่ระบุ action และ target ก่อน rm -rf, git reset --hard, git clean, ลบ branch/tag แบบบังคับ, ลบ remote branch, destructive database, Docker prune หรือ volume removal",
+      "[agents-adapter] ต้องมี user intent ชัดเจนก่อนติดตั้ง package แบบ global, แก้ shell startup file, system-wide configuration หรือ path นอก Development Trust Zone",
+      "[agents-adapter] ต้องมี user intent ชัดเจนก่อนเพิ่ม เปลี่ยน หรือลบ Git remote และก่อนเปลี่ยน GitHub authentication",
+      "[agents-adapter] ต้องมี user intent ชัดเจนก่อน deploy staging หรือแก้ shared CI/CD; production ต้องระบุ target, impact, backup และ rollback plan"
+    ],
+    "hard_deny": [
+      "$defaults",
+      "[agents-adapter] ห้าม push ตรงเข้า main, develop; ห้าม bare git push หรือ push ด้วย HEAD; ต้องระบุ remote และ feature branch",
+      "[agents-adapter] ห้าม force push ทุกแบบ รวม --force-with-lease และ +refspec",
+      "[agents-adapter] ห้าม merge pull request, ลบ repository หรือสร้าง gist แทน user",
+      "[agents-adapter] ห้ามใช้ dangerous permission, sandbox หรือ hook bypass flag และห้าม sudo",
+      "[agents-adapter] ห้ามอ่าน แสดง คัดลอก หรือแก้ credential store และ production env; ห้ามพิมพ์ค่า secret จาก development env",
+      "[agents-adapter] ห้าม commit, log, paste หรือ upload secret, token, password, private key หรือ connection string"
+    ],
+    "environment": [
+      "$defaults",
+      "[agents-adapter] Trusted repo: current repository และทุก Git repository ภายใต้ ${HOME}/Desktop/Project เป็น Development Trust Zone",
+      "[agents-adapter] Protected branches: main, develop; PR merge เป็นการตัดสินใจของ user",
+      "[agents-adapter] Sensitive data: .env.production, .env.production.*, .env.prod, .env.prod.*, credential store และ keychain ใช้ได้เฉพาะผ่าน CLI เจ้าของ credential"
+    ],
+    "classifyAllShell": true
+  },
+  "language": "thai"
+}

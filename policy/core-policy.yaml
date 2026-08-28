@@ -1,0 +1,127 @@
+# Provider-neutral core policy ของ agents-adapter
+# สกัดจาก Claude reference (reference/claude/*) ดู provenance.yaml สำหรับที่มาของแต่ละข้อ
+# ห้ามใส่ชื่อ model, ชื่อ CLI หรือค่าเฉพาะเครื่องในไฟล์นี้
+version: 1
+
+language:
+  reply: thai
+  keep_english_for:
+    - code
+    - identifier
+    - command
+    - path
+    - flag
+    - error and log text
+    - technical term
+  markdown_no_emoji: true
+
+trust_zone:
+  description: current repository และทุก repository ใต้ development_roots
+  routine_actions_without_prompt:
+    - FS_READ_SOURCE
+    - FS_WRITE_SOURCE
+    - FS_CREATE_PROJECT_FILE
+    - DEV_ENV_READ
+    - DEV_ENV_WRITE
+    - BUILD
+    - TEST
+    - LINT
+    - LOCAL_DEP_INSTALL
+    - LOCAL_DOCKER_BUILD
+    - LOCAL_DOCKER_UP
+    - GIT_STATUS
+    - GIT_COMMIT
+    - GIT_PUSH_FEATURE
+    - GH_READ
+    - GH_PR_CREATE
+    - GH_PR_UPDATE
+
+approval:
+  scope: one approval per action + target + environment + account
+  reuse: ใช้ approval เดิมกับขั้นตอนต่อเนื่องในงานย่อยเดียวกัน ห้ามถามซ้ำทุก command
+  never_auto_extend_to_other_target: true
+  production_requires:
+    - target
+    - impact
+    - backup
+    - rollback plan
+    - verification plan
+
+deny_is_hard_block:
+  cannot_be_bypassed_by:
+    - prompt
+    - subagent
+    - plugin
+    - project config
+    - CLI flag
+    - dangerous bypass flag
+    - auto-review
+    - tool alias
+    - shell wrapper
+  fallback_when_native_enforcement_missing:
+    - hook
+    - extension
+    - OS isolation
+
+git_workflow:
+  protected_branches_from: user_config.protected_branches
+  push_must_name_remote_and_branch: true
+  force_push: DENY
+  bare_push: DENY
+  head_push: DENY
+  pull_default: --ff-only
+  rebase_allowed_only_on_unpushed_feature_branch: true
+
+github_workflow:
+  pr_merge: user decision only
+  required_checks_are_authoritative: true
+  branch_protection_is_authoritative: true
+  no_public_gist: true
+
+ci_gates:
+  - required tests pass
+  - lint and type-check pass
+  - no focused or skipped tests without accepted reason
+  - coverage not below threshold
+  - lock file committed
+  - no floating production version
+
+dependency_policy:
+  new_dependency_requires:
+    - license check
+    - maintenance status
+    - vulnerability audit
+  lock_file_required: true
+  forbid_floating_versions: ["*", "latest"]
+
+destructive_operations:
+  ask_before:
+    - DESTRUCTIVE_DELETE
+    - GIT_RESET_HARD
+    - GIT_CLEAN
+    - GIT_BRANCH_FORCE_DELETE
+    - GIT_REMOTE_DELETE
+    - DOCKER_PRUNE
+    - DOCKER_DELETE_VOLUME
+    - LOCAL_DESTRUCTIVE_DB
+  production_requires_human_confirmation: true
+
+staging_boundary:
+  deploy: ASK
+  shared_ci_change: ASK
+
+production_boundary:
+  deploy: ASK with target, impact, backup, rollback, verification
+  db_write: ASK
+  destructive_db: ASK with backup and rollback
+  no_friday_evening_deploy_unless_hotfix: true
+
+retry_policy:
+  same_failure_twice: stop retrying same method, inspect evidence, change hypothesis or tool
+  blocked_action: finish all independent work first, then report narrow blocker
+
+completion_checklist:
+  - run tests, build, lint relevant to the change and show evidence
+  - never claim success without verification
+  - state what could not be verified and why
+  - check staged filenames and diff for env/credential before commit

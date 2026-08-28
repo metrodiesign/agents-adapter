@@ -1,0 +1,480 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(gh auth status)",
+      "Bash(gh repo view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr comment *)",
+      "Bash(gh issue list *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue create *)",
+      "Bash(gh issue comment *)",
+      "Bash(gh run list *)",
+      "Bash(gh run view *)",
+      "Bash(gh run watch *)",
+      "Bash(gh workflow list *)",
+      "Bash(gh workflow view *)",
+      "Bash(gh release list *)",
+      "Bash(gh release view *)",
+      "Bash(gh release download *)",
+      "Bash(codex *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:*.github.com)"
+    ],
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(git push)",
+      "Bash(git push origin)",
+      "Bash(git push upstream)",
+      "Bash(git push * HEAD)",
+      "Bash(git push *--force*)",
+      "Bash(git push -f *)",
+      "Bash(git push * -f *)",
+      "Bash(git push * main)",
+      "Bash(git push * main *)",
+      "Bash(git push * develop)",
+      "Bash(git push * develop *)",
+      "Bash(git push *HEAD:main*)",
+      "Bash(git push *HEAD:develop*)",
+      "Bash(git push *:main*)",
+      "Bash(git push *:develop*)",
+      "Bash(git push * +*)",
+      "Bash(git push *refs/heads/main*)",
+      "Bash(git push *refs/heads/develop*)",
+      "Bash(gh auth token*)",
+      "Bash(gh pr merge *)",
+      "Bash(gh repo delete *)",
+      "Bash(gh gist *)",
+      "Bash(gh secret *)",
+      "Bash(curl* | sh)",
+      "Bash(curl* | bash)",
+      "Bash(wget* | sh)",
+      "Bash(wget* | bash)",
+      "Bash(*--dangerously-skip-permissions*)",
+      "Bash(*--dangerously-bypass-approvals-and-sandbox*)",
+      "Bash(*--dangerously-bypass-hook-trust*)",
+      "Bash(*--permission-mode bypassPermissions*)",
+      "Read(~/.codex/auth.json)",
+      "Edit(~/.codex/auth.json)",
+      "Read(~/.claude/.credentials.json)",
+      "Edit(~/.claude/.credentials.json)",
+      "Read(~/.claude.json)",
+      "Edit(~/.claude.json)",
+      "Read(~/.ssh/**)",
+      "Edit(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Edit(~/.aws/**)",
+      "Read(~/.azure/**)",
+      "Edit(~/.azure/**)",
+      "Read(~/.gnupg/**)",
+      "Edit(~/.gnupg/**)",
+      "Read(~/.kube/**)",
+      "Edit(~/.kube/**)",
+      "Read(~/.config/gcloud/**)",
+      "Edit(~/.config/gcloud/**)",
+      "Read(~/.config/gh/**)",
+      "Edit(~/.config/gh/**)",
+      "Read(~/.git-credentials)",
+      "Edit(~/.git-credentials)",
+      "Read(~/.netrc)",
+      "Edit(~/.netrc)",
+      "Read(~/.npmrc)",
+      "Edit(~/.npmrc)",
+      "Read(~/.pypirc)",
+      "Edit(~/.pypirc)",
+      "Read(~/.docker/config.json)",
+      "Edit(~/.docker/config.json)",
+      "Read(~/Library/Keychains/**)",
+      "Edit(~/Library/Keychains/**)",
+      "Read(**/.env.production)",
+      "Edit(**/.env.production)",
+      "Read(**/.env.production.*)",
+      "Edit(**/.env.production.*)",
+      "Read(**/.env.prod)",
+      "Edit(**/.env.prod)",
+      "Read(**/.env.prod.*)",
+      "Edit(**/.env.prod.*)"
+    ],
+    "ask": [
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean -f*)",
+      "Bash(git branch -D *)",
+      "Bash(rtk git branch -D *)",
+      "Bash(git tag -d *)",
+      "Bash(git push * --delete *)",
+      "Bash(git push * :*)",
+      "Bash(git remote add *)",
+      "Bash(git remote set-url *)",
+      "Bash(git remote remove *)",
+      "Bash(git remote rename *)",
+      "Bash(git config --global *)",
+      "Bash(gh auth login *)",
+      "Bash(gh auth logout *)",
+      "Bash(gh repo create *)",
+      "Bash(gh pr close *)",
+      "Bash(gh issue close *)",
+      "Bash(gh release create *)",
+      "Bash(gh release edit *)",
+      "Bash(gh release upload *)",
+      "Bash(gh release delete *)",
+      "Bash(gh variable set *)",
+      "Bash(docker system prune *)",
+      "Bash(docker container prune *)",
+      "Bash(docker image prune *)",
+      "Bash(docker image rm *)",
+      "Bash(docker volume prune *)",
+      "Bash(docker volume rm *)",
+      "Bash(docker compose * down *--volumes*)",
+      "Bash(docker compose * down * -v*)",
+      "Bash(npm install -g *)",
+      "Bash(npm i -g *)",
+      "Bash(pnpm add -g *)",
+      "Bash(yarn global add *)",
+      "Bash(brew install *)",
+      "Bash(rtk brew install *)",
+      "Bash(codex *--sandbox danger-full-access*)",
+      "Bash(git push --delete *)",
+      "Bash(docker compose down *--volumes*)",
+      "Bash(docker compose down * -v*)"
+    ],
+    "defaultMode": "auto",
+    "disableBypassPermissionsMode": "disable",
+    "additionalDirectories": [
+      "${HOME}/Desktop/Project",
+      "${HOME}/.claude",
+      "${HOME}/.codex"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": true,
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "api.github.com",
+        "*.github.com",
+        "githubusercontent.com",
+        "*.githubusercontent.com",
+        "githubassets.com",
+        "*.githubassets.com",
+        "ghcr.io",
+        "registry.npmjs.org",
+        "npmjs.org",
+        "*.npmjs.org",
+        "npmjs.com",
+        "*.npmjs.com",
+        "nodejs.org",
+        "*.nodejs.org",
+        "registry.yarnpkg.com",
+        "nuget.org",
+        "*.nuget.org",
+        "packagist.org",
+        "repo.packagist.org",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "rubygems.org",
+        "*.rubygems.org",
+        "services.gradle.org",
+        "plugins.gradle.org",
+        "repo.gradle.org",
+        "repo.maven.apache.org",
+        "repo1.maven.org",
+        "dl.google.com",
+        "cdn.cocoapods.org",
+        "proxy.golang.org",
+        "sum.golang.org",
+        "index.crates.io",
+        "static.crates.io",
+        "packages.microsoft.com",
+        "builds.dotnet.microsoft.com",
+        "download.visualstudio.microsoft.com",
+        "dotnetcli.azureedge.net",
+        "dotnetbuilds.azureedge.net",
+        "pkgs.dev.azure.com",
+        "login.docker.com",
+        "auth.docker.com",
+        "auth.docker.io",
+        "hub.docker.com",
+        "api.docker.com",
+        "registry-1.docker.io",
+        "production.cloudfront.docker.com",
+        "cdn.auth0.com",
+        "dhi.io",
+        "mcr.microsoft.com",
+        "api.anthropic.com",
+        "claude.ai",
+        "*.claude.ai",
+        "api.openai.com",
+        "auth.openai.com",
+        "localhost",
+        "127.0.0.1",
+        "host.docker.internal"
+      ],
+      "strictAllowlist": false,
+      "allowLocalBinding": true,
+      "allowMachLookup": [
+        "com.apple.coresimulator.*"
+      ]
+    },
+    "filesystem": {
+      "allowWrite": [
+        "${HOME}/Desktop/Project",
+        "${HOME}/.claude",
+        "${HOME}/.codex",
+        "~/.cache",
+        "~/.npm",
+        "~/.pnpm-store",
+        "~/Library/pnpm",
+        "~/Library/Caches/pnpm",
+        "~/Library/Caches/Yarn",
+        "~/.composer/cache",
+        "~/Library/Caches/composer",
+        "~/.nuget/packages",
+        "~/.gradle",
+        "~/.m2",
+        "~/.cargo",
+        "~/go/pkg",
+        "~/.cocoapods",
+        "~/Library/Caches/CocoaPods",
+        "~/.swiftpm",
+        "~/Library/org.swift.swiftpm",
+        "~/Library/Caches/org.swift.swiftpm",
+        "~/Library/Developer/Xcode/DerivedData",
+        "~/Library/Developer/CoreSimulator"
+      ],
+      "denyWrite": [
+        "~/.codex/auth.json",
+        "~/.claude/.credentials.json",
+        "~/.claude.json",
+        "~/.ssh",
+        "~/.aws",
+        "~/.azure",
+        "~/.gnupg",
+        "~/.kube",
+        "~/.config/gcloud",
+        "~/.config/gh",
+        "~/.git-credentials",
+        "~/.netrc",
+        "~/.npmrc",
+        "~/.pypirc",
+        "~/.docker/config.json",
+        "~/Library/Keychains",
+        "~/.zshrc",
+        "~/.zprofile",
+        "~/.bashrc",
+        "~/.bash_profile"
+      ],
+      "denyRead": [
+        "~/.codex/auth.json",
+        "~/.claude/.credentials.json",
+        "~/.claude.json",
+        "~/.ssh",
+        "~/.aws",
+        "~/.azure",
+        "~/.gnupg",
+        "~/.kube",
+        "~/.config/gcloud",
+        "~/.config/gh",
+        "~/.git-credentials",
+        "~/.netrc",
+        "~/.npmrc",
+        "~/.pypirc",
+        "~/.docker/config.json",
+        "~/Library/Keychains"
+      ]
+    },
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.codex/auth.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude/.credentials.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.ssh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.aws",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.azure",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.gnupg",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.kube",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/gcloud",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/gh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.git-credentials",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.netrc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.npmrc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.pypirc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.docker/config.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Keychains",
+          "mode": "deny"
+        }
+      ],
+      "envVars": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "ANTHROPIC_AUTH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "ZAI_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "Z_AI_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "GITHUB_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "GH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "NPM_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "NODE_AUTH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "mode": "deny"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "AWS_SESSION_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "AZURE_CLIENT_SECRET",
+          "mode": "deny"
+        },
+        {
+          "name": "CLOUDFLARE_API_TOKEN",
+          "mode": "deny"
+        }
+      ]
+    },
+    "excludedCommands": [
+      "gh *",
+      "docker *",
+      "codex *",
+      "dotnet test *"
+    ]
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "อนุญาตงานพัฒนา routine ภายใน Development Trust Zone ได้แก่ อ่าน/เขียน source, build, test, lint, formatter, code generation และ static analysis",
+      "อนุญาตอ่านและแก้ .env, .env.local, .env.development, .env.test และ .env.testing ภายใน trusted repo เพื่อ build/test/debug แต่ห้ามแสดงหรือ commit secret",
+      "อนุญาตติดตั้งและอัปเดต dependency แบบ project-local พร้อม lock file ผ่าน npm, pnpm, yarn, composer, dotnet, pip, CocoaPods, Gradle, Maven, Go, Cargo และ SwiftPM",
+      "อนุญาต local Docker operations สำหรับ build, pull, up, start, stop, restart, logs, exec และ run เมื่อ target เป็น local development และไม่มี destructive volume removal",
+      "อนุญาต commit และ push เฉพาะ feature branch ที่ระบุชื่อชัดเจนหลัง review/verify gate ผ่าน รวมถึงสร้างหรืออัปเดต PR, issue, comment และตรวจ CI ใน GitHub namespace {{github_owner}}",
+      "อนุญาตเรียก codex CLI/plugin เพื่อ review, วิเคราะห์ หรือ delegate งานใน current workspace โดยคง sandbox และ approval policy ของ Codex เอง",
+      "อนุญาตแก้ ~/.claude และ ~/.codex เมื่อ task ปัจจุบันระบุชัดว่าเป็นการตั้งค่า Agent/tool แต่ไม่อนุญาตอ่านหรือแก้ credential files"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "ต้องมี user intent ที่ระบุ action และ target ก่อน local destructive cleanup, destructive migration, database reset, remote branch/tag/release deletion หรือ history rewrite ที่ไม่ใช่ force push",
+      "ต้องมี user intent ชัดเจนก่อนติดตั้ง package แบบ global, แก้ shell startup file, system-wide configuration หรือ path นอก Development Trust Zone",
+      "ต้องมี user intent ชัดเจนก่อนเพิ่ม เปลี่ยน หรือลบ Git remote รวมถึงเปลี่ยน GitHub authentication",
+      "ต้องมี user intent ชัดเจนก่อน deploy staging, แก้ shared CI/CD, shared environment หรือ cloud resource",
+      "production deploy, production database mutation และ production infrastructure change ต้องระบุ target, impact, backup และ rollback plan ก่อนทำ"
+    ],
+    "hard_deny": [
+      "$defaults",
+      "ห้าม push ตรงเข้า main หรือ develop; ต้องใช้ feature branch ที่ระบุชื่อชัดเจนและ PR",
+      "ห้าม bare git push หรือ push ด้วย HEAD เพราะไม่ระบุปลายทาง branch ชัดเจน",
+      "ห้าม force push ทุกแบบ รวม --force-with-lease",
+      "ห้าม merge pull request แทน user",
+      "ห้ามลบ repository หรือเผยแพร่ repository content ผ่าน public gist",
+      "ห้ามใช้ dangerous permission, sandbox หรือ hook bypass flags",
+      "ห้ามอ่าน แสดง คัดลอก หรือแก้เนื้อหา credential store โดยตรง; อนุญาตเฉพาะ CLI เจ้าของ credential ใช้ภายในของตัวเอง",
+      "ห้าม commit, log, paste, upload หรือส่ง secret, token, password, private key, connection string หรือ credential file ไปยัง repository, PR, issue, log หรือบริการภายนอก"
+    ],
+    "environment": [
+      "$defaults",
+      "Organization: ใช้บัญชี GitHub {{github_owner}} สำหรับงานพัฒนาซอฟต์แวร์ส่วนตัวและ private repositories",
+      "Primary use of Claude Code: software development, code review, testing, local containers และ multi-agent engineering workflow",
+      "Source control: github.com/{{github_owner}} และ repositories ภายใต้ namespace นี้เป็น trusted source-control destination",
+      "Trusted repo: current repository และทุก Git repository ภายใต้ ${HOME}/Desktop/Project เป็น Development Trust Zone",
+      "Repository visibility: ใช้สถานะจริงของแต่ละ repository; private repository รับ confidential source ได้แต่ไม่รับ secret",
+      "Trusted internal domains: {{trusted_domains}}, localhost, 127.0.0.1 และ host.docker.internal",
+      "Key internal services: local development services, local databases, local Docker และ internal API ที่ {{trusted_domains}}",
+      "Internal package registry: ไม่มี private registry ที่ประกาศไว้; public registries ใน sandbox.network.allowedDomains ใช้สำหรับ dependency installation",
+      "Secrets management: development secret อยู่ในไฟล์ env ที่ถูก gitignore หรือ credential store ของ CLI; ห้ามพิมพ์หรือ commit ค่า secret",
+      "Sensitive data locations & audiences: .env.production*, .env.prod*, credential stores, keychains, ~/.ssh, ~/.aws, ~/.azure, ~/.kube, ~/.config/gh และ ~/.codex/auth.json ใช้ได้เฉพาะผ่าน CLI เจ้าของ credential และห้ามเปิดเผยเนื้อหา",
+      "Sensitive remote targets: hostname, namespace, container, database หรือ environment ที่มี prod หรือ production เป็นชื่อหรือ segment ให้ถือเป็น production",
+      "Protected IaC scopes: IAM, RBAC, network, DNS, quota, node pool และ resource ที่อยู่ใน production",
+      "Additional context: main และ develop เป็น protected branches ตาม policy; PR merge เป็นการตัดสินใจของ user"
+    ],
+    "classifyAllShell": true
+  },
+  "language": "thai",
+  "effortLevel": "high",
+  "advisorModel": "opus",
+  "_note": "sanitized reference: plugin, marketplace, hook, statusLine, env and model keys removed; machine-specific values replaced by placeholders"
+}

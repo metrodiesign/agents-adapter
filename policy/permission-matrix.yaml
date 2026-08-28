@@ -1,0 +1,253 @@
+# Machine-readable permission matrix ของ agents-adapter
+# rule id คงที่ ห้ามเปลี่ยนชื่อ ให้เพิ่ม rule ใหม่แทน
+# decision: ALLOW | ASK | DENY
+# enforcement: ชั้นที่ต้องบังคับใช้ขั้นต่ำ (behavioral = prompt เท่านั้น, native = permission rule ของ CLI, runtime = hook/extension, isolation = OS sandbox)
+version: 1
+rules:
+  # filesystem
+  - id: FS_READ_SOURCE
+    category: filesystem
+    decision: ALLOW
+    description: อ่าน source ใน trusted repository
+  - id: FS_WRITE_SOURCE
+    category: filesystem
+    decision: ALLOW
+    description: แก้ source ใน trusted repository
+  - id: FS_CREATE_PROJECT_FILE
+    category: filesystem
+    decision: ALLOW
+    description: สร้างไฟล์ใน project
+  - id: OUTSIDE_TRUST_ZONE
+    category: filesystem
+    decision: ASK
+    description: อ่านหรือแก้ path/repository นอก Development Trust Zone
+  - id: SYSTEM_CONFIG_CHANGE
+    category: filesystem
+    decision: ASK
+    description: แก้ shell startup file, git global config หรือ system-wide configuration
+
+  # environment files
+  - id: DEV_ENV_READ
+    category: env
+    decision: ALLOW
+    description: อ่าน development env ผ่าน file tool เพื่อ build/test/debug
+  - id: DEV_ENV_WRITE
+    category: env
+    decision: ALLOW
+    description: แก้ development env
+  - id: DEV_ENV_PRINT
+    category: env
+    decision: DENY
+    description: แสดงค่า secret จาก development env ออกทาง shell output
+  - id: PROD_ENV_READ
+    category: env
+    decision: DENY
+    description: อ่าน production env
+  - id: PROD_ENV_WRITE
+    category: env
+    decision: DENY
+    description: แก้ production env
+
+  # credentials
+  - id: CREDENTIAL_READ
+    category: credential
+    decision: DENY
+    description: อ่าน auth/token/keychain/private key file รวมถึง gh auth token
+  - id: CREDENTIAL_WRITE
+    category: credential
+    decision: DENY
+    description: แก้หรือลบ credential file
+
+  # build / test
+  - id: BUILD
+    category: build
+    decision: ALLOW
+    description: build project
+  - id: TEST
+    category: build
+    decision: ALLOW
+    description: รัน test
+  - id: LINT
+    category: build
+    decision: ALLOW
+    description: รัน lint / type-check / static analysis / formatter
+  - id: SHELL_READ_ONLY
+    category: build
+    decision: ALLOW
+    description: คำสั่ง shell อ่านอย่างเดียวทั่วไป เช่น ls, grep, cat บนไฟล์ทั่วไป
+  - id: UNKNOWN_COMMAND
+    category: build
+    decision: ASK
+    description: คำสั่งที่ policy ไม่รู้จัก ให้ถามก่อน
+
+  # dependencies
+  - id: LOCAL_DEP_INSTALL
+    category: dependency
+    decision: ALLOW
+    description: ติดตั้ง dependency แบบ project-local พร้อม lock file
+  - id: GLOBAL_DEP_INSTALL
+    category: dependency
+    decision: ASK
+    description: ติดตั้ง package แบบ global
+
+  # docker
+  - id: LOCAL_DOCKER_BUILD
+    category: docker
+    decision: ALLOW
+    description: docker build สำหรับ local development
+  - id: LOCAL_DOCKER_UP
+    category: docker
+    decision: ALLOW
+    description: docker compose up/start/stop/restart/logs/exec/run
+  - id: DOCKER_PRUNE
+    category: docker
+    decision: ASK
+    description: prune หรือ rm image/container/system
+  - id: DOCKER_DELETE_VOLUME
+    category: docker
+    decision: ASK
+    description: ลบ volume รวม compose down --volumes
+
+  # git
+  - id: GIT_STATUS
+    category: git
+    decision: ALLOW
+    description: git status/diff/log/show/fetch และคำสั่งอ่านอื่น
+  - id: GIT_COMMIT
+    category: git
+    decision: ALLOW
+    description: git add/commit/switch/checkout/merge/rebase/stash บน local branch
+  - id: GIT_PUSH_FEATURE
+    category: git
+    decision: ALLOW
+    description: push feature branch ที่ระบุ remote และชื่อ branch ชัดเจน
+  - id: GIT_PUSH_BARE
+    category: git
+    decision: DENY
+    description: git push ที่ไม่ระบุ refspec
+  - id: GIT_PUSH_HEAD
+    category: git
+    decision: DENY
+    description: push ด้วย HEAD เป็น source ref
+  - id: GIT_PUSH_PROTECTED
+    category: git
+    decision: DENY
+    description: push เข้า protected branch
+  - id: GIT_FORCE_PUSH
+    category: git
+    decision: DENY
+    description: force push ทุกชนิด รวม --force-with-lease และ +refspec
+  - id: GIT_REMOTE_DELETE
+    category: git
+    decision: ASK
+    description: ลบ remote branch หรือ tag ด้วย push --delete หรือ :ref
+  - id: GIT_REMOTE_CHANGE
+    category: git
+    decision: ASK
+    description: เพิ่ม/เปลี่ยน/ลบ git remote
+  - id: GIT_RESET_HARD
+    category: git
+    decision: ASK
+    description: git reset --hard
+  - id: GIT_CLEAN
+    category: git
+    decision: ASK
+    description: git clean แบบ force
+  - id: GIT_BRANCH_FORCE_DELETE
+    category: git
+    decision: ASK
+    description: ลบ local branch แบบบังคับ หรือลบ tag
+
+  # github
+  - id: GH_READ
+    category: github
+    decision: ALLOW
+    description: gh คำสั่งอ่าน เช่น pr view, run list, repo view, auth status
+  - id: GH_PR_CREATE
+    category: github
+    decision: ALLOW
+    description: สร้าง pull request
+  - id: GH_PR_UPDATE
+    category: github
+    decision: ALLOW
+    description: update/comment/review pull request หรือ issue
+  - id: GH_PR_MERGE
+    category: github
+    decision: DENY
+    description: merge pull request หรือเปิด auto-merge
+  - id: GH_REPO_CREATE
+    category: github
+    decision: ASK
+    description: สร้าง repository, release หรือปิด PR/issue
+  - id: GH_REPO_DELETE
+    category: github
+    decision: DENY
+    description: ลบ repository
+  - id: GH_AUTH_CHANGE
+    category: github
+    decision: ASK
+    description: gh auth login/logout หรือเปลี่ยน authentication
+  - id: GH_SECRET_MANAGE
+    category: github
+    decision: DENY
+    description: gh secret set/delete
+  - id: GH_DELETE_FILE
+    category: github
+    decision: ASK
+    description: ลบไฟล์ผ่าน GitHub connector โดยไม่ได้รับ approval
+  - id: PUBLIC_GIST
+    category: github
+    decision: DENY
+    description: สร้าง gist หรือ public paste
+  - id: PIPE_TO_SHELL
+    category: security
+    decision: DENY
+    description: curl/wget pipe เข้า shell
+
+  # pi
+  - id: PI_SHARE
+    category: share
+    decision: DENY
+    description: Pi /share หรือ session export ไปบริการภายนอก
+
+  # deploy / production
+  - id: STAGING_DEPLOY
+    category: deploy
+    decision: ASK
+    description: deploy staging หรือ shared environment
+  - id: PROD_DEPLOY
+    category: deploy
+    decision: ASK
+    description: deploy production ต้องมี target, impact, backup, rollback และ verification plan
+  - id: PROD_DB_WRITE
+    category: deploy
+    decision: ASK
+    description: เขียน production database
+  - id: PROD_DESTRUCTIVE_DB
+    category: deploy
+    decision: ASK
+    description: destructive production DB ต้องมี backup และ rollback plan
+  - id: LOCAL_DESTRUCTIVE_DB
+    category: destructive
+    decision: ASK
+    description: destructive DB command บน local/dev เช่น drop, truncate, migrate reset
+
+  # destructive local
+  - id: DESTRUCTIVE_DELETE
+    category: destructive
+    decision: ASK
+    description: rm -rf และการลบแบบ recursive force
+
+  # safety
+  - id: SAFETY_BYPASS
+    category: security
+    decision: DENY
+    description: permission/sandbox/hook bypass flag
+  - id: PRIVILEGE_ESCALATION
+    category: security
+    decision: DENY
+    description: sudo/doas หรือ privileged execution
+  - id: SHELL_SUBSTITUTION
+    category: security
+    decision: ASK
+    description: command substitution หรือ shell feature ที่ทำให้ตรวจสอบ target ไม่ได้

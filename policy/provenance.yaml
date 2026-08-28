@@ -1,0 +1,63 @@
+# ที่มาของแต่ละ rule ใน permission-matrix.yaml เทียบกับ Claude reference (sanitized)
+# source:
+#   claude_md  = reference/claude/CLAUDE.sanitized.md (ระบุ heading)
+#   settings   = reference/claude/settings.sanitized.json (ระบุ JSON path)
+#   derived    = สรุปจากหลายข้อหรือเติมเพื่อปิดช่องว่างที่ CLI อื่นต้องการ
+version: 1
+rules:
+  FS_READ_SOURCE: { source: claude_md, section: "Development Trust Zone" }
+  FS_WRITE_SOURCE: { source: claude_md, section: "Development Trust Zone" }
+  FS_CREATE_PROJECT_FILE: { source: claude_md, section: "Development Trust Zone" }
+  OUTSIDE_TRUST_ZONE: { source: claude_md, section: "Approval boundary" }
+  SYSTEM_CONFIG_CHANGE: { source: settings, path: "permissions.ask[git config --global]" }
+  DEV_ENV_READ: { source: claude_md, section: "กฎ Environment และ Secret" }
+  DEV_ENV_WRITE: { source: claude_md, section: "กฎ Environment และ Secret" }
+  DEV_ENV_PRINT: { source: claude_md, section: "Hard boundary (ห้าม log/paste secret)" }
+  PROD_ENV_READ: { source: settings, path: "permissions.deny[Read(**/.env.production)]" }
+  PROD_ENV_WRITE: { source: settings, path: "permissions.deny[Edit(**/.env.production)]" }
+  CREDENTIAL_READ: { source: settings, path: "permissions.deny[Read(~/.ssh/**) ...], sandbox.credentials.files" }
+  CREDENTIAL_WRITE: { source: settings, path: "permissions.deny[Edit(~/.ssh/**) ...]" }
+  BUILD: { source: claude_md, section: "Development Trust Zone" }
+  TEST: { source: claude_md, section: "Development Trust Zone" }
+  LINT: { source: claude_md, section: "Development Trust Zone" }
+  SHELL_READ_ONLY: { source: derived, note: "Claude autoMode $defaults อนุญาต read-only shell; ทำให้ explicit เพื่อ Pi/Codex" }
+  UNKNOWN_COMMAND: { source: derived, note: "Claude ใช้ classifier ตัดสิน; CLI อื่นไม่มี จึง ASK" }
+  LOCAL_DEP_INSTALL: { source: claude_md, section: "Development Trust Zone" }
+  GLOBAL_DEP_INSTALL: { source: settings, path: "permissions.ask[npm install -g *, brew install *]" }
+  LOCAL_DOCKER_BUILD: { source: settings, path: "autoMode.allow[local Docker operations]" }
+  LOCAL_DOCKER_UP: { source: settings, path: "autoMode.allow[local Docker operations]" }
+  DOCKER_PRUNE: { source: settings, path: "permissions.ask[docker * prune *, docker image rm *]" }
+  DOCKER_DELETE_VOLUME: { source: settings, path: "permissions.ask[docker volume rm *, docker compose down --volumes]" }
+  GIT_STATUS: { source: claude_md, section: "Development Trust Zone" }
+  GIT_COMMIT: { source: claude_md, section: "Development Trust Zone" }
+  GIT_PUSH_FEATURE: { source: claude_md, section: "Git และ GitHub workflow" }
+  GIT_PUSH_BARE: { source: settings, path: "permissions.deny[git push, git push origin]" }
+  GIT_PUSH_HEAD: { source: settings, path: "permissions.deny[git push * HEAD, *HEAD:main*]" }
+  GIT_PUSH_PROTECTED: { source: settings, path: "permissions.deny[git push * main, *refs/heads/main*]" }
+  GIT_FORCE_PUSH: { source: settings, path: "permissions.deny[git push *--force*, git push * +*]" }
+  GIT_REMOTE_DELETE: { source: settings, path: "permissions.ask[git push * --delete *, git push * :*]" }
+  GIT_REMOTE_CHANGE: { source: settings, path: "permissions.ask[git remote add/set-url/remove/rename]" }
+  GIT_RESET_HARD: { source: settings, path: "permissions.ask[git reset --hard *]" }
+  GIT_CLEAN: { source: settings, path: "permissions.ask[git clean -f*]" }
+  GIT_BRANCH_FORCE_DELETE: { source: settings, path: "permissions.ask[git branch -D *, git tag -d *]" }
+  GH_READ: { source: settings, path: "permissions.allow[gh pr view *, gh run list * ...]" }
+  GH_PR_CREATE: { source: settings, path: "permissions.allow[gh pr create *]" }
+  GH_PR_UPDATE: { source: settings, path: "permissions.allow[gh pr comment *, gh issue comment *]" }
+  GH_PR_MERGE: { source: settings, path: "permissions.deny[gh pr merge *]" }
+  GH_REPO_CREATE: { source: settings, path: "permissions.ask[gh repo create *, gh release create *, gh pr close *]" }
+  GH_REPO_DELETE: { source: settings, path: "permissions.deny[gh repo delete *]" }
+  GH_AUTH_CHANGE: { source: settings, path: "permissions.ask[gh auth login *, gh auth logout *]" }
+  GH_SECRET_MANAGE: { source: settings, path: "permissions.deny[gh secret *]" }
+  GH_DELETE_FILE: { source: derived, note: "GitHub connector delete_file ต้องมี approval (Codex-only tool)" }
+  PUBLIC_GIST: { source: settings, path: "permissions.deny[gh gist *]" }
+  PIPE_TO_SHELL: { source: settings, path: "permissions.deny[curl* | sh, wget* | bash]" }
+  PI_SHARE: { source: derived, note: "Pi /share อัปโหลด session ออกนอกเครื่อง เทียบเท่า public gist" }
+  STAGING_DEPLOY: { source: claude_md, section: "Approval boundary" }
+  PROD_DEPLOY: { source: claude_md, section: "Deploy และ release" }
+  PROD_DB_WRITE: { source: claude_md, section: "Destructive operations" }
+  PROD_DESTRUCTIVE_DB: { source: claude_md, section: "Destructive operations" }
+  LOCAL_DESTRUCTIVE_DB: { source: claude_md, section: "Approval boundary (destructive migration, database reset)" }
+  DESTRUCTIVE_DELETE: { source: settings, path: "permissions.ask[rm -rf *]" }
+  SAFETY_BYPASS: { source: settings, path: "permissions.deny[*--dangerously-skip-permissions*]" }
+  PRIVILEGE_ESCALATION: { source: settings, path: "permissions.deny[sudo *]" }
+  SHELL_SUBSTITUTION: { source: derived, note: "Codex rules ข้าม command ที่มี substitution; ทำให้เป็น ASK ทุก CLI เพื่อ parity" }

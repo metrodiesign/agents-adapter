@@ -1,0 +1,35 @@
+# Pi isolation profile: host-macos
+# ใช้กับงานที่ต้องเข้าถึง Xcode, Simulator, Keychain ผ่าน CLI เจ้าของ credential, Docker Desktop, GUI และ gh
+profile: host-macos
+enforcement:
+  policy_gate: extension
+  protected_paths: extension
+  user_bash: extension
+  share: extension
+  os_isolation: none
+capabilities_required:
+  - pi >= 0.84
+limitations:
+  # extension ตรวจได้เฉพาะ argument ของ tool call; โค้ดที่ model เขียนแล้วรันเอง (เช่น python script ที่เปิด ~/.ssh)
+  # ไม่ผ่าน gate จึงถือว่า CREDENTIAL_READ / PROD_ENV_READ บน host เป็น best-effort ไม่ใช่ hard boundary
+  - rule: CREDENTIAL_READ
+    status: best-effort
+    fallback: isolated
+  - rule: PROD_ENV_READ
+    status: best-effort
+    fallback: isolated
+  - rule: SAFETY_BYPASS
+    status: best-effort
+    note: user สามารถรัน pi --no-extensions เองได้ นโยบายห้ามแต่บังคับไม่ได้บน host
+hard_boundaries_enforced_on_host:
+  - GIT_PUSH_PROTECTED
+  - GIT_FORCE_PUSH
+  - GIT_PUSH_BARE
+  - GIT_PUSH_HEAD
+  - GH_PR_MERGE
+  - GH_REPO_DELETE
+  - PUBLIC_GIST
+  - PI_SHARE
+  - PIPE_TO_SHELL
+  - PRIVILEGE_ESCALATION
+launch: pi

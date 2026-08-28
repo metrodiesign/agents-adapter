@@ -1,0 +1,69 @@
+# credential และ path อ่อนไหวที่ต้อง deny ทั้งอ่านและเขียนในทุก CLI
+# ค่า ${HOME} จะถูกแทนด้วย home directory ของเครื่องตอน generate
+version: 1
+credential_paths:
+  - "${HOME}/.ssh"
+  - "${HOME}/.aws"
+  - "${HOME}/.azure"
+  - "${HOME}/.gnupg"
+  - "${HOME}/.kube"
+  - "${HOME}/.config/gcloud"
+  - "${HOME}/.config/gh"
+  - "${HOME}/.git-credentials"
+  - "${HOME}/.netrc"
+  - "${HOME}/.npmrc"
+  - "${HOME}/.pypirc"
+  - "${HOME}/.docker/config.json"
+  - "${HOME}/Library/Keychains"
+  - "${HOME}/.codex/auth.json"
+  - "${HOME}/.claude/.credentials.json"
+  - "${HOME}/.claude.json"
+  - "${HOME}/.pi/agent/auth.json"
+  - "${HOME}/.config/agents-adapter/config.yaml"
+
+# basename ที่ถือเป็น credential ไม่ว่าอยู่ที่ไหน
+credential_basenames:
+  - "id_rsa"
+  - "id_ed25519"
+  - "id_ecdsa"
+  - "auth.json"
+  - "credentials.json"
+  - ".git-credentials"
+  - ".netrc"
+
+# นามสกุลไฟล์ที่ถือเป็น key material
+credential_extensions:
+  - ".pem"
+  - ".key"
+  - ".p12"
+  - ".pfx"
+  - ".jks"
+  - ".keystore"
+
+# shell startup และ system config: ASK ก่อนแก้
+system_config_paths:
+  - "${HOME}/.zshrc"
+  - "${HOME}/.zprofile"
+  - "${HOME}/.zshenv"
+  - "${HOME}/.bashrc"
+  - "${HOME}/.bash_profile"
+  - "${HOME}/.profile"
+  - "${HOME}/.gitconfig"
+  - "/etc"
+  - "/usr/local/etc"
+  - "/opt/homebrew/etc"
+
+# env var ที่ห้ามส่งเข้า subprocess ของ agent
+credential_env_vars:
+  - ANTHROPIC_API_KEY
+  - ANTHROPIC_AUTH_TOKEN
+  - OPENAI_API_KEY
+  - GITHUB_TOKEN
+  - GH_TOKEN
+  - NPM_TOKEN
+  - NODE_AUTH_TOKEN
+  - AWS_ACCESS_KEY_ID
+  - AWS_SECRET_ACCESS_KEY
+  - AWS_SESSION_TOKEN
+  - AZURE_CLIENT_SECRET
+  - CLOUDFLARE_API_TOKEN

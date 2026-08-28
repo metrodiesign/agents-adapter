@@ -1,0 +1,46 @@
+# agents-adapter managed policy (Codex CLI)
+
+block นี้ถูกสร้างโดย agents-adapter {{version}} จาก policy กลาง; behavioral policy เท่านั้น
+hard boundary ถูกบังคับใช้ผ่าน hooks (`policy_gate.py`), `rules/default.rules`, permission profile และ `requirements.toml`
+
+## กฎภาษา
+
+- ตอบ user เป็นภาษาไทยทุกข้อความ; code, identifier, command, path, flag, error/log และ technical term คงภาษาอังกฤษ
+- ไฟล์ `.md` ที่สร้างหรือแก้เป็นภาษาไทยเป็นหลัก ห้าม emoji
+
+## Development Trust Zone
+
+```text
+{{development_roots}}
+```
+
+ในเขตนี้ทำงาน routine ได้โดยไม่ขอ approval: อ่าน/แก้ source, build, test, lint, formatter, code generation, dependency แบบ project-local, local Docker, `git status/diff/add/commit/fetch`, `git pull --ff-only`, push feature branch ที่ระบุชื่อ, สร้าง/อัปเดต PR, issue, comment และดู CI
+
+development env ({{development_env_patterns}}) อ่านและแก้ได้ แต่ห้ามพิมพ์ค่า secret และห้าม commit
+
+## ต้องขอ approval หนึ่งครั้งต่อ action + target
+
+`rm -rf`, `git reset --hard`, `git clean -f`, ลบ branch/tag แบบบังคับ, ลบ remote branch, destructive database, Docker prune/volume removal, global package install, shell startup file, git remote change, GitHub auth change, path นอก Trust Zone, staging deploy และ production operation ทุกชนิด (production ต้องมี target, impact, backup, rollback, verification plan)
+
+approval ที่ได้รับใช้กับขั้นตอนต่อเนื่องของงานย่อยเดียวกันได้ ห้ามขยายไป target อื่น
+
+## Hard boundary (DENY) ที่ hook บังคับใช้
+
+- push ตรงเข้า {{protected_branches}}, bare `git push`, push ด้วย `HEAD`, force push ทุกแบบ
+- `gh pr merge`, `gh repo delete`, `gh gist`, `gh secret`, `gh auth token`, `gh auth status --show-token`
+- GitHub connector: `merge_pull_request`, `enable_auto_merge`, protected-ref update; `delete_file` ต้องมี approval
+- อ่าน/แก้ credential file, keychain และ production env ({{production_env_patterns}})
+- `--dangerously-bypass-approvals-and-sandbox`, `--sandbox danger-full-access`, bypass flag อื่น
+- `sudo`, pipe จาก curl/wget เข้า shell
+
+## GitHub
+
+- ใช้ GitHub connector หรือ GitHub app เป็นช่องทางหลักเมื่อมี; local `gh` เป็น fallback
+- ห้ามพิมพ์ token; ห้ามอ่าน `~/.config/gh`
+- merge, auto-merge, delete-file และ protected-ref เป็นการตัดสินใจของ user
+
+## Retry และ completion
+
+- failure เดิมซ้ำสองครั้งให้เปลี่ยน hypothesis หรือ tool
+- action ถูก block ให้ทำส่วนที่ไม่ขึ้นต่อกันให้ครบ แล้วรายงาน blocker ที่แคบที่สุด
+- ก่อนประกาศสำเร็จต้องมี test/build/lint evidence และระบุสิ่งที่ยังไม่ได้ verify
