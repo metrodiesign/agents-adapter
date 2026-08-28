@@ -4,6 +4,7 @@ import { parse as parseToml } from "smol-toml";
 import { ADAPTERS } from "../adapters/index.ts";
 import type { DetectedCapabilities } from "../adapters/types.ts";
 import type { Environment } from "../config/loader.ts";
+import { nativeProdEnvGlobs } from "../core/paths.ts";
 import { loadMatrix } from "../core/policy-loader.ts";
 import { runParity } from "../parity/harness.ts";
 import { detectCapabilities } from "./capabilities.ts";
@@ -62,7 +63,7 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
       const ghRead = fsTable["~/.config/gh"] === "read";
       checks.push({ level: ghRead ? "FAIL" : "PASS", name: "credential exposure (gh config)", detail: ghRead ? "~/.config/gh readable by shell" : "gh config not readable" });
       const ws = (fsTable[":workspace_roots"] ?? {}) as Record<string, unknown>;
-      const prodDenied = env.ctx.prodEnvPatterns.every((p) => ws[`**/${p}`] === "deny");
+      const prodDenied = nativeProdEnvGlobs(env.ctx.prodEnvPatterns).every((p) => ws[`**/${p}`] === "deny");
       checks.push({ level: prodDenied ? "PASS" : "WARN", name: "production env exposure (codex)", detail: prodDenied ? "production env denied" : "production env not denied in workspace roots" });
       const hooksState = (doc.hooks as Record<string, unknown> | undefined)?.state as Record<string, unknown> | undefined;
       const hooksJson = path.join(env.home, ".codex", "hooks.json");
