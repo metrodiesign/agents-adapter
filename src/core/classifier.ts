@@ -77,7 +77,7 @@ function classifySegment(seg: SimpleCommand, next: SimpleCommand | undefined, c:
   out.push(...classifyWordPaths(seg, name, c));
 
   // 4. substitution: ทำให้ ALLOW กลายเป็น ASK
-  if (seg.hasSubstitution) out.push(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified"));
+  if (seg.hasSubstitution) out.push(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", seg.words.join(" ")));
   return out;
 }
 

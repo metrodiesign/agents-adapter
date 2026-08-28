@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { nativeProdEnvGlobs } from "../../core/paths.ts";
 import * as path from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import type { Environment } from "../../config/loader.ts";
@@ -36,7 +37,8 @@ export function codexFilesystemManaged(env: Environment): { profile: Record<stri
   profile["/opt/homebrew"] = "read";
   profile["/usr/local"] = "read";
   const workspace: Record<string, string> = { ".": "write", ".git": "write" };
-  for (const pat of ctx.prodEnvPatterns) workspace[`**/${pat}`] = "deny";
+  const prodGlobs = nativeProdEnvGlobs(ctx.prodEnvPatterns);
+  for (const pat of prodGlobs) workspace[`**/${pat}`] = "deny";
   for (const ext of ctx.credentialExtensions) workspace[`**/*${ext}`] = "deny";
   for (const base of ctx.credentialBasenames) workspace[`**/${base}`] = "deny";
   workspace[".env.example"] = "write";
@@ -107,8 +109,8 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
   }
   const ws = ensureObj(fsTable, [":workspace_roots"]);
   for (const k of Object.keys(ws)) {
-    if (fsm.removeWorkspaceKeysPrefix.some((p) => k.startsWith(p)) && ws[k] === "deny" && !env.ctx.prodEnvPatterns.some((pp) => k === `**/${pp}`)) {
-      conflicts.push(`workspace_roots["${k}"] = "deny" removed (development env must stay readable/writable)`);
+    if (fsm.removeWorkspaceKeysPrefix.some((p) => k.startsWith(p)) && ws[k] === "deny" && !(`**/${k.replace(/^\*\*\//, "")}` in fsm.workspace)) {
+      conflicts.push(`workspace_roots["${k}"] = "deny" removed (not a managed production env glob; development env must stay readable/writable)`);
       delete ws[k];
     }
   }

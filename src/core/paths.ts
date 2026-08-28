@@ -46,6 +46,26 @@ export function isUnder(target: string, root: string): boolean {
 }
 
 /** glob แบบ basename: รองรับ * เท่านั้น */
+const ENV_TEMPLATE_SUFFIXES = [".example", ".sample", ".dist", ".template"];
+/** suffix ที่ native glob (Claude permissions.deny, Codex sandbox) ใช้แทน `*` เพราะ glob ไม่มี negation ให้ยกเว้น template; ชื่ออื่นยังโดน classifier (hook) จับผ่าน wildcard */
+const PROD_ENV_NATIVE_SUFFIXES = ["local", "bak", "backup", "old", "orig", "secret", "secrets", "enc", "vault", "live"];
+
+/** ขยาย prod env pattern ที่มี `*` เป็น glob เจาะจงสำหรับ native layer; pattern ที่ไม่มี `*` คงเดิม */
+export function nativeProdEnvGlobs(patterns: string[]): string[] {
+  const out: string[] = [];
+  for (const pat of patterns) {
+    if (!pat.includes("*")) { out.push(pat); continue; }
+    for (const suf of PROD_ENV_NATIVE_SUFFIXES) out.push(pat.replace("*", suf));
+  }
+  return out;
+}
+
+/** ไฟล์ env ที่เป็น template (.example/.sample/.dist/.template) ไม่ถือเป็น env จริง */
+export function isEnvTemplate(basename: string): boolean {
+  const lower = basename.toLowerCase();
+  return ENV_TEMPLATE_SUFFIXES.some((suf) => lower.endsWith(suf));
+}
+
 export function basenameMatches(basename: string, patterns: string[]): boolean {
   return patterns.some((pat) => {
     const re = new RegExp("^" + pat.split("*").map(escapeRegex).join(".*") + "$");
@@ -77,7 +97,9 @@ export function classifyPathKind(raw: string, ctx: PolicyContext): PathClass {
   ) {
     return { kind: "credential", resolved };
   }
-  if (basenameMatches(base, ctx.prodEnvPatterns)) return { kind: "prod_env", resolved };
+  // .env.prod.example / .env.sample / .env.dist / .env.template เป็น template ค่าปลอมที่ commit ได้ ไม่ใช่ env จริง
+  const envTemplate = isEnvTemplate(base);
+  if (!envTemplate && basenameMatches(base, ctx.prodEnvPatterns)) return { kind: "prod_env", resolved };
 
   const trustedRoots = [...ctx.developmentRoots, ctx.cwd, ...ctx.alwaysWritable, ...ctx.agentConfigDirs]
     .map((p) => expandPath(p, ctx))
@@ -88,7 +110,7 @@ export function classifyPathKind(raw: string, ctx: PolicyContext): PathClass {
   const systemRoots = ctx.systemConfigPaths.map((p) => resolveReal(expandPath(p, ctx), ctx));
   if (candidates.some((c) => systemRoots.some((root) => isUnder(c, root)))) return { kind: "system_config", resolved };
 
-  if (basenameMatches(base, ctx.devEnvPatterns)) {
+  if (!envTemplate && basenameMatches(base, ctx.devEnvPatterns)) {
     return { kind: inZone ? "dev_env" : "outside", resolved };
   }
   if (inZone) return { kind: "trusted", resolved };
@@ -130,7 +152,7 @@ export function looksLikePath(word: string, ctx: PolicyContext): boolean {
   if (word.startsWith("/") || word.startsWith("~") || word.startsWith("./") || word.startsWith("../") || word.startsWith("$HOME") || word.startsWith("${HOME}")) return true;
   if (word.includes("/")) return true;
   const base = path.basename(word);
-  if (basenameMatches(base, ctx.devEnvPatterns) || basenameMatches(base, ctx.prodEnvPatterns)) return true;
+  if (!isEnvTemplate(base) && (basenameMatches(base, ctx.devEnvPatterns) || basenameMatches(base, ctx.prodEnvPatterns))) return true;
   if (ctx.credentialBasenames.includes(base)) return true;
   if (ctx.credentialExtensions.includes(path.extname(base).toLowerCase())) return true;
   return false;

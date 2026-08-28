@@ -404,6 +404,14 @@ def is_under(target: str, root: str) -> bool:
     return rel == "." or (not rel.startswith("..") and not os.path.isabs(rel))
 
 
+ENV_TEMPLATE_SUFFIXES = (".example", ".sample", ".dist", ".template")
+
+
+def is_env_template(basename: str) -> bool:
+    """ไฟล์ env ที่เป็น template (.example/.sample/.dist/.template) ไม่ถือเป็น env จริง"""
+    return basename.lower().endswith(ENV_TEMPLATE_SUFFIXES)
+
+
 def basename_matches(basename: str, patterns: list[str]) -> bool:
     for pat in patterns:
         regex = "^" + ".*".join(re.escape(part) for part in pat.split("*")) + "$"
@@ -426,7 +434,9 @@ def classify_path_kind(raw: str, ctx: PolicyContext) -> tuple[str, str]:
         or ext in ctx.credential_extensions
     ):
         return "credential", resolved
-    if basename_matches(base, ctx.prod_env_patterns):
+    # .env.prod.example / .env.sample / .env.dist / .env.template เป็น template ค่าปลอมที่ commit ได้ ไม่ใช่ env จริง
+    env_template = is_env_template(base)
+    if not env_template and basename_matches(base, ctx.prod_env_patterns):
         return "prod_env", resolved
 
     trusted_roots = [
@@ -440,7 +450,7 @@ def classify_path_kind(raw: str, ctx: PolicyContext) -> tuple[str, str]:
     if any(is_under(c, root) for c in candidates for root in system_roots):
         return "system_config", resolved
 
-    if basename_matches(base, ctx.dev_env_patterns):
+    if not env_template and basename_matches(base, ctx.dev_env_patterns):
         return ("dev_env" if in_zone else "outside"), resolved
     if in_zone:
         return "trusted", resolved
@@ -483,7 +493,7 @@ def looks_like_path(word: str, ctx: PolicyContext) -> bool:
     if "/" in word:
         return True
     base = os.path.basename(word)
-    if basename_matches(base, ctx.dev_env_patterns) or basename_matches(base, ctx.prod_env_patterns):
+    if not is_env_template(base) and (basename_matches(base, ctx.dev_env_patterns) or basename_matches(base, ctx.prod_env_patterns)):
         return True
     if base in ctx.credential_basenames:
         return True
@@ -556,7 +566,7 @@ def _classify_segment(seg: SimpleCommand, nxt: Optional[SimpleCommand], ctx: Pol
         out.extend(_classify_by_command(name, words, seg, nxt, ctx))
     out.extend(_classify_word_paths(seg, name, ctx))
     if seg.has_substitution:
-        out.append(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified"))
+        out.append(verdict("ASK", "SHELL_SUBSTITUTION", "command substitution cannot be verified", " ".join(seg.words)))
     return out
 
 

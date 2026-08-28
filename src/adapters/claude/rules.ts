@@ -3,6 +3,7 @@
  * pattern semantics ของ Claude: Bash(prefix *) = prefix match, Bash(exact) = exact, * = wildcard
  */
 import * as fs from "node:fs";
+import { nativeProdEnvGlobs } from "../../core/paths.ts";
 import * as path from "node:path";
 import type { PolicyContext } from "../../core/context.ts";
 import { REPO_ROOT } from "../../core/policy-loader.ts";
@@ -63,7 +64,7 @@ export function claudePatterns(config: UserConfig, ctx: PolicyContext): ClaudePa
     const suffix = isFileLike(tilde) ? "" : "/**";
     deny.push(`Read(${tilde}${suffix})`, `Edit(${tilde}${suffix})`);
   }
-  for (const pat of ctx.prodEnvPatterns) {
+  for (const pat of nativeProdEnvGlobs(ctx.prodEnvPatterns)) {
     deny.push(`Read(**/${pat})`, `Edit(**/${pat})`);
   }
 
