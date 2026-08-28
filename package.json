@@ -27,7 +27,7 @@
     "yaml": "2.9.0"
   },
   "devDependencies": {
-    "@types/node": "24.10.1",
+    "@types/node": "26.3.0",
     "typescript": "7.0.2"
   }
 }
