@@ -702,10 +702,13 @@ export function classifyTool(call: ToolCall, ctx: PolicyContext): Verdict {
   const raw = call.toolName;
   let name = raw.toLowerCase();
   const input = call.input ?? {};
-  const mcpMatch = name.match(/^mcp__([^_]+)__(.+)$/);
-  const isGithubConnector = name.startsWith("github.") || (mcpMatch !== null && mcpMatch[1].includes("github")) || (mcpMatch === null && GITHUB_TOOL_NAMES.has(name));
-  if (mcpMatch) name = mcpMatch[2];
+  // mcp__<server>__<tool>: server อาจมี `_` เดี่ยว (codex_apps) และ tool อาจมี namespace app นำหน้า (github__get_profile)
+  const mcpParts = name.startsWith("mcp__") ? name.slice("mcp__".length).split("__") : null;
+  const mcpServer = mcpParts && mcpParts.length >= 2 ? mcpParts[0] : null;
+  if (mcpParts && mcpParts.length >= 2) name = mcpParts.slice(1).join("__");
+  const isGithubConnector = name.startsWith("github.") || name.startsWith("github__") || (mcpServer !== null && mcpServer.includes("github")) || (mcpServer === null && GITHUB_TOOL_NAMES.has(name));
   if (name.startsWith("github.")) name = name.slice("github.".length);
+  else if (name.startsWith("github__")) name = name.slice("github__".length);
 
   if (isGithubConnector) return classifyGithubTool(name, input, ctx);
 
