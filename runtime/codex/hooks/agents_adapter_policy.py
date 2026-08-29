@@ -136,6 +136,7 @@ def _tokenize(inp: str) -> list[tuple[str, str, bool]]:
     cur = ""
     in_word = False
     subst = False
+    heredocs: list[tuple[str, bool, bool]] = []
 
     def flush():
         nonlocal cur, in_word, subst
@@ -237,6 +238,26 @@ def _tokenize(inp: str) -> list[tuple[str, str, bool]]:
             continue
         if c in "\n;":
             flush()
+            if c == "\n" and heredocs:
+                # heredoc body: ข้อมูล stdin ไม่ใช่คำสั่ง; delimiter ไม่ quote = shell ขยาย $(...)/backtick ในเนื้อหา จึงตรวจไม่ได้
+                i += 1
+                unsafe_body = False
+                for delim, quoted, strip_tabs in heredocs:
+                    body: list[str] = []
+                    while i < n:
+                        eol = inp.find("\n", i)
+                        if eol < 0:
+                            eol = n
+                        line = inp[i:eol]
+                        i = eol + 1
+                        if (line.lstrip("\t") if strip_tabs else line) == delim:
+                            break
+                        body.append(line)
+                    if not quoted and re.search(r"\$\(|`", "\n".join(body)):
+                        unsafe_body = True
+                heredocs.clear()
+                tokens.append((";", "op", unsafe_body))
+                continue
             tokens.append((";", "op", False))
             i += 1
             continue
@@ -272,6 +293,39 @@ def _tokenize(inp: str) -> list[tuple[str, str, bool]]:
             flush()
             tokens.append((";", "op", True))
             i += 1
+            continue
+        if inp.startswith("<<", i):
+            flush()
+            if inp[i + 2 : i + 3] == "<":
+                # here-string <<< word: ข้อมูล stdin ไม่ใช่ path; _split_segments ทิ้ง target
+                tokens.append(("<<<", "redirect", False))
+                i += 3
+                continue
+            # heredoc << DELIM / <<- DELIM: จำ delimiter ไว้ แล้วข้าม body หลังจบบรรทัด
+            i += 2
+            strip_tabs = inp[i : i + 1] == "-"
+            if strip_tabs:
+                i += 1
+            while i < n and inp[i] in " \t":
+                i += 1
+            quoted = False
+            delim = ""
+            if inp[i : i + 1] in ("'", '"'):
+                q = inp[i]
+                i += 1
+                quoted = True
+                while i < n and inp[i] != q:
+                    delim += inp[i]
+                    i += 1
+                i += 1
+            else:
+                if inp[i : i + 1] == "\\":
+                    quoted = True
+                    i += 1
+                while i < n and not re.match(r"[\s;&|<>()]", inp[i]):
+                    delim += inp[i]
+                    i += 1
+            heredocs.append((delim, quoted, strip_tabs))
             continue
         if c in "<>":
             flush()
@@ -316,7 +370,9 @@ def _split_segments(tokens) -> list[SimpleCommand]:
             pending = text
             continue
         if pending is not None:
-            if pending.startswith("<"):
+            if pending == "<<<":
+                pass  # here-string: word เป็นข้อมูล ไม่ใช่ path
+            elif pending.startswith("<"):
                 seg.redirect_reads.append(text)
             elif not pending.endswith("&"):
                 seg.redirect_writes.append(text)
@@ -1006,7 +1062,7 @@ def _git_subcommand(words: list[str]) -> tuple[str, list[str]]:
     return sub, words[i + 1:]
 
 
-GIT_READ = {"status", "diff", "log", "show", "blame", "fetch", "ls-files", "ls-remote", "rev-parse", "describe", "shortlog", "reflog", "grep", "cat-file", "show-ref", "for-each-ref", "worktree", "config", "help", "version", "--version", "remote", "branch", "tag", "stash", "name-rev", "merge-base", "cherry", "bisect", "count-objects", "fsck", "gc", "notes", "rev-list", "archive"}
+GIT_READ = {"status", "diff", "log", "show", "blame", "fetch", "ls-files", "ls-remote", "rev-parse", "describe", "shortlog", "reflog", "grep", "cat-file", "show-ref", "for-each-ref", "worktree", "config", "help", "version", "--version", "remote", "branch", "tag", "stash", "name-rev", "merge-base", "cherry", "bisect", "count-objects", "fsck", "gc", "notes", "rev-list", "archive", "check-ignore", "check-attr", "check-ref-format", "ls-tree", "diff-tree", "diff-index", "diff-files", "range-diff", "var", "verify-commit", "verify-tag", "show-branch", "whatchanged"}
 GIT_LOCAL_WRITE = {"add", "commit", "switch", "checkout", "merge", "rebase", "cherry-pick", "revert", "restore", "mv", "rm", "apply", "am", "init", "pull", "submodule", "sparse-checkout", "mergetool", "format-patch", "clone", "reset"}
 
 

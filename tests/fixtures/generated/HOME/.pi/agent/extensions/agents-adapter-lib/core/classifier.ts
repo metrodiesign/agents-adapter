@@ -330,7 +330,7 @@ function gitSubcommand(words: string[]): { sub: string; args: string[] } {
   return { sub: (words[i] ?? "").toLowerCase(), args: words.slice(i + 1) };
 }
 
-const GIT_READ = new Set(["status", "diff", "log", "show", "blame", "fetch", "ls-files", "ls-remote", "rev-parse", "describe", "shortlog", "reflog", "grep", "cat-file", "show-ref", "for-each-ref", "worktree", "config", "help", "version", "--version", "remote", "branch", "tag", "stash", "name-rev", "merge-base", "cherry", "bisect", "count-objects", "fsck", "gc", "notes", "rev-list", "archive"]);
+const GIT_READ = new Set(["status", "diff", "log", "show", "blame", "fetch", "ls-files", "ls-remote", "rev-parse", "describe", "shortlog", "reflog", "grep", "cat-file", "show-ref", "for-each-ref", "worktree", "config", "help", "version", "--version", "remote", "branch", "tag", "stash", "name-rev", "merge-base", "cherry", "bisect", "count-objects", "fsck", "gc", "notes", "rev-list", "archive", "check-ignore", "check-attr", "check-ref-format", "ls-tree", "diff-tree", "diff-index", "diff-files", "range-diff", "var", "verify-commit", "verify-tag", "show-branch", "whatchanged"]);
 const GIT_LOCAL_WRITE = new Set(["add", "commit", "switch", "checkout", "merge", "rebase", "cherry-pick", "revert", "restore", "mv", "rm", "apply", "am", "init", "pull", "submodule", "sparse-checkout", "mergetool", "format-patch", "clone", "reset"]);
 
 /** ตัดสิน apply_patch จาก file header ใน patch: Add/Update = write, Delete = delete, Move to = write */
