@@ -260,6 +260,14 @@ def _tokenize(inp: str) -> list[tuple[str, str, bool]]:
             tokens.append((";", "op", False))
             i += 1
             continue
+        if c == "(" and ASSIGN_WORD_RE.match(cur) and cur.endswith("="):
+            # array assignment NAME=( a b ): ค่าเก็บในตัวแปร ไม่ใช่ subshell; ตรวจไม่ได้เฉพาะเมื่อมี command substitution ข้างใน
+            end = _arithmetic_end(inp, i - 1)
+            if re.search(r"\$\(|`", inp[i:end]):
+                subst = True
+            cur += inp[i:end]
+            i = end
+            continue
         if c in "()":
             flush()
             tokens.append((";", "op", True))
@@ -316,7 +324,8 @@ def _split_segments(tokens) -> list[SimpleCommand]:
             if subst:
                 seg.has_substitution = True
             continue
-        if subst:
+        # NAME=...$VAR: ค่าถูกเก็บในตัวแปรเท่านั้น (การใช้ $NAME ทีหลังยังเป็น substitution); ยกเว้นมี $(...)/backtick ข้างใน
+        if subst and not (ASSIGN_WORD_RE.match(text) and not re.search(r"\$\(|`", text)):
             seg.has_substitution = True
         seg.words.append(text)
     push(False)
@@ -342,7 +351,9 @@ def strip_wrappers(words: list[str]) -> list[str]:
     return w
 
 
+ASSIGN_WORD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=")
 MAX_EXPANSIONS = 32
+ARRAY_ASSIGN_RE = re.compile(r"(?:^|[;&|\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=\(([^()$`]*)\)")
 FOR_RE = re.compile(r"\bfor\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([^;\n]+?)\s*(?:;|\n)\s*do\b")
 ASSIGN_RE = re.compile(r"(?:^|[;&|\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=(\"[^\"$`]*\"|'[^']*'|[^\s;&|$`()]+)(?=\s*(?:[;&|\n]|$))")
 LIST_WORD_RE = re.compile(r"\"[^\"]*\"|'[^']*'|\S+")
@@ -356,6 +367,13 @@ def _strip_quotes(w: str) -> str:
 
 def expand_literal_bindings(command: str) -> list[str]:
     """ขยาย for VAR in <literal>; do ... และ VAR=<literal> ให้ $VAR เป็นค่าจริง (mirror ของ shell.ts); [] เมื่อขยายไม่ได้"""
+    # NAME=( a b ) แล้ว "${NAME[@]}"/${NAME[*]}: แทนด้วยรายการจริงก่อน ให้ for-loop ด้านล่างขยายต่อได้
+    original = command
+    for m in ARRAY_ASSIGN_RE.finditer(original):
+        vals = [_strip_quotes(w) for w in LIST_WORD_RE.findall(m.group(2)) if w]
+        if not vals:
+            continue
+        command = re.sub(r'"?\$\{' + m.group(1) + r'\[[@*]\]\}"?', lambda _m, joined=" ".join(vals): joined, command)
     bindings: list[tuple[str, list[str]]] = []
     for m in FOR_RE.finditer(command):
         vals = [w for w in LIST_WORD_RE.findall(m.group(2)) if w]
@@ -365,7 +383,7 @@ def expand_literal_bindings(command: str) -> list[str]:
     for m in ASSIGN_RE.finditer(command):
         bindings.append((m.group(1), [_strip_quotes(m.group(2))]))
     if not bindings:
-        return []
+        return [] if command == original else [command]
     variants = [command]
     for name, values in bindings:
         pat = re.compile(r"\$\{" + name + r"\}|\$" + name + r"(?![A-Za-z0-9_])")
@@ -376,7 +394,7 @@ def expand_literal_bindings(command: str) -> list[str]:
         variants = list(dict.fromkeys(nxt))
         if len(variants) > MAX_EXPANSIONS:
             return []
-    if len(variants) == 1 and variants[0] == command:
+    if len(variants) == 1 and variants[0] == original:
         return []
     return variants
 

@@ -171,6 +171,14 @@ function tokenize(input: string): Token[] {
       i++;
       continue;
     }
+    if (c === "(" && ASSIGN_WORD_RE.test(cur) && cur.endsWith("=")) {
+      // array assignment NAME=( a b ): ค่าเก็บในตัวแปร ไม่ใช่ subshell; ตรวจไม่ได้เฉพาะเมื่อมี command substitution ข้างใน
+      const end = arithmeticEnd(input, i - 1);
+      if (/\$\(|`/.test(input.slice(i, end))) substitution = true;
+      cur += input.slice(i, end);
+      i = end;
+      continue;
+    }
     if (c === "(" || c === ")") {
       // subshell: ตรวจไม่ได้แน่นอน ให้ mark substitution และแยก segment
       flush();
@@ -237,7 +245,8 @@ function splitSegments(tokens: Token[]): SimpleCommand[] {
       if (t.substitution) seg.hasSubstitution = true;
       continue;
     }
-    if (t.substitution) seg.hasSubstitution = true;
+    // NAME=...$VAR: ค่าถูกเก็บในตัวแปรเท่านั้น (การใช้ $NAME ทีหลังยังเป็น substitution); ยกเว้นมี $(...)/backtick ข้างใน
+    if (t.substitution && !(ASSIGN_WORD_RE.test(t.text) && !/\$\(|`/.test(t.text))) seg.hasSubstitution = true;
     seg.words.push(t.text);
   }
   push();
@@ -272,7 +281,9 @@ export function stripWrappers(words: string[]): string[] {
   return w;
 }
 
+const ASSIGN_WORD_RE = /^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=/;
 const MAX_EXPANSIONS = 32;
+const ARRAY_ASSIGN_RE = /(?:^|[;&|\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=\(([^()$`]*)\)/g;
 const FOR_RE = /\bfor\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([^;\n]+?)\s*(?:;|\n)\s*do\b/g;
 const ASSIGN_RE = /(?:^|[;&|\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=("[^"$`]*"|'[^']*'|[^\s;&|$`()]+)(?=\s*(?:[;&|\n]|$))/g;
 const LIST_WORD_RE = /"[^"]*"|'[^']*'|\S+/g;
@@ -287,6 +298,14 @@ function stripQuotes(w: string): string {
  * คืน [] เมื่อไม่มี binding ที่ขยายได้ (ค่าในรายการมี $, backtick หรือ subshell) หรือจำนวน combination เกิน MAX_EXPANSIONS
  */
 export function expandLiteralBindings(command: string): string[] {
+  // NAME=( a b ) แล้ว "${NAME[@]}"/${NAME[*]}: แทนด้วยรายการจริงก่อน ให้ for-loop ด้านล่างขยายต่อได้
+  const original = command;
+  for (const m of command.matchAll(ARRAY_ASSIGN_RE)) {
+    const vals = (m[2].match(LIST_WORD_RE) ?? []).map(stripQuotes).filter((w) => w !== "");
+    if (vals.length === 0) continue;
+    const re = new RegExp(`"?\\$\\{${m[1]}\\[[@*]\\]\\}"?`, "g");
+    command = command.replace(re, () => vals.join(" "));
+  }
   const bindings: Array<{ name: string; values: string[] }> = [];
   for (const m of command.matchAll(FOR_RE)) {
     const vals = (m[2].match(LIST_WORD_RE) ?? []).filter((w) => w !== "");
@@ -294,7 +313,7 @@ export function expandLiteralBindings(command: string): string[] {
     bindings.push({ name: m[1], values: vals.map(stripQuotes) });
   }
   for (const m of command.matchAll(ASSIGN_RE)) bindings.push({ name: m[1], values: [stripQuotes(m[2])] });
-  if (bindings.length === 0) return [];
+  if (bindings.length === 0) return command === original ? [] : [command];
   let variants = [command];
   for (const b of bindings) {
     const re = new RegExp(`\\$\\{${b.name}\\}|\\$${b.name}(?![A-Za-z0-9_])`, "g");
@@ -303,7 +322,7 @@ export function expandLiteralBindings(command: string): string[] {
     variants = [...new Set(next)];
     if (variants.length > MAX_EXPANSIONS) return [];
   }
-  return variants.length === 1 && variants[0] === command ? [] : variants;
+  return variants.length === 1 && variants[0] === original ? [] : variants;
 }
 
 /** คืน command ภายใน $(...) และ `...` ทุกตัว (ระดับนอกสุด) เพื่อ classify แยก */
