@@ -395,7 +395,9 @@ export function parseCommand(input: string, depth = 0): SimpleCommand[] {
 
 export function commandName(words: string[]): string {
   if (words.length === 0) return "";
-  return (words[0].split("/").pop() ?? words[0]).toLowerCase();
+  const name = (words[0].split("/").pop() ?? words[0]).toLowerCase();
+  // python3.12, python3.14 = python3 (versioned interpreter binary)
+  return name.replace(/^python3\.\d+$/, "python3");
 }
 
 /** index หลัง `))` ที่ปิด `$((` ที่ตำแหน่ง start (นับวงเล็บซ้อน); ถ้าไม่ปิดคืน length */

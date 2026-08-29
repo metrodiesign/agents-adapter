@@ -27,8 +27,9 @@ const READ_ONLY_CMDS = new Set([
   "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "zip", "tar", "gzip", "gunzip", "rm", "column",
   "seq", "expr", "bc", "md5", "md5sum", "shasum", "sha256sum", "openssl", "ssh-keygen", "cmp", "comm", "join", "paste", "split", "rev", "fold",
   "watch", "time", "wait", "clear", "tput", "stty", "read", "set", "unset", "shift", "exit", "return", "trap", "ulimit", "umask", "declare", "local", "eval",
+  "shopt", "mktemp",
 ]);
-const WRITE_CMDS = new Set(["tee", "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "tar", "rm", "sed"]);
+const WRITE_CMDS = new Set(["tee", "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "tar", "rm", "sed", "mktemp"]);
 const BUILD_CMDS = new Set([
   "make", "cmake", "ninja", "tsc", "vite", "webpack", "esbuild", "rollup", "next", "nuxt", "gradle", "gradlew", "mvn", "mvnw", "xcodebuild", "swift",
   "node", "python", "python3", "ruby", "bundle", "npx", "pnpx", "bunx", "php", "deno", "tsx", "ts-node", "dotnet", "cargo", "go", "javac", "java",
@@ -150,7 +151,8 @@ function classifyWordPaths(seg: SimpleCommand, name: string, c: Ctx): Verdict[] 
   const isPrint = PRINT_CMDS.has(name) && !(name === "sed" && seg.words.some((w) => w === "-i" || w.startsWith("-i")));
   const isWrite = WRITE_CMDS.has(name) && !(name === "sed" && !seg.words.some((w) => w === "-i" || w.startsWith("-i")));
   const isDelete = name === "rm" || name === "rmdir";
-  const args = seg.words.slice(1).filter((w) => !w.startsWith("-") || w.includes("/"));
+  const rawArgs = name === "docker" || name === "podman" ? dockerHostArgs(seg.words) : seg.words.slice(1);
+  const args = rawArgs.filter((w) => !w.startsWith("-") || w.includes("/"));
 
   for (const w of args) {
     if (!looksLikePath(w, c.ctx)) continue;
@@ -170,6 +172,30 @@ function classifyWordPaths(seg: SimpleCommand, name: string, c: Ctx): Verdict[] 
     const v = classifyPath("read", w, c.ctx);
     if (v.ruleId === "DEV_ENV_READ" && (isPrint || name === "" )) out.push(verdict("DENY", "DEV_ENV_PRINT", `printing development env: ${w}`, v.target));
     else out.push(v);
+  }
+  return out;
+}
+
+/** docker/podman: path ฝั่ง container (`-v host:ctr`, `--mount dst=`, `-w`) ไม่แตะ host; เหลือเฉพาะ host side ของ mount ให้ classifyPath */
+function dockerHostArgs(words: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 1; i < words.length; i++) {
+    const w = words[i];
+    let flag = w;
+    let val: string | null = null;
+    if (w.includes("=") && w.startsWith("--")) [flag, val] = [w.slice(0, w.indexOf("=")), w.slice(w.indexOf("=") + 1)];
+    if (flag === "-v" || flag === "--volume" || flag === "--mount" || flag === "-w" || flag === "--workdir") {
+      if (val === null) val = words[++i] ?? "";
+      if (flag === "-w" || flag === "--workdir") continue;
+      if (flag === "--mount") {
+        const src = val.split(",").find((kv) => /^(src|source)=/.test(kv));
+        if (src) out.push(src.slice(src.indexOf("=") + 1));
+        continue;
+      }
+      out.push(val.split(":")[0]);
+      continue;
+    }
+    out.push(w);
   }
   return out;
 }
@@ -304,7 +330,7 @@ function gitSubcommand(words: string[]): { sub: string; args: string[] } {
   return { sub: (words[i] ?? "").toLowerCase(), args: words.slice(i + 1) };
 }
 
-const GIT_READ = new Set(["status", "diff", "log", "show", "blame", "fetch", "ls-files", "ls-remote", "rev-parse", "describe", "shortlog", "reflog", "grep", "cat-file", "show-ref", "for-each-ref", "worktree", "config", "help", "version", "--version", "remote", "branch", "tag", "stash", "name-rev", "merge-base", "cherry", "bisect", "count-objects", "fsck", "gc", "notes"]);
+const GIT_READ = new Set(["status", "diff", "log", "show", "blame", "fetch", "ls-files", "ls-remote", "rev-parse", "describe", "shortlog", "reflog", "grep", "cat-file", "show-ref", "for-each-ref", "worktree", "config", "help", "version", "--version", "remote", "branch", "tag", "stash", "name-rev", "merge-base", "cherry", "bisect", "count-objects", "fsck", "gc", "notes", "rev-list", "archive"]);
 const GIT_LOCAL_WRITE = new Set(["add", "commit", "switch", "checkout", "merge", "rebase", "cherry-pick", "revert", "restore", "mv", "rm", "apply", "am", "init", "pull", "submodule", "sparse-checkout", "mergetool", "format-patch", "clone", "reset"]);
 
 /** ตัดสิน apply_patch จาก file header ใน patch: Add/Update = write, Delete = delete, Move to = write */
@@ -359,6 +385,15 @@ export function classifyGit(words: string[], ctx: PolicyContext): Verdict {
     return verdict("ALLOW", "GIT_COMMIT", "git stash");
   }
   if (sub === "filter-branch" || sub === "filter-repo" || sub === "replace") return verdict("ASK", "GIT_RESET_HARD", `history rewrite: git ${sub}`, sub);
+  if (sub === "archive") {
+    // --output=<file> / -o <file> เขียนไฟล์: ตัดสิน path ปลายทางเป็น write
+    const i = args.findIndex((a) => a === "-o" || a === "--output" || a.startsWith("--output="));
+    const out = i < 0 ? null : args[i].startsWith("--output=") ? args[i].slice("--output=".length) : args[i + 1] ?? null;
+    if (out) {
+      const v = classifyPath("write", out, ctx);
+      if (v.decision !== "ALLOW") return v;
+    }
+  }
   if (GIT_READ.has(sub)) return verdict("ALLOW", "GIT_STATUS", `git ${sub}`);
   if (GIT_LOCAL_WRITE.has(sub)) return verdict("ALLOW", "GIT_COMMIT", `git ${sub}`);
   return verdict("ASK", "UNKNOWN_COMMAND", `unknown git subcommand: ${sub}`, `git ${sub}`);
