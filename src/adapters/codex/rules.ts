@@ -57,6 +57,13 @@ export function codexRules(config: UserConfig): PrefixRule[] {
     { pattern: ["gh", "pr", "create"], decision: "allow", justification: "GH_PR_CREATE", ruleId: "GH_PR_CREATE" },
     { pattern: ["gh", "pr", ["view", "list", "checks", "diff", "comment", "edit", "review"]], decision: "allow", justification: "GH_READ / GH_PR_UPDATE", ruleId: "GH_PR_UPDATE" },
     { pattern: ["gh", "auth", "status"], decision: "allow", justification: "GH_READ", ruleId: "GH_READ" },
+    // sandbox escalation (คู่กับ excluded_commands ของ Claude): CLI กลุ่มนี้อ่าน ~/.config/gh, docker socket หรือ runtime ของตัวเอง
+    // ซึ่ง permission profile deny ไว้ จึงต้องรัน require_escalated; allow rule ทำให้ escalation ไม่ prompt
+    // forbidden/prompt rule ที่เจาะจงกว่าด้านบน (gh pr merge, docker prune, git push --force, protected branch) ยังชนะเพราะ strictest wins
+    { pattern: ["gh"], decision: "allow", justification: "GH_READ: gh must run outside the sandbox to read ~/.config/gh; stricter gh rules still win", ruleId: "GH_READ" },
+    { pattern: ["git", ["push", "pull", "ls-remote", "clone"]], decision: "allow", justification: "GIT_PUSH_FEATURE: git network ops call gh auth git-credential outside the sandbox; protected/force push rules still win", ruleId: "GIT_PUSH_FEATURE" },
+    { pattern: ["docker"], decision: "allow", justification: "BUILD: docker needs its socket outside the sandbox; prune/volume/push rules still win", ruleId: "BUILD" },
+    { pattern: ["dotnet", "test"], decision: "allow", justification: "TEST: dotnet test hosts need their runtime outside the sandbox", ruleId: "TEST" },
   ];
   for (const b of config.protected_branches) {
     rules.push({ pattern: ["git", "push", "origin", b], decision: "forbidden", justification: `GIT_PUSH_PROTECTED: ${b} is protected`, ruleId: "GIT_PUSH_PROTECTED" });

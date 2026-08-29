@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { test } from "node:test";
 import { parse as parseToml } from "smol-toml";
 import { renderCodex, renderCodexConfig, renderHooksJson, renderRequirements, renderRulesFile } from "../../src/adapters/codex/generate.ts";
+import { codexRules, evaluateRules } from "../../src/adapters/codex/rules.ts";
 import { makeTestEnv } from "../helpers.ts";
 
 const LEGACY = `
@@ -128,6 +129,13 @@ test("requirements.toml closes danger-full-access and hooks/rules are merged onc
     assert.equal(rules1, rules2);
     assert.equal(rules1.split("# agents-adapter:start").length, 2);
     assert.ok(rules1.includes('pattern = ["gh", "pr", "merge"]'));
+    // sandbox escalation allow rules: gh/docker/git network ops run outside the sandbox without a prompt, stricter rules still win
+    assert.ok(rules1.includes('pattern = ["gh"],\n    decision = "allow"'));
+    assert.ok(rules1.includes('pattern = ["git", ["push", "pull", "ls-remote", "clone"]],\n    decision = "allow"'));
+    assert.equal(evaluateRules(["gh", "pr", "merge", "1"], codexRules(t.env.config))?.decision, "forbidden");
+    assert.equal(evaluateRules(["gh", "pr", "view", "1"], codexRules(t.env.config))?.decision, "allow");
+    assert.equal(evaluateRules(["git", "push", "origin", "main"], codexRules(t.env.config))?.decision, "forbidden");
+    assert.equal(evaluateRules(["docker", "system", "prune"], codexRules(t.env.config))?.decision, "prompt");
   } finally {
     t.cleanup();
   }
