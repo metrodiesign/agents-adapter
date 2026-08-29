@@ -67,10 +67,11 @@ test("pi ASK is auto-reviewed by the session model like Claude Auto mode; ask ru
     const asked: string[] = [];
     const reviewed: string[] = [];
     let answer = "allow";
+    const messages: string[] = [];
     const ctx = {
       cwd: t.world.cwd,
       hasUI: true,
-      ui: { confirm: async (title: string) => { asked.push(title); return true; }, notify: () => undefined },
+      ui: { confirm: async (title: string, message: string) => { asked.push(title); messages.push(message); return true; }, notify: () => undefined },
       model: { id: "test-model" },
       modelRegistry: {
         complete: async (_m: unknown, c: { systemPrompt?: string; messages: unknown[] }) => {
@@ -88,10 +89,11 @@ test("pi ASK is auto-reviewed by the session model like Claude Auto mode; ask ru
     assert.ok(reviewed[0].includes("## hard_deny") && reviewed[0].includes("never merge"), "system prompt carries the autoMode sets");
     assert.ok(reviewed[0].includes("list files with ls $(date)"), "reviewer sees the current user request");
     assert.ok(reviewed[0].includes("SHELL_SUBSTITUTION"));
-    // classifier says ask -> fall back to the dialog
-    answer = "ask";
+    // classifier says ask -> fall back to the dialog, reason shown in the dialog
+    answer = "ask: not in the user request";
     assert.equal(await gateToolCall({ toolName: "bash", input: { command: "ls $(whoami)" } }, ctx), undefined);
     assert.equal(asked.length, 1);
+    assert.ok(messages[0].includes("auto-review: ask: not in the user request"));
     // user-decision rule never reaches the reviewer
     const before = reviewed.length;
     await gateToolCall({ toolName: "bash", input: { command: "gh pr merge 1" } }, ctx);
@@ -102,6 +104,7 @@ test("pi ASK is auto-reviewed by the session model like Claude Auto mode; ask ru
     ctx.modelRegistry.complete = async () => { throw new Error("no api key"); };
     await gateToolCall({ toolName: "bash", input: { command: "ls $(id)" } }, ctx);
     assert.equal(asked.length, 3);
+    assert.ok(messages[2].includes("auto-review error: no api key"));
     // no UI + no model = fail closed (unchanged)
     _resetApprovalsForTests();
     const r = await gateToolCall({ toolName: "bash", input: { command: "ls $(date)" } }, { cwd: t.world.cwd, hasUI: false, ui: ctx.ui });

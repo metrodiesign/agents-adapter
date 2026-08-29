@@ -169,23 +169,26 @@ export function autoReviewPrompt(sets: AutoModeSets): string {
   ].join("\n");
 }
 
-/** เรียก model ปัจจุบันตัดสิน ASK; คืน true เมื่อตอบ allow, false เมื่อตอบ ask/error/ไม่มี model */
-export async function autoReview(v: Verdict, ctx: PiContext, what: string): Promise<boolean> {
-  if (!autoMode || !ctx.model || !ctx.modelRegistry) return false;
+/** เรียก model ปัจจุบันตัดสิน ASK; allow = ทำต่อ, อื่น ๆ (ask/error/timeout/ไม่มี model) = ถาม user พร้อมเหตุผลใน note */
+export async function autoReview(v: Verdict, ctx: PiContext, what: string): Promise<{ allow: boolean; note: string }> {
+  if (!autoMode) return { allow: false, note: "auto-review unavailable: config.json has no autoMode" };
+  if (!ctx.model || !ctx.modelRegistry) return { allow: false, note: "auto-review unavailable: no session model" };
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), REVIEW_TIMEOUT_MS);
   try {
     const request = lastUserRequest(ctx);
     const user = {
       role: "user",
-      content: [{ type: "text", text: [`Current user request:\n${request || "(none)"}`, "", `Pending action: ${what}`, `Rule: ${v.ruleId}`, `Target: ${v.target ?? "-"}`, `Risk: ${v.reason}`, "", "allow or ask?"].join("\n") }],
+      content: [{ type: "text", text: [`Current user request:\n${request || "(none)"}`, "", `Pending action: ${what}`, `Rule: ${v.ruleId}`, `Target: ${v.target ?? "-"}`, `Risk: ${v.reason}`, "", "Reply `allow` or `ask: <one-line reason>`."].join("\n") }],
       timestamp: Date.now(),
     };
     const res = await ctx.modelRegistry.complete(ctx.model, { systemPrompt: autoReviewPrompt(autoMode), messages: [user] }, { signal: ac.signal });
-    const text = res.content.filter((c) => c.type === "text").map((c) => c.text ?? "").join(" ").trim().toLowerCase();
-    return /^allow\b/.test(text);
-  } catch {
-    return false;
+    const text = res.content.filter((c) => c.type === "text").map((c) => c.text ?? "").join(" ").trim();
+    const first = text.match(/\b(allow|ask)\b/i);
+    if (first?.[1].toLowerCase() === "allow") return { allow: true, note: "" };
+    return { allow: false, note: `auto-review: ${text.slice(0, 200) || "(empty reply)"}` };
+  } catch (e) {
+    return { allow: false, note: `auto-review error: ${e instanceof Error ? e.message : String(e)}` };
   } finally {
     clearTimeout(timer);
   }
@@ -195,15 +198,20 @@ export async function resolveAsk(v: Verdict, ctx: PiContext, what: string): Prom
   const key = approvalKey(v);
   if (approvals.has(key)) return approvals.get(key) as boolean;
   // Claude Auto mode: ask rule = dialog เสมอ; ASK อื่นให้ classifier ตัดสินก่อน, ไม่ allow ค่อยถาม user
-  if (!USER_DECISION_RULES.has(v.ruleId) && (await autoReview(v, ctx, what))) {
-    approvals.set(key, true);
-    ctx.ui.notify(`agents-adapter auto-review allowed [${v.ruleId}] ${v.target ?? ""}`.trim(), "info");
-    return true;
+  let note = "";
+  if (!USER_DECISION_RULES.has(v.ruleId)) {
+    const r = await autoReview(v, ctx, what);
+    if (r.allow) {
+      approvals.set(key, true);
+      ctx.ui.notify(`agents-adapter auto-review allowed [${v.ruleId}] ${v.target ?? ""}`.trim(), "info");
+      return true;
+    }
+    note = `\n${r.note}`;
   }
   if (!ctx.hasUI) return false; // ไม่มี UI ให้ถาม = fail closed
   const ok = await ctx.ui.confirm(
     `agents-adapter: อนุมัติ ${v.ruleId}?`,
-    `${what}\n\ntarget: ${v.target ?? "-"}\nrisk: ${v.reason}\n\napproval ใช้ซ้ำได้ใน session นี้เฉพาะ target เดียวกัน`,
+    `${what}\n\ntarget: ${v.target ?? "-"}\nrisk: ${v.reason}${note}\n\napproval ใช้ซ้ำได้ใน session นี้เฉพาะ target เดียวกัน`,
   );
   approvals.set(key, ok);
   return ok;
