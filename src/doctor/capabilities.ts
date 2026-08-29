@@ -37,6 +37,7 @@ export function detectCapabilities(): DetectedCapabilities {
     ghAuthenticated: gh,
     ghTokenScopes: parseScopes(ghStatus),
     ghAgentTokenScopes: parseScopes(agentStatus),
+    ghAgentTokenKeyring: agentStatus === null ? null : /\(keyring\)/.test(agentStatus),
     agentSandbox: process.env.CODEX_SANDBOX ? "codex" : process.env.CLAUDECODE ? "claude" : null,
   };
 }

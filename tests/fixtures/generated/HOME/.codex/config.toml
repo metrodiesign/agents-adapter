@@ -113,6 +113,7 @@ localhost = "allow"
 [shell_environment_policy.set]
 GH_CONFIG_DIR = "${HOME}/.codex/gh"
 GH_NO_UPDATE_NOTIFIER = "1"
+DOTNET_SYSTEM_NET_DISABLEIPV6 = "1"
 
 [auto_review]
 policy = "# agents-adapter:start\nApprove only reversible, task-scoped development actions whose target and intent are explicit in the current user request.\nNever approve: merge or auto-merge of pull requests, release or tag creation, repository deletion, gist creation, credential or token access, force push, push to protected branches, production deploy, production database access, or writes under OS system paths (/System, /Library, /etc, /usr, /opt).\nApprove destructive local operations (delete, rename, overwrite) when every target is inside the Development Trust Zone workspace and is not a repository root, the .git directory itself or the zone root. Files and subdirectories inside .git (rebase-merge, rebase-apply, MERGE_HEAD, index.lock, hooks, refs) are ordinary workspace targets: approve their removal when the transcript shows git left them behind.\nApprove delete_file, protected-ref update, staging deploy or destructive operations outside the workspace only when the current user request names that exact action and target.\n# agents-adapter:end"

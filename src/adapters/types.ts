@@ -66,6 +66,8 @@ export interface DetectedCapabilities {
   /** scope ของ token ใน ~/.config/gh และ ~/.codex/gh จาก `gh auth status` (OAuth/classic เท่านั้น; fine-grained PAT = null) */
   ghTokenScopes?: string[] | null;
   ghAgentTokenScopes?: string[] | null;
+  /** agent token ใน ~/.codex/gh ถูกเก็บใน keyring (`gh auth status` แสดง `(keyring)`): seatbelt อ่านไม่ได้ -> gh ตอบ HTTP 401 ใน sandbox */
+  ghAgentTokenKeyring?: boolean | null;
   /** doctor ถูกรันจากใน Bash sandbox ของ agent ไหน (probe ที่ต้องใช้ socket/credential จะล้มเหลวโดยไม่ใช่ปัญหาเครื่อง) */
   agentSandbox: "claude" | "codex" | null;
 }
