@@ -78,6 +78,16 @@ function tokenize(input: string): Token[] {
           i = end;
           continue;
         }
+        if (input[i] === "$" && /[A-Za-z_]/.test(input[i + 1] ?? "")) {
+          // "$VAR" ใน double quote: กติกาเดียวกับนอก quote ($HOME/$TMPDIR/$PWD ตรวจได้)
+          let j = i + 1;
+          let name = "";
+          while (j < n && /[A-Za-z0-9_]/.test(input[j])) name += input[j++];
+          if (name !== "HOME" && name !== "TMPDIR" && name !== "PWD") substitution = true;
+          cur += input.slice(i, j);
+          i = j;
+          continue;
+        }
         if ((input[i] === "$" && !NUMERIC_PARAM.has(input[i + 1] ?? "")) || input[i] === "`") substitution = true;
         cur += input[i++];
       }

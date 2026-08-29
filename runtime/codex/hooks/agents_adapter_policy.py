@@ -171,6 +171,18 @@ def _tokenize(inp: str) -> list[tuple[str, str, bool]]:
                     cur += inp[i:end]
                     i = end
                     continue
+                if inp[i] == "$" and re.match(r"[A-Za-z_]", inp[i + 1 : i + 2] or " "):
+                    # "$VAR" ใน double quote: กติกาเดียวกับนอก quote ($HOME/$TMPDIR/$PWD ตรวจได้)
+                    j = i + 1
+                    name = ""
+                    while j < n and re.match(r"[A-Za-z0-9_]", inp[j]):
+                        name += inp[j]
+                        j += 1
+                    if name not in ("HOME", "TMPDIR", "PWD"):
+                        subst = True
+                    cur += inp[i:j]
+                    i = j
+                    continue
                 if (inp[i] == "$" and inp[i + 1 : i + 2] not in NUMERIC_PARAM) or inp[i] == "`":
                     subst = True
                 cur += inp[i]

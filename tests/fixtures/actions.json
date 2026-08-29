@@ -3176,6 +3176,37 @@
       "command": "cat <<'EOF'\nhi\nEOF\ngit push origin main",
       "expected": "DENY",
       "rule": "GIT_PUSH_PROTECTED"
+    },
+    {
+      "id": "SHELL_READ_ONLY",
+      "name": "double-quoted $HOME path is verifiable",
+      "kind": "command",
+      "command": "find \"$HOME/Desktop/Project\" -maxdepth 1 -name '*.md' -print 2>/dev/null | head",
+      "expected": "ALLOW"
+    },
+    {
+      "id": "SHELL_SUBSTITUTION",
+      "name": "double-quoted other variable stays unverifiable",
+      "kind": "command",
+      "command": "cat \"$CONFIG_FILE\"",
+      "expected": "ASK",
+      "rule": "SHELL_SUBSTITUTION"
+    },
+    {
+      "id": "SHELL_SUBSTITUTION",
+      "name": "double-quoted command substitution",
+      "kind": "command",
+      "command": "cat \"$(mktemp)\"",
+      "expected": "ASK",
+      "rule": "SHELL_SUBSTITUTION"
+    },
+    {
+      "id": "CREDENTIAL_READ",
+      "name": "double-quoted $HOME credential path still denied",
+      "kind": "command",
+      "command": "cat \"$HOME/.ssh/id_rsa\"",
+      "expected": "DENY",
+      "rule": "CREDENTIAL_READ"
     }
   ]
 }
