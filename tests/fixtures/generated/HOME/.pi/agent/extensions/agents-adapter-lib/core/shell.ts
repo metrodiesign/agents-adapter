@@ -310,7 +310,8 @@ function splitSegments(tokens: Token[]): SimpleCommand[] {
       continue;
     }
     // NAME=...$VAR: ค่าถูกเก็บในตัวแปรเท่านั้น (การใช้ $NAME ทีหลังยังเป็น substitution); ยกเว้นมี $(...)/backtick ข้างใน
-    if (t.substitution && !(ASSIGN_WORD_RE.test(t.text) && !/\$\(|`/.test(t.text))) seg.hasSubstitution = true;
+    // NAME=$(cmd): cmd ข้างในถูก classify แยกผ่าน commandSubstitutions; ค่าเก็บในตัวแปร การใช้ $NAME ทีหลังยังเป็น substitution
+    if (t.substitution && !ASSIGN_WORD_RE.test(t.text)) seg.hasSubstitution = true;
     seg.words.push(t.text);
   }
   push();
@@ -349,7 +350,7 @@ const ASSIGN_WORD_RE = /^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=/;
 const MAX_EXPANSIONS = 32;
 const ARRAY_ASSIGN_RE = /(?:^|[;&|\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=\(([^()$`]*)\)/g;
 const FOR_RE = /\bfor\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([^;\n]+?)\s*(?:;|\n)\s*do\b/g;
-const ASSIGN_RE = /(?:^|[;&|\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=("[^"$`]*"|'[^']*'|[^\s;&|$`()]+)(?=\s*(?:[;&|\n]|$))/g;
+const ASSIGN_RE = /(?:^|[;&|\n])\s*(?:(?:do|then|else)\s+)?([A-Za-z_][A-Za-z0-9_]*)=("[^"$`]*"|'[^']*'|[^\s;&|$`()]+)(?=\s*(?:[;&|\n]|$))/g;
 const LIST_WORD_RE = /"[^"]*"|'[^']*'|\S+/g;
 
 function stripQuotes(w: string): string {
