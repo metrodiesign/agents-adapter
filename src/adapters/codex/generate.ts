@@ -13,6 +13,11 @@ import { codexRules, renderRulesBlock } from "./rules.ts";
 
 export const CODEX_HOOK_DIR_NAME = "agents-adapter";
 const PROFILE = "Auto mode";
+export const CODEX_GH_CONFIG_DIR_TILDE = "~/.codex/gh";
+/** env ที่ Codex ตั้งให้ทุก shell command: gh และ `gh auth git-credential` (git push/pull/fetch) ใช้ token จาก ~/.codex/gh */
+export function codexShellEnvManaged(env: Environment): Record<string, string> {
+  return { GH_CONFIG_DIR: path.join(env.home, ".codex", "gh"), GH_NO_UPDATE_NOTIFIER: "1" };
+}
 
 function validateToml(content: string): void {
   parseToml(content);
@@ -29,6 +34,10 @@ export function codexFilesystemManaged(env: Environment): { profile: Record<stri
   // เหมือน excludedCommands ของ Claude; gh และ `gh auth git-credential` (git push/fetch) ต้องอ่าน ~/.config/gh เอง
   // agent ยังห้ามอ่านเอง: hook CREDENTIAL_READ DENY + rule `gh auth token` forbidden
   profile["~/.config/gh"] = "read";
+  // token ของ gh ใน ~/.config/gh อยู่ใน macOS keychain ซึ่ง seatbelt ของ Codex ปิดทุกโหมด (แม้ escalated) จึงใช้ agent token
+  // แยกใน ~/.codex/gh (hosts.yml ที่ user สร้างด้วย fine-grained PAT ผ่าน `gh auth login --insecure-storage`) และชี้ด้วย
+  // GH_CONFIG_DIR; gh ต้องอ่าน dir นี้ใน sandbox แต่ agent ยังห้ามอ่าน/แสดง (credential_paths -> hook DENY)
+  profile[CODEX_GH_CONFIG_DIR_TILDE] = "read";
   profile["~/.gitconfig"] = "read";
   profile["~/.config/git"] = "read";
   profile["~/.codex/hooks"] = "read";
@@ -80,6 +89,8 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
     }
     const ar = getObj(doc, ["auto_review"]);
     if (ar && typeof ar.policy === "string") ar.policy = removeBlock(ar.policy, { start: HASH_START, end: HASH_END }) ?? "";
+    const envSet = getObj(doc, ["shell_environment_policy", "set"]);
+    if (envSet) for (const k of Object.keys(codexShellEnvManaged(env))) delete envSet[k];
     return { content: stringifyToml(doc) + "\n", managedKeys: [], conflicts, preserved: Object.keys(doc), unsupported };
   }
 
@@ -131,6 +142,14 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
   }
   managedKeys.push(`permissions."${PROFILE}".network.domains (additive)`);
 
+  // 3b. shell env: GH_CONFIG_DIR ชี้ agent token dir (keychain ของ gh ใช้ใน seatbelt ไม่ได้); key อื่นใน set ของ user คงไว้
+  const envSet = ensureObj(ensureObj(doc, ["shell_environment_policy"]), ["set"]);
+  for (const [k, v] of Object.entries(codexShellEnvManaged(env))) {
+    if (k in envSet && envSet[k] !== v) conflicts.push(`shell_environment_policy.set.${k}: ${JSON.stringify(envSet[k])} -> ${JSON.stringify(v)}`);
+    envSet[k] = v;
+  }
+  managedKeys.push("shell_environment_policy.set.GH_CONFIG_DIR", "shell_environment_policy.set.GH_NO_UPDATE_NOTIFIER");
+
   // 4. auto_review policy managed block
   const ar = ensureObj(doc, ["auto_review"]);
   ar.policy = upsertBlock(typeof ar.policy === "string" ? ar.policy : null, AUTO_REVIEW_POLICY.split("\n").slice(1, -1).join("\n"), { start: HASH_START, end: HASH_END }).trimEnd();
@@ -159,7 +178,7 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
   }
   if (connectorCount === 0) unsupported.push("no GitHub connector detected in [apps]; connector tool controls will be applied when a connector appears");
 
-  const preserved = Object.keys(doc).filter((k) => !["approval_policy", "approvals_reviewer", "default_permissions", "permissions", "auto_review", "apps"].includes(k));
+  const preserved = Object.keys(doc).filter((k) => !["approval_policy", "approvals_reviewer", "default_permissions", "permissions", "auto_review", "apps", "shell_environment_policy"].includes(k));
   return { content: stringifyToml(doc) + "\n", managedKeys, conflicts, preserved, unsupported };
 }
 

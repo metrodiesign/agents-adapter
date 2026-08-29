@@ -6,6 +6,7 @@
 
 ### Added
 
+- Codex: agent token ของ `gh` แยกใน `~/.codex/gh` (fine-grained PAT ที่ user ใส่ด้วย `GH_CONFIG_DIR=~/.codex/gh gh auth login --with-token --insecure-storage`): permission profile ให้ `read`, `shell_environment_policy.set` ตั้ง `GH_CONFIG_DIR` + `GH_NO_UPDATE_NOTIFIER=1` ทำให้ `gh`, `gh pr create`, `git push/pull/fetch` ทำงานใน seatbelt ได้โดยไม่ต้อง escalation และไม่แตะ keychain (พิสูจน์ด้วย token ปลอม: GitHub ตอบ `Bad credentials` แทน `Requires authentication`/`could not read Username`); `~/.codex/gh` เป็น `credential_paths` จึงถูก hook DENY ทุก CLI; `doctor` เพิ่ม check `gh agent token (codex)` (มีไฟล์ + mode 600, ไม่พิมพ์เนื้อหา); AGENTS.md managed block เปลี่ยนจาก handoff เป็นใช้ agent token และรายงาน user เมื่อ token หมดอายุ
 - rule `SECURITY_AGENT_PROVIDER` (DENY) และ `AGENT_SPAWN` (ALLOW): ห้าม spawn security agent (`auditor`, `skeptic`, `security-review`, ...) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic เพราะ content filter แฟล็ก context ถาวร; Claude ใช้ hook ใหม่ `hooks/agents-adapter/provider_guard.py` (PreToolUse `^(Agent|Task)$`, entry ใน `settings.json.hooks` เป็น managed), Codex/Pi ใช้ classifier เดิมที่อ่าน env; fixture 11 กรณี
 
 - `docs/usage-guide.md` คู่มือใช้งานต่อสถานการณ์และต่อ CLI; troubleshooting เพิ่มอาการ sandbox/rtk/classifier ที่พบจากการใช้งานจริง

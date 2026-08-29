@@ -30,6 +30,7 @@
     "${HOME}/.kube",
     "${HOME}/.config/gcloud",
     "${HOME}/.config/gh",
+    "${HOME}/.codex/gh",
     "${HOME}/.git-credentials",
     "${HOME}/.netrc",
     "${HOME}/.npmrc",
