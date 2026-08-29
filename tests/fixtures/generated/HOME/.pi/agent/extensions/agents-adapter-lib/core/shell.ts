@@ -69,6 +69,13 @@ function tokenize(input: string): Token[] {
           i += 2;
           continue;
         }
+        if (input.startsWith("$((", i)) {
+          const end = arithmeticEnd(input, i);
+          if (/\$\(|`/.test(input.slice(i + 3, end))) substitution = true;
+          cur += input.slice(i, end);
+          i = end;
+          continue;
+        }
         if ((input[i] === "$" && !NUMERIC_PARAM.has(input[i + 1] ?? "")) || input[i] === "`") substitution = true;
         cur += input[i++];
       }
@@ -87,6 +94,15 @@ function tokenize(input: string): Token[] {
       i++;
       while (i < n && input[i] !== "`") cur += input[i++];
       i++;
+      continue;
+    }
+    if (input.startsWith("$((", i)) {
+      // arithmetic expansion $((count + 1)): ค่าเป็นตัวเลขเสมอ ตรวจได้ ยกเว้นมี command substitution ซ้อนข้างใน
+      inWord = true;
+      const end = arithmeticEnd(input, i);
+      if (/\$\(|`/.test(input.slice(i + 3, end))) substitution = true;
+      cur += input.slice(i, end);
+      i = end;
       continue;
     }
     if (c === "$" && (input[i + 1] === "(" || input[i + 1] === "{")) {
@@ -314,6 +330,10 @@ export function commandSubstitutions(command: string): string[] {
       i++;
       continue;
     }
+    if (command.startsWith("$((", i)) {
+      i = arithmeticEnd(command, i);
+      continue;
+    }
     if (c === "$" && command[i + 1] === "(") {
       let depth = 0;
       const start = i + 2;
@@ -376,4 +396,17 @@ export function parseCommand(input: string, depth = 0): SimpleCommand[] {
 export function commandName(words: string[]): string {
   if (words.length === 0) return "";
   return (words[0].split("/").pop() ?? words[0]).toLowerCase();
+}
+
+/** index หลัง `))` ที่ปิด `$((` ที่ตำแหน่ง start (นับวงเล็บซ้อน); ถ้าไม่ปิดคืน length */
+function arithmeticEnd(input: string, start: number): number {
+  let depth = 0;
+  for (let i = start + 1; i < input.length; i++) {
+    if (input[i] === "(") depth++;
+    else if (input[i] === ")") {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return input.length;
 }

@@ -101,7 +101,8 @@ const GIT_QUERY_FLAGS = new Set(["--show-toplevel", "--git-dir", "--git-common-d
 const GIT_QUERY_SUB_RE = /\$\(\s*git\s+(\S+)([^$`()]*)\)/g;
 
 /** echo/printf แค่พิมพ์ argument: ค่าที่ขยายมาทำอะไรไม่ได้ ส่วน command ใน $(...) ถูก classify แยกอยู่แล้ว (DENY ชนะ) */
-const OUTPUT_SINKS = new Set(["echo", "printf"]);
+// exit/return: argument เป็น status code ไม่ใช่ path หรือ command
+const OUTPUT_SINKS = new Set(["echo", "printf", "exit", "return"]);
 
 function outputSinkSubstitution(seg: SimpleCommand, name: string): boolean {
   if (!OUTPUT_SINKS.has(name)) return false;
