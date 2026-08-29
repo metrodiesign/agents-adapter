@@ -107,7 +107,22 @@ test("doctor reports FAIL on legacy codex config and PASS after apply; never pri
     apply(t.env, "all");
     const after = await runDoctor(t.env, { parity: false, detected });
     assert.ok(after.every((c) => c.level !== "FAIL"), JSON.stringify(after.filter((c) => c.level === "FAIL")));
+    assert.ok(after.some((c) => c.name === "production env exposure (codex)" && c.level === "PASS"), "root-level workspace deny patterns count as denied");
     assert.ok(!JSON.stringify(after).includes("SECRET-VALUE-XYZ"));
+    // ใน Bash sandbox ของ Claude stat ~/.codex/gh ตอบ EPERM: ต้องเป็น UNSUPPORTED ของ check นั้นเดียว ไม่ล้ม check อื่นเป็น "codex config parse"
+    const ghDir = path.join(t.world.home, ".codex", "gh");
+    fs.mkdirSync(ghDir, { recursive: true });
+    fs.writeFileSync(path.join(ghDir, "hosts.yml"), "github.com:\n  oauth_token: SECRET-VALUE-XYZ\n", { mode: 0o600 });
+    fs.chmodSync(ghDir, 0o000);
+    try {
+      const sandboxed = await runDoctor(t.env, { parity: false, detected: { ...detected, agentSandbox: "claude" } });
+      assert.ok(!sandboxed.some((c) => c.name === "codex config parse"), "EPERM/EACCES on the credential dir must not be reported as a config parse failure");
+      assert.ok(sandboxed.some((c) => c.name === "gh agent token (codex)" && c.level === "UNSUPPORTED"));
+      assert.ok(sandboxed.some((c) => c.name === "hook availability (codex)"), "later codex checks still run");
+      assert.ok(!JSON.stringify(sandboxed).includes("SECRET-VALUE-XYZ"));
+    } finally {
+      fs.chmodSync(ghDir, 0o700);
+    }
   } finally {
     t.cleanup();
   }
