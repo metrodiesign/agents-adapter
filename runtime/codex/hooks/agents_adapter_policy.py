@@ -472,7 +472,9 @@ def parse_command(inp: str, depth: int = 0) -> list[SimpleCommand]:
 def command_name(words: list[str]) -> str:
     if not words:
         return ""
-    return words[0].split("/")[-1].lower()
+    name = words[0].split("/")[-1].lower()
+    # python3.12, python3.14 = python3 (versioned interpreter binary)
+    return re.sub(r"^python3\.\d+$", "python3", name)
 
 
 # ---------------------------------------------------------------------------
@@ -663,8 +665,9 @@ READ_ONLY_CMDS = {
     "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "zip", "tar", "gzip", "gunzip", "rm", "column",
     "seq", "expr", "bc", "md5", "md5sum", "shasum", "sha256sum", "openssl", "ssh-keygen", "cmp", "comm", "join", "paste", "split", "rev", "fold",
     "watch", "time", "wait", "clear", "tput", "stty", "read", "set", "unset", "shift", "exit", "return", "trap", "ulimit", "umask", "declare", "local", "eval",
+    "shopt", "mktemp",
 }
-WRITE_CMDS = {"tee", "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "tar", "rm", "sed"}
+WRITE_CMDS = {"tee", "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "tar", "rm", "sed", "mktemp"}
 BUILD_CMDS = {
     "make", "cmake", "ninja", "tsc", "vite", "webpack", "esbuild", "rollup", "next", "nuxt", "gradle", "gradlew", "mvn", "mvnw", "xcodebuild", "swift",
     "node", "python", "python3", "ruby", "bundle", "npx", "pnpx", "bunx", "php", "deno", "tsx", "ts-node", "dotnet", "cargo", "go", "javac", "java",
@@ -795,12 +798,43 @@ def _has_inplace(words: list[str]) -> bool:
     return any(w == "-i" or w.startswith("-i") for w in words)
 
 
+def _docker_host_args(words: list[str]) -> list[str]:
+    """docker/podman: path ฝั่ง container (-v host:ctr, --mount dst=, -w) ไม่แตะ host; เหลือเฉพาะ host side ของ mount"""
+    out: list[str] = []
+    i = 1
+    while i < len(words):
+        w = words[i]
+        flag, val = w, None
+        if w.startswith("--") and "=" in w:
+            flag, val = w.split("=", 1)
+        if flag in ("-v", "--volume", "--mount", "-w", "--workdir"):
+            if val is None:
+                i += 1
+                val = words[i] if i < len(words) else ""
+            if flag in ("-w", "--workdir"):
+                i += 1
+                continue
+            if flag == "--mount":
+                src = next((kv for kv in val.split(",") if re.match(r"^(src|source)=", kv)), None)
+                if src is not None:
+                    out.append(src.split("=", 1)[1])
+                i += 1
+                continue
+            out.append(val.split(":")[0])
+            i += 1
+            continue
+        out.append(w)
+        i += 1
+    return out
+
+
 def _classify_word_paths(seg: SimpleCommand, name: str, ctx: PolicyContext) -> list[Verdict]:
     out: list[Verdict] = []
     is_print = name in PRINT_CMDS and not (name == "sed" and _has_inplace(seg.words))
     is_write = name in WRITE_CMDS and not (name == "sed" and not _has_inplace(seg.words))
     is_delete = name in ("rm", "rmdir")
-    args = [w for w in seg.words[1:] if not w.startswith("-") or "/" in w]
+    raw_args = _docker_host_args(seg.words) if name in ("docker", "podman") else seg.words[1:]
+    args = [w for w in raw_args if not w.startswith("-") or "/" in w]
     for w in args:
         if not looks_like_path(w, ctx):
             continue
@@ -954,7 +988,7 @@ def _git_subcommand(words: list[str]) -> tuple[str, list[str]]:
     return sub, words[i + 1:]
 
 
-GIT_READ = {"status", "diff", "log", "show", "blame", "fetch", "ls-files", "ls-remote", "rev-parse", "describe", "shortlog", "reflog", "grep", "cat-file", "show-ref", "for-each-ref", "worktree", "config", "help", "version", "--version", "remote", "branch", "tag", "stash", "name-rev", "merge-base", "cherry", "bisect", "count-objects", "fsck", "gc", "notes"}
+GIT_READ = {"status", "diff", "log", "show", "blame", "fetch", "ls-files", "ls-remote", "rev-parse", "describe", "shortlog", "reflog", "grep", "cat-file", "show-ref", "for-each-ref", "worktree", "config", "help", "version", "--version", "remote", "branch", "tag", "stash", "name-rev", "merge-base", "cherry", "bisect", "count-objects", "fsck", "gc", "notes", "rev-list", "archive"}
 GIT_LOCAL_WRITE = {"add", "commit", "switch", "checkout", "merge", "rebase", "cherry-pick", "revert", "restore", "mv", "rm", "apply", "am", "init", "pull", "submodule", "sparse-checkout", "mergetool", "format-patch", "clone", "reset"}
 
 
@@ -1019,6 +1053,18 @@ def classify_git(words: list[str], ctx: PolicyContext) -> Verdict:
         return verdict("ALLOW", "GIT_COMMIT", "git stash")
     if sub in ("filter-branch", "filter-repo", "replace"):
         return verdict("ASK", "GIT_RESET_HARD", f"history rewrite: git {sub}", sub)
+    if sub == "archive":
+        # --output=<file> / -o <file> เขียนไฟล์: ตัดสิน path ปลายทางเป็น write
+        out_path = None
+        for i, a in enumerate(args):
+            if a.startswith("--output="):
+                out_path = a[len("--output="):]
+            elif a in ("-o", "--output") and i + 1 < len(args):
+                out_path = args[i + 1]
+        if out_path:
+            v = classify_path("write", out_path, ctx)
+            if v.decision != "ALLOW":
+                return v
     if sub in GIT_READ:
         return verdict("ALLOW", "GIT_STATUS", f"git {sub}")
     if sub in GIT_LOCAL_WRITE:
