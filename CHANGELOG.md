@@ -11,6 +11,10 @@
 
 - `docs/usage-guide.md` คู่มือใช้งานต่อสถานการณ์และต่อ CLI; troubleshooting เพิ่มอาการ sandbox/rtk/classifier ที่พบจากการใช้งานจริง
 
+### Fixed
+
+- Codex: deny glob ใน `:workspace_roots` เปลี่ยนจาก `**/<pattern>` เป็น pattern ระดับ root (`.env.production`, `*.key`, `auth.json`, ...) เพราะ Codex 0.150 seatbelt ตีความ `**/` ว่าทุก directory ใน workspace อาจเป็น parent ของไฟล์ต้องห้าม แล้ว deny `file-write-unlink` ของ directory ทั้งหมด ทำให้ `rmdir`, `rm -r`, `mv <dir>` ล้ม `Operation not permitted` แม้ directory ว่าง (reproduce: `codex sandbox --log-denials -- rmdir <empty-dir>`; profile จำลองที่มีเฉพาะ `"**/*.key" = "deny"` ก็ล้ม, ตัด `**/` แล้วผ่าน); `apply` ลบ key `**/…` เดิมออกจาก config ที่ติดตั้งแล้ว; ไฟล์ต้องห้ามที่อยู่ลึกกว่า root ยังถูก hook classifier DENY ทุก CLI
+
 ### Changed
 
 - Claude `sandbox.excludedCommands` เพิ่ม `git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *` (และ `rtk git fetch *`, `rtk git pull *`, `rtk gh *`, `rtk docker *` สำหรับคำสั่งที่ rtk hook rewrite) เพราะ git เรียก `gh auth git-credential` เป็น subprocess ที่อ่าน `~/.config/gh` ไม่ได้ใน sandbox ทำให้ private repo ใน Development Trust Zone fetch/pull/push ไม่ได้; deny ของ push main/develop, bare/force push ยังบังคับผ่าน `permissions.deny`
