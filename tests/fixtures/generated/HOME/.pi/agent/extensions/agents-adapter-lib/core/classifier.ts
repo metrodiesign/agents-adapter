@@ -106,7 +106,8 @@ const GIT_QUERY_SUB_RE = /\$\(\s*git\s+(\S+)([^$`()]*)\)/g;
 
 /** echo/printf แค่พิมพ์ argument: ค่าที่ขยายมาทำอะไรไม่ได้ ส่วน command ใน $(...) ถูก classify แยกอยู่แล้ว (DENY ชนะ) */
 // exit/return: argument เป็น status code ไม่ใช่ path หรือ command
-const OUTPUT_SINKS = new Set(["echo", "printf", "exit", "return", "[", "[[", "test"]);
+// for/select/case: header แค่ bind ตัวแปรหรือเลือก branch; การใช้ $VAR ใน body ยังถูกตรวจแยกต่อ segment
+const OUTPUT_SINKS = new Set(["echo", "printf", "exit", "return", "[", "[[", "test", "for", "select", "case"]);
 
 function outputSinkSubstitution(seg: SimpleCommand, name: string): boolean {
   if (!OUTPUT_SINKS.has(name)) return false;

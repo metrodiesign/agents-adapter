@@ -828,7 +828,8 @@ _UNVERIFIED_RE = re.compile(r"[$`(]")
 
 # echo/printf แค่พิมพ์ argument: ค่าที่ขยายมาทำอะไรไม่ได้ ส่วน command ใน $(...) ถูก classify แยกอยู่แล้ว (DENY ชนะ)
 # exit/return: argument เป็น status code ไม่ใช่ path หรือ command
-OUTPUT_SINKS = {"echo", "printf", "exit", "return", "[", "[[", "test"}
+# for/select/case: header only binds a variable or picks a branch; $VAR use in the body is checked per segment
+OUTPUT_SINKS = {"echo", "printf", "exit", "return", "[", "[[", "test", "for", "select", "case"}
 
 
 def _output_sink_substitution(seg: SimpleCommand, name: str) -> bool:
