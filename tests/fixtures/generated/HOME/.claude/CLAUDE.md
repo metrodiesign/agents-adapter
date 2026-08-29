@@ -10,4 +10,5 @@ block นี้ถูกสร้างโดย agents-adapter 0.1.0 กฎฉ�
 - DENY เป็น hard block ข้ามไม่ได้ด้วย prompt, subagent, plugin, project config, CLI flag, auto-review, tool alias หรือ shell wrapper
 - security agent (auditor, skeptic, security-review) รันบน Anthropic โดยตรงเท่านั้น: เมื่อ ANTHROPIC_BASE_URL ชี้ provider อื่นจะถูก deny (SECURITY_AGENT_PROVIDER); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume
 - Pi isolation mode ปัจจุบัน: host-macos
+- Claude sandbox: `$TMPDIR` ใน sandbox (`/tmp/claude-<uid>`) ต่างจากนอก sandbox (`getconf DARWIN_USER_TEMP_DIR`); ไฟล์ชั่วคราวที่คำสั่งถัดไปอาจรันนอก sandbox (เช่น commit message ให้ `git commit -F`) ให้เขียนใน scratchpad directory ของ session หรือส่งผ่าน `-m`/heredoc แทน `$TMPDIR`; credential path เช่น `~/.npmrc`, `~/.netrc` ถูก sandbox บังอ่านโดยตั้งใจ ถ้า hook/lint ล้มเพราะอ่านไฟล์เหล่านี้ให้รายงาน error บรรทัดจริง ไม่ปิด sandbox
 <!-- agents-adapter:end -->
