@@ -55,6 +55,7 @@ profile `Auto mode` extends `:workspace` และกำหนดเฉพาะ
 
 - GitHub connector/app เป็นช่องทางหลักถ้ามี; local `gh` เป็น fallback
 - block: `gh auth token`, `gh auth status --show-token`, `gh pr merge`, `gh repo delete`, `gh gist`, `gh secret` ทั้งใน hook และ rules (`forbidden`)
+- ข้อจำกัด Codex 0.150.1: token ของ `gh` อยู่ใน macOS keychain (`gh auth status` = `(keyring)`) แต่ seatbelt ของ Codex ปฏิเสธ `file-read-metadata ~/Library/Keychains/login.keychain-db` และ `ipc-posix-shm-write-create com.apple.AppleDatabaseChanged` (base policy ไม่มี key ให้เปิด) และ escalation ก็ยังบังคับ deny entry ของ profile ดังนั้น `gh`/`git push` ที่ต้อง auth ใช้ไม่ได้ทุกโหมด AGENTS.md managed block จึงสั่งให้ Codex หยุดที่ commit แล้ว handoff ให้ user หรือ Claude Code push/เปิด PR; ไม่เปิด keychain ให้ sandbox เพราะเป็น credential store
 
 ## Evaluator
 
