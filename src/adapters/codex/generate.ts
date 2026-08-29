@@ -51,9 +51,12 @@ export function codexFilesystemManaged(env: Environment): { profile: Record<stri
   profile["/usr/local"] = "read";
   const workspace: Record<string, string> = { ".": "write", ".git": "write" };
   const prodGlobs = nativeProdEnvGlobs(ctx.prodEnvPatterns);
-  for (const pat of prodGlobs) workspace[`**/${pat}`] = "deny";
-  for (const ext of ctx.credentialExtensions) workspace[`**/*${ext}`] = "deny";
-  for (const base of ctx.credentialBasenames) workspace[`**/${base}`] = "deny";
+  // root-level เท่านั้น ห้ามใช้ `**/`: Codex 0.150 seatbelt deny file-write-unlink/rename ของทุก directory
+  // ที่อาจเป็น parent ของ match ทำให้ rmdir / rm -r / mv directory ใน workspace ล้ม "Operation not permitted"
+  // ไฟล์ซ้อนลึกยังถูก hook classifier DENY (PROD_ENV_*, CREDENTIAL_*)
+  for (const pat of prodGlobs) workspace[pat] = "deny";
+  for (const ext of ctx.credentialExtensions) workspace[`*${ext}`] = "deny";
+  for (const base of ctx.credentialBasenames) workspace[base] = "deny";
   workspace[".env.example"] = "write";
   return {
     profile,
@@ -124,7 +127,12 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
   }
   const ws = ensureObj(fsTable, [":workspace_roots"]);
   for (const k of Object.keys(ws)) {
-    if (fsm.removeWorkspaceKeysPrefix.some((p) => k.startsWith(p)) && ws[k] === "deny" && !(`**/${k.replace(/^\*\*\//, "")}` in fsm.workspace)) {
+    if (k.startsWith("**/") && ws[k] === "deny") {
+      conflicts.push(`workspace_roots["${k}"] = "deny" removed (recursive glob makes Codex seatbelt deny unlink/rename of every workspace directory; root-level pattern used instead)`);
+      delete ws[k];
+      continue;
+    }
+    if (fsm.removeWorkspaceKeysPrefix.some((p) => k.startsWith(p)) && ws[k] === "deny" && !(k in fsm.workspace)) {
       conflicts.push(`workspace_roots["${k}"] = "deny" removed (not a managed production env glob; development env must stay readable/writable)`);
       delete ws[k];
     }

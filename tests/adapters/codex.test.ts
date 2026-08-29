@@ -82,10 +82,14 @@ test("codex config: removes danger-full-access, root read and gh config read; ke
     const ws = fsTable[":workspace_roots"];
     assert.equal(ws["**/.env"], undefined);
     assert.equal(ws["**/.env.[!e]*"], undefined);
-    assert.equal(ws["**/.env.production"], "deny");
-    assert.equal(ws["**/.env.prod.*"], undefined, "wildcard glob would deny .env.prod.example; native layer uses specific suffixes");
-    assert.equal(ws["**/.env.prod.local"], "deny");
-    assert.equal(ws["**/.env.production.bak"], "deny");
+    assert.equal(ws[".env.production"], "deny");
+    assert.equal(ws[".env.prod.*"], undefined, "wildcard glob would deny .env.prod.example; native layer uses specific suffixes");
+    assert.equal(ws[".env.prod.local"], "deny");
+    assert.equal(ws[".env.production.bak"], "deny");
+    assert.equal(ws["*.key"], "deny");
+    assert.equal(ws["auth.json"], "deny");
+    // Codex 0.150 seatbelt: `**/` deny glob ทำให้ rmdir/mv directory ทั้ง workspace โดน file-write-unlink deny
+    assert.deepEqual(Object.keys(ws).filter((k) => k.startsWith("**/")), [], "no recursive globs in workspace_roots");
     assert.equal(ws[".env.example"], "write");
     assert.equal(doc.permissions["Auto mode"].network.domains["internal.example"], "allow");
     assert.equal(doc.permissions["Auto mode"].network.domains["github.com"], "allow");
