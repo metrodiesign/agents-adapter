@@ -258,6 +258,30 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["gh"],
+    decision = "allow",
+    justification = "agents-adapter GH_READ: gh must run outside the sandbox to read ~/.config/gh; stricter gh rules still win",
+)
+
+prefix_rule(
+    pattern = ["git", ["push", "pull", "ls-remote", "clone"]],
+    decision = "allow",
+    justification = "agents-adapter GIT_PUSH_FEATURE: git network ops call gh auth git-credential outside the sandbox; protected/force push rules still win",
+)
+
+prefix_rule(
+    pattern = ["docker"],
+    decision = "allow",
+    justification = "agents-adapter BUILD: docker needs its socket outside the sandbox; prune/volume/push rules still win",
+)
+
+prefix_rule(
+    pattern = ["dotnet", "test"],
+    decision = "allow",
+    justification = "agents-adapter TEST: dotnet test hosts need their runtime outside the sandbox",
+)
+
+prefix_rule(
     pattern = ["git", "push", "origin", "main"],
     decision = "forbidden",
     justification = "agents-adapter GIT_PUSH_PROTECTED: main is protected",
