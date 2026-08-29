@@ -20,7 +20,7 @@ development env ({{development_env_patterns}}) อ่านและแก้ไ
 
 ## ASK: extension จะถามผ่าน dialog หนึ่งครั้งต่อ action + target
 
-`rm -rf`, `git reset --hard`, `git clean -f`, ลบ branch/tag แบบบังคับ, ลบ remote branch, destructive database, Docker prune/volume, global package install, shell startup file, git remote change, auth change, path นอก Trust Zone, staging/production deploy และ production database
+`rm -rf` ที่ target เป็น zone root, repository root, `.git`, glob หรือ path นอก Trust Zone (ลบภายใน workspace ไม่ต้องถาม), `git reset --hard`, `git clean -f`, ลบ branch/tag แบบบังคับ, ลบ remote branch, destructive database, Docker prune/volume, global package install, shell startup file, git remote change, auth change, path นอก Trust Zone, staging/production deploy และ production database
 
 approval ถูก cache ใน session สำหรับ target เดิมเท่านั้น
 

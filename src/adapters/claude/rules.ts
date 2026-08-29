@@ -68,12 +68,8 @@ export function claudePatterns(config: UserConfig, ctx: PolicyContext): ClaudePa
     deny.push(`Read(**/${pat})`, `Edit(**/${pat})`);
   }
 
+  // ไม่มี ask สำหรับ rm -rf: ใน Development Trust Zone เป็น ALLOW; นอก zone sandbox (write allowOnly) block แล้ว Claude ถามเองตอนขอ disable sandbox
   const ask: string[] = [
-    "Bash(rm -rf *)",
-    "Bash(rm -fr *)",
-    "Bash(rm -r -f *)",
-    "Bash(rm -Rf *)",
-    "Bash(rm --recursive --force *)",
     "Bash(git reset --hard *)",
     "Bash(git clean -f*)",
     "Bash(git clean --force*)",

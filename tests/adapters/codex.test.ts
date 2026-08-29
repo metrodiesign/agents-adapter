@@ -133,10 +133,24 @@ test("requirements.toml closes danger-full-access and hooks/rules are merged onc
     const removed = JSON.parse(renderHooksJson(h2, t.env, { mode: "remove", previousManaged: {} })) as { hooks: { PreToolUse: unknown[]; SessionStart?: unknown[] } };
     assert.equal(removed.hooks.PreToolUse.length, 1);
     assert.equal(removed.hooks.SessionStart, undefined);
-    const rules1 = renderRulesFile("prefix_rule(\n    pattern = [\"rm\"],\n    decision = \"prompt\",\n)\n", t.env, { mode: "apply", previousManaged: {} }) ?? "";
+    const userRules = [
+      'prefix_rule(\n    pattern = ["rm"],\n    decision = "prompt",\n    justification = "Review destructive filesystem deletion.",\n)\n',
+      'prefix_rule(\n    pattern = ["git", ["checkout", "clean", "rebase", "reset", "restore", "tag"]],\n    decision = "prompt",\n)\n',
+      'prefix_rule(\n    pattern = ["sudo"],\n    decision = "prompt",\n)\n',
+      'prefix_rule(\n    pattern = ["git", ["commit", "push"]],\n    decision = "allow",\n)\n',
+    ].join("\n");
+    const conflicts: string[] = [];
+    const rules1 = renderRulesFile(userRules, t.env, { mode: "apply", previousManaged: {} }, conflicts) ?? "";
     const rules2 = renderRulesFile(rules1, t.env, { mode: "apply", previousManaged: {} });
     assert.equal(rules1, rules2);
     assert.equal(rules1.split("# agents-adapter:start").length, 2);
+    // user rules ที่ prompt ทับ command ซึ่ง policy ALLOW ถูกตัด (strictest rule ชนะใน Codex); rule อื่นคงไว้
+    assert.ok(!rules1.includes('pattern = ["rm"]'), "bare rm prompt rule removed");
+    assert.ok(!rules1.includes('pattern = ["git", ["checkout"'), "git checkout prompt rule removed");
+    assert.ok(rules1.includes('pattern = ["sudo"],\n    decision = "prompt"'), "sudo user rule kept (policy DENY, not ALLOW)");
+    assert.ok(rules1.includes('pattern = ["git", ["commit", "push"]],\n    decision = "allow"'), "user allow rule kept");
+    assert.equal(conflicts.length, 2, conflicts.join("\n"));
+    assert.ok(!rules1.includes('pattern = ["rm", ['), "no managed rm -r prompt rule");
     assert.ok(rules1.includes('pattern = ["gh", "pr", "merge"]'));
     // sandbox escalation allow rules: gh/docker/git network ops run outside the sandbox without a prompt, stricter rules still win
     assert.ok(rules1.includes('pattern = ["gh"],\n    decision = "allow"'));

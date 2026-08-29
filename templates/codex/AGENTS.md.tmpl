@@ -20,7 +20,7 @@ development env ({{development_env_patterns}}) อ่านและแก้ไ
 
 ## ต้องขอ approval หนึ่งครั้งต่อ action + target
 
-`rm -rf`, `git reset --hard`, `git clean -f`, ลบ branch/tag แบบบังคับ, ลบ remote branch, destructive database, Docker prune/volume removal, global package install, shell startup file, git remote change, GitHub auth change, path นอก Trust Zone, staging deploy และ production operation ทุกชนิด (production ต้องมี target, impact, backup, rollback, verification plan)
+`rm -rf` ที่ target เป็น zone root, repository root, `.git`, glob หรือ path นอก Trust Zone (ลบไฟล์/directory ภายใน workspace ไม่ต้องถาม), `git reset --hard`, `git clean -f`, ลบ branch/tag แบบบังคับ, ลบ remote branch, destructive database, Docker prune/volume removal, global package install, shell startup file, git remote change, GitHub auth change, path นอก Trust Zone, staging deploy และ production operation ทุกชนิด (production ต้องมี target, impact, backup, rollback, verification plan)
 
 approval ที่ได้รับใช้กับขั้นตอนต่อเนื่องของงานย่อยเดียวกันได้ ห้ามขยายไป target อื่น
 

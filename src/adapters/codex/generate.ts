@@ -5,6 +5,8 @@ import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import type { Environment } from "../../config/loader.ts";
 import { trustedDomains } from "../../config/loader.ts";
 import { HASH_END, HASH_START, isObject, renderTemplate, stableJson, upsertBlock, removeBlock, type Json } from "../../config/merger.ts";
+import { classifyCommand } from "../../core/classifier-facade.ts";
+import type { PolicyContext } from "../../core/context.ts";
 import { serializableContext } from "../../core/policy-loader.ts";
 import { claudeBlockVars } from "../claude/generate.ts";
 import { change, readIfExists, validateJson } from "../fs-helpers.ts";
@@ -70,7 +72,8 @@ export function codexFilesystemManaged(env: Environment): { profile: Record<stri
 export const AUTO_REVIEW_POLICY = `${HASH_START}
 Approve only reversible, task-scoped development actions whose target and intent are explicit in the current user request.
 Never approve: merge or auto-merge of pull requests, repository deletion, gist creation, credential or token access, force push, push to protected branches, production deploy or production database mutation.
-Approve delete_file, protected-ref update, staging deploy or destructive local operations only when the current user request names that exact action and target.
+Approve destructive local operations (delete, rename, overwrite) when every target is inside the Development Trust Zone workspace and is not a repository root, .git directory or the zone root.
+Approve delete_file, protected-ref update, staging deploy or destructive operations outside the workspace only when the current user request names that exact action and target.
 ${HASH_END}`;
 
 export function renderCodexConfig(existing: string | null, env: Environment, mode: RenderMode): { content: string; managedKeys: string[]; conflicts: string[]; preserved: string[]; unsupported: string[] } {
@@ -269,12 +272,37 @@ export function renderHooksJson(existing: string | null, env: Environment, mode:
   return stableJson(doc);
 }
 
-export function renderRulesFile(existing: string | null, env: Environment, mode: RenderMode): string | null {
+export function renderRulesFile(existing: string | null, env: Environment, mode: RenderMode, conflicts: string[] = []): string | null {
   if (mode.mode === "remove") {
     const out = removeBlock(existing, { start: HASH_START, end: HASH_END });
     return out === null || out.trim() === "" ? null : out;
   }
-  return upsertBlock(existing, renderRulesBlock(codexRules(env.config)), { start: HASH_START, end: HASH_END });
+  const stripped = existing === null ? null : stripShadowingUserRules(existing, env.ctx, conflicts);
+  return upsertBlock(stripped, renderRulesBlock(codexRules(env.config)), { start: HASH_START, end: HASH_END });
+}
+
+/**
+ * user prefix_rule ที่ prompt/forbidden ทับ command ซึ่ง policy ตัดสิน ALLOW (เช่น `rm`, `rmdir`, `git checkout`)
+ * Codex ใช้ strictest matching rule จึงทำให้งาน routine ใน workspace ต้องขอ approval ทุกครั้ง; ตัดออกแล้วรายงานเป็น conflict
+ */
+export function stripShadowingUserRules(text: string, ctx: PolicyContext, conflicts: string[]): string {
+  const re = /prefix_rule\(\s*pattern\s*=\s*(\[[^\n]*\])\s*,\s*decision\s*=\s*"(prompt|forbidden)"[\s\S]*?\)\n*/g;
+  return text.replace(re, (block: string, pat: string, decision: string) => {
+    if (block.includes("agents-adapter")) return block;
+    let pattern: Array<string | string[]>;
+    try {
+      pattern = JSON.parse(pat) as Array<string | string[]>;
+    } catch {
+      return block;
+    }
+    const commands = pattern.reduce<string[]>((acc, part) => {
+      const alts = Array.isArray(part) ? part : [part];
+      return acc.flatMap((prefix) => alts.map((a) => (prefix ? `${prefix} ${a}` : a)));
+    }, [""]);
+    if (commands.length === 0 || !commands.every((c) => classifyCommand(c, ctx).decision === "ALLOW")) return block;
+    conflicts.push(`rules: user prefix_rule ${pat} = "${decision}" removed (policy classifies it ALLOW inside the Development Trust Zone)`);
+    return "";
+  });
 }
 
 export function renderCodex(env: Environment, mode: RenderMode): AdapterPlan {
@@ -299,7 +327,7 @@ export function renderCodex(env: Environment, mode: RenderMode): AdapterPlan {
 
   const rulesPath = path.join(codexDir, "rules", "default.rules");
   const existingRules = readIfExists(rulesPath);
-  changes.push(change(rulesPath, existingRules, renderRulesFile(existingRules, env, mode)));
+  changes.push(change(rulesPath, existingRules, renderRulesFile(existingRules, env, mode, cfg.conflicts)));
 
   const agentsPath = path.join(codexDir, "AGENTS.md");
   const existingAgents = readIfExists(agentsPath);

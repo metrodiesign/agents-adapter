@@ -236,7 +236,7 @@ rules:
   - id: DESTRUCTIVE_DELETE
     category: destructive
     decision: ASK
-    description: rm -rf และการลบแบบ recursive force
+    description: rm -rf ที่ target เป็น zone root, cwd, home, `/`, `.git`, glob หรือ path นอก Development Trust Zone (target ใน workspace เป็น FS_WRITE_SOURCE ALLOW)
 
   # safety
   - id: SAFETY_BYPASS

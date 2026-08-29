@@ -22,7 +22,6 @@ export function codexRules(config: UserConfig): PrefixRule[] {
     { pattern: ["gh", "gist"], decision: "forbidden", justification: "PUBLIC_GIST", ruleId: "PUBLIC_GIST" },
     { pattern: ["gh", "secret"], decision: "forbidden", justification: "GH_SECRET_MANAGE", ruleId: "GH_SECRET_MANAGE" },
     { pattern: ["gh", "auth", "token"], decision: "forbidden", justification: "CREDENTIAL_READ: never print credentials", ruleId: "CREDENTIAL_READ" },
-    { pattern: ["rm", ["-rf", "-fr", "-Rf", "-fR", "-r", "-R", "--recursive"]], decision: "prompt", justification: "DESTRUCTIVE_DELETE: recursive delete requires approval", ruleId: "DESTRUCTIVE_DELETE" },
     { pattern: ["git", "reset", "--hard"], decision: "prompt", justification: "GIT_RESET_HARD", ruleId: "GIT_RESET_HARD" },
     { pattern: ["git", "clean", ["-f", "-fd", "-fdx", "-fx", "-df", "-dfx", "-ffd", "-ffdx", "--force", "-xf", "-xdf", "-dxf"]], decision: "prompt", justification: "GIT_CLEAN", ruleId: "GIT_CLEAN" },
     { pattern: ["git", "branch", "-D"], decision: "prompt", justification: "GIT_BRANCH_FORCE_DELETE", ruleId: "GIT_BRANCH_FORCE_DELETE" },

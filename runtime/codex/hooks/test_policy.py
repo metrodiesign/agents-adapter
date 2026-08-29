@@ -132,7 +132,7 @@ class HookProtocol(unittest.TestCase):
         self.assertEqual(out, "")
 
     def test_ask_additional_context(self) -> None:
-        code, out, _ = self._run("Bash", {"command": "rm -rf dist"})
+        code, out, _ = self._run("Bash", {"command": "rm -rf ."})
         self.assertEqual(code, 0)
         data = json.loads(out)
         self.assertIn("ASK [DESTRUCTIVE_DELETE]", data["hookSpecificOutput"]["additionalContext"])

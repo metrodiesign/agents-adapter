@@ -3,9 +3,10 @@
  * ตรรกะนี้ถูก mirror ใน runtime/codex/hooks/agents_adapter_policy.py (Python)
  * parity test เทียบทั้งสอง implementation กับ fixture เดียวกัน
  */
+import * as path from "node:path";
 import type { PolicyContext } from "./context.ts";
 import { type Verdict, strictest, verdict } from "./decisions.ts";
-import { classifyPath, looksLikePath, type PathOp } from "./paths.ts";
+import { classifyPath, classifyPathKind, expandPath, looksLikePath, resolveReal, type PathOp } from "./paths.ts";
 import { commandName, commandSubstitutions, expandLiteralBindings, parseCommand, type SimpleCommand } from "./shell.ts";
 
 const BYPASS_FLAGS = [
@@ -172,6 +173,15 @@ function classifyWordPaths(seg: SimpleCommand, name: string, c: Ctx): Verdict[] 
   return out;
 }
 
+/** rm -rf target ที่อยู่ใน Development Trust Zone และไม่ใช่ zone root, cwd, home, `/`, `.git` หรือ glob (พวกนั้นยัง ASK) */
+function isWorkspaceDeleteTarget(word: string, ctx: PolicyContext): boolean {
+  if (/[*?]/.test(word)) return false;
+  const { kind, resolved } = classifyPathKind(word, ctx);
+  if (kind !== "trusted" || path.basename(resolved) === ".git") return false;
+  const roots = [...ctx.developmentRoots, ctx.cwd, ctx.home, "/"].map((p) => resolveReal(expandPath(p, ctx), ctx));
+  return !roots.includes(resolved);
+}
+
 function isWriteTarget(name: string, word: string, args: string[]): boolean {
   if (name === "cp" || name === "mv" || name === "ln" || name === "install") {
     const positional = args.filter((a) => !a.startsWith("-"));
@@ -209,7 +219,13 @@ function classifyByCommand(name: string, words: string[], seg: SimpleCommand, ne
     const long = words.slice(1).filter((w) => w.startsWith("--"));
     const recursive = /r/i.test(flags) || long.includes("--recursive");
     const force = flags.includes("f") || long.includes("--force");
-    if (recursive && force) return [verdict("ASK", "DESTRUCTIVE_DELETE", `recursive force delete: ${joined}`, words.slice(1).filter((w) => !w.startsWith("-")).join(" "))];
+    if (recursive && force) {
+      const targets = words.slice(1).filter((w) => !w.startsWith("-"));
+      if (targets.length > 0 && targets.every((t) => isWorkspaceDeleteTarget(t, ctx))) {
+        return [verdict("ALLOW", "FS_WRITE_SOURCE", `recursive delete inside Development Trust Zone: ${targets.join(" ")}`, targets.join(" "))];
+      }
+      return [verdict("ASK", "DESTRUCTIVE_DELETE", `recursive force delete: ${joined}`, targets.join(" "))];
+    }
     return [verdict("ALLOW", "FS_WRITE_SOURCE", "delete file")];
   }
   if (name === "pi" || name === "claude" || name === "codex") return [verdict("ALLOW", "BUILD", `agent CLI: ${name}`)];

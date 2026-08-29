@@ -29,7 +29,9 @@ test("claude settings merge preserves user keys, unknown keys and user entries",
     assert.ok(out.permissions.allow.includes("Bash(my-tool *)"));
     assert.ok(out.permissions.deny.includes("Bash(rm -rf /)"));
     assert.ok(out.permissions.deny.includes("Bash(git push * main)"));
-    assert.ok(out.permissions.ask.includes("Bash(rm -rf *)"));
+    assert.ok(out.permissions.ask.includes("Bash(git reset --hard *)"));
+    // rm -rf ใน Development Trust Zone เป็น ALLOW; นอก zone sandbox block แล้ว Claude ถามตอนขอ disable sandbox
+    assert.ok(!out.permissions.ask.some((p: string) => p.startsWith("Bash(rm -")), "no rm -rf ask rule");
     assert.equal(out.permissions.defaultMode, "auto");
     assert.ok(out.permissions.additionalDirectories.includes("/opt/custom"));
     assert.ok(out.sandbox.network.allowedDomains.includes("internal.example"));
