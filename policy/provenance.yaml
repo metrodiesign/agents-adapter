@@ -10,6 +10,7 @@ rules:
   FS_CREATE_PROJECT_FILE: { source: claude_md, section: "Development Trust Zone" }
   OUTSIDE_TRUST_ZONE: { source: claude_md, section: "Approval boundary" }
   SYSTEM_CONFIG_CHANGE: { source: settings, path: "permissions.ask[git config --global]" }
+  SYSTEM_PATH_WRITE: { source: policy_table, note: "/System / system config = Deny" }
   DEV_ENV_READ: { source: claude_md, section: "กฎ Environment และ Secret" }
   DEV_ENV_WRITE: { source: claude_md, section: "กฎ Environment และ Secret" }
   DEV_ENV_PRINT: { source: claude_md, section: "Hard boundary (ห้าม log/paste secret)" }
@@ -43,8 +44,9 @@ rules:
   GH_READ: { source: settings, path: "permissions.allow[gh pr view *, gh run list * ...]" }
   GH_PR_CREATE: { source: settings, path: "permissions.allow[gh pr create *]" }
   GH_PR_UPDATE: { source: settings, path: "permissions.allow[gh pr comment *, gh issue comment *]" }
-  GH_PR_MERGE: { source: settings, path: "permissions.deny[gh pr merge *]" }
-  GH_REPO_CREATE: { source: settings, path: "permissions.ask[gh repo create *, gh release create *, gh pr close *]" }
+  GH_PR_MERGE: { source: policy_table, note: "GitHub merge main = Approval" }
+  RELEASE_TAG: { source: policy_table, note: "Release/tag = Approval" }
+  GH_REPO_CREATE: { source: settings, path: "permissions.ask[gh repo create *, gh pr close *]" }
   GH_REPO_DELETE: { source: settings, path: "permissions.deny[gh repo delete *]" }
   GH_AUTH_CHANGE: { source: settings, path: "permissions.ask[gh auth login *, gh auth logout *]" }
   GH_SECRET_MANAGE: { source: settings, path: "permissions.deny[gh secret *]" }
@@ -54,8 +56,8 @@ rules:
   PI_SHARE: { source: derived, note: "Pi /share อัปโหลด session ออกนอกเครื่อง เทียบเท่า public gist" }
   STAGING_DEPLOY: { source: claude_md, section: "Approval boundary" }
   PROD_DEPLOY: { source: claude_md, section: "Deploy และ release" }
-  PROD_DB_WRITE: { source: claude_md, section: "Destructive operations" }
-  PROD_DESTRUCTIVE_DB: { source: claude_md, section: "Destructive operations" }
+  PROD_DB_WRITE: { source: policy_table, note: "Production DB = Deny" }
+  PROD_DESTRUCTIVE_DB: { source: policy_table, note: "Production DB = Deny" }
   LOCAL_DESTRUCTIVE_DB: { source: claude_md, section: "Approval boundary (destructive migration, database reset)" }
   DESTRUCTIVE_DELETE: { source: settings, path: "permissions.ask[rm -rf *]" }
   SAFETY_BYPASS: { source: settings, path: "permissions.deny[*--dangerously-skip-permissions*]" }

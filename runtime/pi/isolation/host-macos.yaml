@@ -26,7 +26,6 @@ hard_boundaries_enforced_on_host:
   - GIT_FORCE_PUSH
   - GIT_PUSH_BARE
   - GIT_PUSH_HEAD
-  - GH_PR_MERGE
   - GH_REPO_DELETE
   - PUBLIC_GIST
   - PI_SHARE

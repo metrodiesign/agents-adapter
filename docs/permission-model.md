@@ -32,7 +32,7 @@ path นอก zone -> `OUTSIDE_TRUST_ZONE` (ASK) ยกเว้น system path
 
 ## Production requirements
 
-action ที่เป็น `PROD_DEPLOY`, `PROD_DB_WRITE`, `PROD_DESTRUCTIVE_DB` ต้องมีข้อมูลก่อนอนุมัติ:
+action ที่เป็น `PROD_DEPLOY` ต้องมีข้อมูลก่อนอนุมัติ (`PROD_DB_WRITE`, `PROD_DESTRUCTIVE_DB` เป็น DENY: production database แตะผ่าน agent ไม่ได้ทุกกรณี ต้องทำจาก terminal ของ user เอง):
 
 ```text
 target
@@ -56,7 +56,7 @@ DENY > ASK > ALLOW
 
 ## Rule catalog
 
-ดู `policy/permission-matrix.yaml` (57 rules) แบ่ง category: filesystem, env, credential, build, dependency, docker, git, github, share, deploy, destructive, security
+ดู `policy/permission-matrix.yaml` (59 rules) แบ่ง category: filesystem, env, credential, build, dependency, docker, git, github, share, deploy, destructive, security
 
 rule ที่เพิ่มจากตารางขั้นต่ำของ specification เพื่อปิดช่องว่างของ CLI อื่น (มี provenance = derived):
 

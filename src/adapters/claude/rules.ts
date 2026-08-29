@@ -34,7 +34,6 @@ export function claudePatterns(config: UserConfig, ctx: PolicyContext): ClaudePa
     "Bash(git push * +*)",
     "Bash(gh auth token*)",
     "Bash(gh auth status --show-token*)",
-    "Bash(gh pr merge *)",
     "Bash(gh repo delete *)",
     "Bash(gh gist *)",
     "Bash(gh secret *)",
@@ -67,9 +66,22 @@ export function claudePatterns(config: UserConfig, ctx: PolicyContext): ClaudePa
   for (const pat of nativeProdEnvGlobs(ctx.prodEnvPatterns)) {
     deny.push(`Read(**/${pat})`, `Edit(**/${pat})`);
   }
+  // SYSTEM_PATH_WRITE: OS system path เขียนไม่ได้ทุกกรณี (sandbox block อยู่แล้ว; deny กัน disable-sandbox prompt)
+  for (const root of ["/System", "/Library", "/etc", "/private/etc", "/usr", "/opt", "/bin", "/sbin"]) deny.push(`Edit(${root}/**)`);
 
   // ไม่มี ask สำหรับ rm -rf: ใน Development Trust Zone เป็น ALLOW; นอก zone sandbox (write allowOnly) block แล้ว Claude ถามเองตอนขอ disable sandbox
   const ask: string[] = [
+    "Bash(gh pr merge *)",
+    "Bash(git tag -a *)",
+    "Bash(git tag -s *)",
+    "Bash(git tag -f *)",
+    "Bash(git tag -m *)",
+    "Bash(git tag v*)",
+    "Bash(git push --tags*)",
+    "Bash(git push * --tags*)",
+    "Bash(git push --follow-tags*)",
+    "Bash(git push * --follow-tags*)",
+    "Bash(git push *refs/tags/*)",
     "Bash(git reset --hard *)",
     "Bash(git clean -f*)",
     "Bash(git clean --force*)",

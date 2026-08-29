@@ -118,9 +118,17 @@ export function classifyPathKind(raw: string, ctx: PolicyContext): PathClass {
   return { kind: "outside", resolved };
 }
 
+/** OS system path (macOS /etc, /var, /tmp resolve เป็น /private/...): เขียนไม่ได้ทุกกรณี */
+export function isOsSystemPath(resolved: string): boolean {
+  return [...SYSTEM_READ_ONLY_PREFIXES, "/private/etc"].some((p) => isUnder(resolved, p));
+}
+
 export function classifyPath(op: PathOp, raw: string, ctx: PolicyContext): Verdict {
   const { kind, resolved } = classifyPathKind(raw, ctx);
   const write = op !== "read";
+  if (write && (kind === "system_config" || kind === "system_read") && isOsSystemPath(resolved)) {
+    return verdict("DENY", "SYSTEM_PATH_WRITE", `system path: ${resolved}`, resolved);
+  }
   switch (kind) {
     case "credential":
       return verdict("DENY", write ? "CREDENTIAL_WRITE" : "CREDENTIAL_READ", `credential path: ${resolved}`, resolved);

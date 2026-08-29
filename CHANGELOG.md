@@ -13,6 +13,8 @@
 
 ### Changed
 
+- policy ตามตาราง capability ของ user: `GH_PR_MERGE` เปลี่ยนจาก DENY เป็น ASK (merge ยังเป็น user decision แต่ agent ขอยืนยันได้แทนถูก block; Claude `permissions.ask`, Codex rules `prompt`, Pi dialog), `PROD_DB_WRITE` / `PROD_DESTRUCTIVE_DB` เปลี่ยนจาก ASK เป็น DENY, rule ใหม่ `RELEASE_TAG` (ASK: `git tag <name>`, `git push` tag/`--tags`/`--follow-tags`, `gh release create/edit/upload/delete`, connector `create_release`; `git tag`/`-l` ยัง ALLOW) และ `SYSTEM_PATH_WRITE` (DENY: เขียน/ลบใต้ `/System`, `/Library`, `/etc`, `/usr`, `/opt`, `/bin`, `/sbin`; shell rc, `~/.gitconfig` และ config dir ของ agent ยังเป็น `SYSTEM_CONFIG_CHANGE` ASK)
+
 - `DESTRUCTIVE_DELETE` แคบลง: `rm -rf` ที่ทุก target อยู่ใน Development Trust Zone และไม่ใช่ zone root, cwd, home, `/`, `.git` หรือ glob เป็น `FS_WRITE_SOURCE` ALLOW ทุก CLI (Claude ไม่มี `permissions.ask` สำหรับ `rm -r*` แล้ว; Codex ไม่มี prefix_rule prompt สำหรับ `rm -r*`; Pi ไม่ถาม dialog); target นอก zone/zone root/glob ยัง ASK และ credential/production env ยัง DENY; fixture 13 กรณี
 - Codex `apply` ตัด user `prefix_rule` ที่ `prompt`/`forbidden` ทับ command ซึ่ง policy ตัดสิน ALLOW ใน zone (เช่น `["rm"]`, `["rmdir"]`, `["git", ["checkout", ...]]`) เพราะ Codex ใช้ strictest matching rule ทำให้งาน routine ใน workspace ต้องขอ approval ทุกครั้ง; รายงานเป็น conflict ใน `plan`; rule ที่ policy DENY (เช่น `sudo`) หรือ `allow` ของ user คงไว้
 - Codex `auto_review.policy` managed block อนุมัติ destructive local operation ที่ทุก target อยู่ใน workspace (ไม่ใช่ repository root, `.git`, zone root) โดยไม่ต้องให้ user ระบุ target ใน request

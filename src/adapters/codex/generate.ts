@@ -71,7 +71,7 @@ export function codexFilesystemManaged(env: Environment): { profile: Record<stri
 
 export const AUTO_REVIEW_POLICY = `${HASH_START}
 Approve only reversible, task-scoped development actions whose target and intent are explicit in the current user request.
-Never approve: merge or auto-merge of pull requests, repository deletion, gist creation, credential or token access, force push, push to protected branches, production deploy or production database mutation.
+Never approve: merge or auto-merge of pull requests, release or tag creation, repository deletion, gist creation, credential or token access, force push, push to protected branches, production deploy, production database access, or writes under OS system paths (/System, /Library, /etc, /usr, /opt).
 Approve destructive local operations (delete, rename, overwrite) when every target is inside the Development Trust Zone workspace and is not a repository root, .git directory or the zone root.
 Approve delete_file, protected-ref update, staging deploy or destructive operations outside the workspace only when the current user request names that exact action and target.
 ${HASH_END}`;

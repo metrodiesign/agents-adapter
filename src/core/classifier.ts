@@ -342,7 +342,12 @@ export function classifyGit(words: string[], ctx: PolicyContext): Verdict {
   }
   if (sub === "tag") {
     if (lower.includes("-d") || lower.includes("--delete")) return verdict("ASK", "GIT_BRANCH_FORCE_DELETE", "delete tag", args.filter((a) => !a.startsWith("-")).join(" "));
-    return verdict("ALLOW", "GIT_COMMIT", "git tag");
+    // git tag ที่มีชื่อ tag เป็น positional = สร้าง tag (release เป็น user decision); ไม่มี positional หรือ -l/--list = อ่าน
+    const names = args.filter((a) => !a.startsWith("-"));
+    if (lower.includes("-l") || lower.includes("--list") || lower.includes("--contains") || lower.includes("--points-at") || lower.includes("--merged")) return verdict("ALLOW", "GIT_STATUS", "list tags");
+    if (lower.includes("-m") || lower.includes("--message")) return verdict("ASK", "RELEASE_TAG", `create tag ${names[0] ?? ""}`, names[0] ?? "tag");
+    if (names.length > 0) return verdict("ASK", "RELEASE_TAG", `create tag ${names[0]}`, names[0]);
+    return verdict("ALLOW", "GIT_STATUS", "list tags");
   }
   if (sub === "config") {
     if (lower.includes("--global") || lower.includes("--system")) return verdict("ASK", "SYSTEM_CONFIG_CHANGE", "git config --global", args.join(" "));
@@ -366,6 +371,7 @@ export function classifyGitPush(args: string[], ctx: PolicyContext): Verdict {
   let del = false;
   let all = false;
   let mirror = false;
+  let tags = false;
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -380,6 +386,7 @@ export function classifyGitPush(args: string[], ctx: PolicyContext): Verdict {
       else if (key === "--delete") del = true;
       else if (key === "--all" || key === "--branches") all = true;
       else if (key === "--mirror") mirror = true;
+      else if (key === "--tags" || key === "--follow-tags") tags = true;
       else if (PUSH_FLAGS_WITH_VALUE.has(key) && !la.includes("=")) i++;
       continue;
     }
@@ -397,6 +404,7 @@ export function classifyGitPush(args: string[], ctx: PolicyContext): Verdict {
   if (refspecs.some((r) => r.startsWith("+"))) force = true;
   if (force || mirror) return verdict("DENY", "GIT_FORCE_PUSH", "force push is never allowed", positional.join(" "));
   if (all) return verdict("DENY", "GIT_PUSH_PROTECTED", "--all pushes protected branches", "--all");
+  if (tags && !del) return verdict("ASK", "RELEASE_TAG", "push tags", `${remote ?? ""}:--tags`);
   if (!remote || refspecs.length === 0) return verdict("DENY", "GIT_PUSH_BARE", "push must name remote and branch", remote ?? "");
 
   const results: Verdict[] = [];
@@ -418,9 +426,19 @@ export function classifyGitPush(args: string[], ctx: PolicyContext): Verdict {
       results.push(verdict("ASK", "GIT_REMOTE_DELETE", `delete remote ref ${normDst}`, `${remote}:${normDst}`));
       continue;
     }
+    if (isTagRef(src) || isTagRef(dst)) {
+      results.push(verdict("ASK", "RELEASE_TAG", `push tag ${normSrc}`, `${remote}:${dst}`));
+      continue;
+    }
     results.push(verdict("ALLOW", "GIT_PUSH_FEATURE", `push ${normSrc} to ${remote}/${normDst}`, `${remote}:${normDst}`));
   }
   return strictest(results);
+}
+
+/** refs/tags/x หรือชื่อ tag แบบ version (v1.2.3, 1.2) = tag; ชื่อ branch เช่น release/1.2 ไม่นับ */
+function isTagRef(ref: string): boolean {
+  const r = ref.trim().replace(/^\+/, "");
+  return r.toLowerCase().startsWith("refs/tags/") || /^v?\d+(\.\d+)+/.test(r);
 }
 
 function normalizeRef(ref: string): string {
@@ -448,7 +466,7 @@ export function classifyGh(words: string[]): Verdict {
   if (group === "gist") return verdict("DENY", "PUBLIC_GIST", "gist publishes repository content", "gh gist");
   if (group === "secret" || (group === "variable" && sub !== "list")) return verdict("DENY", "GH_SECRET_MANAGE", `gh ${group}`, `gh ${group}`);
   if (group === "pr") {
-    if (sub === "merge") return verdict("DENY", "GH_PR_MERGE", "merge is a user decision", words.slice(3).join(" "));
+    if (sub === "merge") return verdict("ASK", "GH_PR_MERGE", "merge is a user decision", words.slice(3).join(" "));
     if (sub === "create") return verdict("ALLOW", "GH_PR_CREATE", "create pull request");
     if (sub === "close" || sub === "reopen" || sub === "lock") return verdict("ASK", "GH_REPO_CREATE", `gh pr ${sub}`, `gh pr ${sub}`);
     if (sub === "edit" || sub === "comment" || sub === "review" || sub === "ready" || sub === "checkout" || sub === "update-branch") return verdict("ALLOW", "GH_PR_UPDATE", `gh pr ${sub}`);
@@ -468,7 +486,7 @@ export function classifyGh(words: string[]): Verdict {
     return verdict("ASK", "UNKNOWN_COMMAND", `gh repo ${sub ?? ""}`);
   }
   if (group === "release") {
-    if (sub === "create" || sub === "edit" || sub === "upload" || sub === "delete" || sub === "delete-asset") return verdict("ASK", "GH_REPO_CREATE", `gh release ${sub}`, `gh release ${sub}`);
+    if (sub === "create" || sub === "edit" || sub === "upload" || sub === "delete" || sub === "delete-asset") return verdict("ASK", "RELEASE_TAG", `gh release ${sub}`, `gh release ${sub}`);
     if (GH_READ_SUBS.has(sub ?? "")) return verdict("ALLOW", "GH_READ", `gh release ${sub}`);
     return verdict("ASK", "UNKNOWN_COMMAND", `gh release ${sub ?? ""}`);
   }
@@ -481,7 +499,7 @@ export function classifyGh(words: string[]): Verdict {
     const method = methodOf(lower);
     const url = lower.slice(2).find((w) => !w.startsWith("-") && w !== method.toLowerCase() && !["--method", "-x", "-f", "-f", "--field", "--raw-field", "-h", "--header", "--jq", "-q", "--input"].includes(w) && !isValueOfFlag(lower, w));
     const u = url ?? "";
-    if (u.endsWith("/merge") && method !== "GET") return verdict("DENY", "GH_PR_MERGE", "merge via API", u);
+    if (u.endsWith("/merge") && method !== "GET") return verdict("ASK", "GH_PR_MERGE", "merge via API", u);
     if (u.includes("/gists") && method !== "GET") return verdict("DENY", "PUBLIC_GIST", "gist via API", u);
     if (u.includes("/secrets") && method !== "GET") return verdict("DENY", "GH_SECRET_MANAGE", "secrets via API", u);
     if (method === "DELETE" && /^\/?repos\/[^/]+\/[^/]+\/?$/.test(u)) return verdict("DENY", "GH_REPO_DELETE", "repository deletion via API", u);
@@ -620,7 +638,7 @@ function classifyPackageManager(name: string, lower: string[]): Verdict {
 
 function prodOrLocalDestructive(joined: string): Verdict {
   return PROD_MARKER.test(joined)
-    ? verdict("ASK", "PROD_DESTRUCTIVE_DB", "destructive production database operation requires backup and rollback plan", joined)
+    ? verdict("DENY", "PROD_DESTRUCTIVE_DB", "destructive production database operation is never run by an agent", joined)
     : verdict("ASK", "LOCAL_DESTRUCTIVE_DB", "destructive database operation", joined);
 }
 
@@ -637,7 +655,7 @@ function classifyDatabase(name: string, words: string[], joined: string): Verdic
   }
   const isProd = PROD_MARKER.test(joined);
   if (DB_DESTRUCTIVE_SQL.test(joined)) return prodOrLocalDestructive(joined);
-  if (isProd) return verdict("ASK", "PROD_DB_WRITE", "database client against production target", joined);
+  if (isProd) return verdict("DENY", "PROD_DB_WRITE", "database client against production target is never run by an agent", joined);
   return verdict("ALLOW", "SHELL_READ_ONLY", `local database client: ${name}`);
 }
 
@@ -737,7 +755,7 @@ function classifyGithubTool(name: string, input: Record<string, unknown>, ctx: P
   const refRaw = String(input.ref ?? input.branch ?? input.base ?? input.head ?? "");
   const ref = refRaw.toLowerCase().replace(/^refs\/heads\//, "");
   if (name === "merge_pull_request" || name === "enable_auto_merge" || name === "merge_pull_request_branch") {
-    return verdict("DENY", "GH_PR_MERGE", "merge is a user decision", name);
+    return verdict("ASK", "GH_PR_MERGE", "merge is a user decision", name);
   }
   if (name === "delete_repository" || name === "delete_repo") return verdict("DENY", "GH_REPO_DELETE", "repository deletion", name);
   if (name === "create_gist" || name.includes("gist")) return verdict("DENY", "PUBLIC_GIST", "gist", name);
@@ -750,7 +768,8 @@ function classifyGithubTool(name: string, input: Record<string, unknown>, ctx: P
     return verdict("ALLOW", "GIT_PUSH_FEATURE", `${name} ${ref}`, ref);
   }
   if (name === "create_pull_request") return verdict("ALLOW", "GH_PR_CREATE", "create pull request");
-  if (name === "create_repository" || name === "fork_repository" || name === "create_release" || name === "close_pull_request") return verdict("ASK", "GH_REPO_CREATE", name, name);
+  if (name === "create_release") return verdict("ASK", "RELEASE_TAG", name, name);
+  if (name === "create_repository" || name === "fork_repository" || name === "close_pull_request") return verdict("ASK", "GH_REPO_CREATE", name, name);
   if (name.startsWith("get_") || name.startsWith("list_") || name.startsWith("search_") || name.startsWith("read_") || name.startsWith("download_")) return verdict("ALLOW", "GH_READ", name);
   if (name.startsWith("create_") || name.startsWith("add_") || name.startsWith("update_") || name.startsWith("rerun_") || name.startsWith("request_") || name.startsWith("submit_") || name.startsWith("dismiss_") || name.startsWith("assign_")) {
     return verdict("ALLOW", "GH_PR_UPDATE", name);

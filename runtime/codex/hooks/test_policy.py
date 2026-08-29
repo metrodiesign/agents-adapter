@@ -142,10 +142,20 @@ class HookProtocol(unittest.TestCase):
         code, out, err = self._run("Bash", {"command": "npm test"})
         self.assertEqual((code, out, err), (0, "", ""))
 
-    def test_connector_merge_denied(self) -> None:
-        code, _, err = self._run("github.merge_pull_request", {"pull_number": 1})
+    def test_connector_merge_asks(self) -> None:
+        code, out, _ = self._run("github.merge_pull_request", {"pull_number": 1})
+        self.assertEqual(code, 0)
+        self.assertIn("ASK [GH_PR_MERGE]", json.loads(out)["hookSpecificOutput"]["additionalContext"])
+
+    def test_prod_db_denied(self) -> None:
+        code, _, err = self._run("Bash", {"command": "psql -h db.prod.internal -c 'select 1'"})
         self.assertEqual(code, 2)
-        self.assertIn("GH_PR_MERGE", err)
+        self.assertIn("PROD_DB_WRITE", err)
+
+    def test_system_path_write_denied(self) -> None:
+        code, _, err = self._run("Bash", {"command": "echo x >> /etc/hosts"})
+        self.assertEqual(code, 2)
+        self.assertIn("SYSTEM_PATH_WRITE", err)
 
     def test_apply_patch_credential_denied(self) -> None:
         code, _, err = self._run("apply_patch", {"patch": "*** Begin Patch\n*** Add File: ../../../.ssh/authorized_keys\n+x\n*** End Patch"})

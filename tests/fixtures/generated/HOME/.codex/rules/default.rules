@@ -18,12 +18,6 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["gh", "pr", "merge"],
-    decision = "forbidden",
-    justification = "agents-adapter GH_PR_MERGE: merge is a user decision",
-)
-
-prefix_rule(
     pattern = ["gh", "repo", "delete"],
     decision = "forbidden",
     justification = "agents-adapter GH_REPO_DELETE",
@@ -45,6 +39,24 @@ prefix_rule(
     pattern = ["gh", "auth", "token"],
     decision = "forbidden",
     justification = "agents-adapter CREDENTIAL_READ: never print credentials",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "merge"],
+    decision = "prompt",
+    justification = "agents-adapter GH_PR_MERGE: merge is a user decision",
+)
+
+prefix_rule(
+    pattern = ["git", "tag", ["-a", "-s", "-f", "-m"]],
+    decision = "prompt",
+    justification = "agents-adapter RELEASE_TAG",
+)
+
+prefix_rule(
+    pattern = ["git", "push", ["--tags", "--follow-tags"]],
+    decision = "prompt",
+    justification = "agents-adapter RELEASE_TAG",
 )
 
 prefix_rule(
@@ -104,7 +116,7 @@ prefix_rule(
 prefix_rule(
     pattern = ["gh", "release", ["create", "edit", "upload", "delete"]],
     decision = "prompt",
-    justification = "agents-adapter GH_REPO_CREATE",
+    justification = "agents-adapter RELEASE_TAG",
 )
 
 prefix_rule(
