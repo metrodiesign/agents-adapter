@@ -16,7 +16,7 @@ scripts/doctor.sh
 | managed | key/block ที่ agents-adapter เป็นเจ้าของและจะ generate ทับ | `permissions.deny` entries ของ matrix, `sandbox_mode` (ลบ), hooks entries |
 | preserved | ค่าของ user ที่ไม่แตะ | `model`, `notify`, `projects.*`, `plugins.*`, `hooks.state`, hooks ของ user, unknown keys |
 | conflicting | ค่าของ user ที่ขัดกับ policy และถูกแก้ | `sandbox_mode = "danger-full-access"`, `"/" = "read"`, `~/.config/gh = read`, `**/.env = deny` |
-| unsafe | conflict ที่เปิดช่องโหว่ | danger-full-access, root read, gh config readable |
+| unsafe | conflict ที่เปิดช่องโหว่ | danger-full-access, root read, gh config writable |
 | unknown | สิ่งที่ adapter ตรวจไม่ได้หรือ CLI version ไม่รองรับ | ไม่มี GitHub connector ใน `[apps]`, settings.json ของ Pi ไม่ใช่ JSON |
 
 ## Conflict ที่ตรวจ
@@ -25,7 +25,7 @@ scripts/doctor.sh
 - `danger-full-access` enabled (config หรือ CLI flag ผ่าน `SAFETY_BYPASS`)
 - filesystem `"/"` read
 - development env ถูก deny ทั้งหมด
-- GitHub credential path (`~/.config/gh`) readable
+- GitHub credential path อื่น (`~/.ssh`, `~/.aws`, keychain) readable; `~/.config/gh` คง read เพราะ gh ต้องใช้ใน sandbox
 - Pi ไม่มี policy extension
 - unsupported config keys / invalid JSON
 - hardcoded user path และ connector id (ใน repository: secret-scan; ในเครื่อง: config json ของ hook ไม่มี connector id)

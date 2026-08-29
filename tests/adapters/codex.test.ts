@@ -70,7 +70,8 @@ test("codex config: removes danger-full-access, root read and gh config read; ke
     assert.equal(doc.hooks.state["/x/hooks.json:pre_tool_use:0:0"].trusted_hash, "sha256:deadbeef");
     const fsTable = doc.permissions["Auto mode"].filesystem;
     assert.equal(fsTable["/"], undefined);
-    assert.equal(fsTable["~/.config/gh"], "deny");
+    assert.equal(fsTable["~/.config/gh"], "read"); // gh must read it in-sandbox: deny entries are not escalatable
+    assert.equal(fsTable["~/.ssh"], "deny");
     assert.equal(fsTable["~/.ssh"], "deny");
     assert.equal(fsTable["~/custom/tools"], "read");
     assert.equal(fsTable[t.world.zone], "write");
