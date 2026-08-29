@@ -8,6 +8,7 @@ import { listBackups } from "../../src/install/backup.ts";
 import { rollback } from "../../src/install/rollback.ts";
 import { loadState } from "../../src/install/state.ts";
 import { driftReport } from "../../src/doctor/drift.ts";
+import { parseScopes } from "../../src/doctor/capabilities.ts";
 import { runDoctor } from "../../src/doctor/report.ts";
 import { makeTestEnv } from "../helpers.ts";
 
@@ -123,6 +124,22 @@ test("doctor reports FAIL on legacy codex config and PASS after apply; never pri
     } finally {
       fs.chmodSync(ghDir, 0o700);
     }
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("doctor warns when an OAuth gh token lacks the workflow scope", async () => {
+  const t = makeTestEnv(seed);
+  try {
+    assert.deepEqual(parseScopes("github.com\n  - Token scopes: 'gist', 'read:org', 'repo'"), ["gist", "read:org", "repo"]);
+    assert.equal(parseScopes("github.com\n  ✓ Logged in (fine-grained token)"), null, "fine-grained PAT prints no scopes");
+    const base = { claudeVersion: "2.1.250", codexVersion: "0.150.1", piVersion: "0.84.3", docker: true, gondolin: false, openshell: false, python3: true, ghAuthenticated: true, agentSandbox: null };
+    const noScope = await runDoctor(t.env, { parity: false, detected: { ...base, ghTokenScopes: ["gist", "read:org", "repo"], ghAgentTokenScopes: ["repo", "workflow"] } });
+    assert.ok(noScope.some((c) => c.name === "GitHub token workflow scope" && c.level === "WARN" && c.detail.includes("gh auth refresh")));
+    assert.ok(noScope.some((c) => c.name === "gh agent token workflow scope (codex)" && c.level === "PASS"));
+    const unknown = await runDoctor(t.env, { parity: false, detected: { ...base, ghTokenScopes: null, ghAgentTokenScopes: null } });
+    assert.ok(!unknown.some((c) => c.name.includes("workflow scope")), "fine-grained PAT: nothing to check");
   } finally {
     t.cleanup();
   }

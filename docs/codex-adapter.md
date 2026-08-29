@@ -62,7 +62,7 @@ profile `Auto mode` extends `:workspace` และกำหนดเฉพาะ
 
 ### GitHub setup สำหรับ Codex (ทำครั้งเดียว, user รันเอง)
 
-1. สร้าง fine-grained PAT ที่ https://github.com/settings/personal-access-tokens: จำกัด repository ที่ Codex ต้องแตะ, permission `Contents: Read and write`, `Pull requests: Read and write`, `Metadata: Read`, ตั้งวันหมดอายุ (แนะนำ 90 วัน) ไม่ใช้ token ของ user เอง
+1. สร้าง fine-grained PAT ที่ https://github.com/settings/personal-access-tokens: จำกัด repository ที่ Codex ต้องแตะ, permission `Contents: Read and write`, `Pull requests: Read and write`, `Workflows: Read and write` (ไม่มีข้อนี้ GitHub ปฏิเสธ push ทุก commit ที่แตะ `.github/workflows/*`), `Metadata: Read`, ตั้งวันหมดอายุ (แนะนำ 90 วัน) ไม่ใช้ token ของ user เอง
 2. เก็บลง config dir ของ agent (เขียน `hosts.yml` แบบ plaintext เฉพาะ dir นี้ ไม่แตะ keychain):
 
 ```bash
@@ -70,6 +70,13 @@ mkdir -p ~/.codex/gh && chmod 700 ~/.codex/gh
 pbpaste | GH_CONFIG_DIR=~/.codex/gh gh auth login --with-token --insecure-storage
 chmod 600 ~/.codex/gh/*.yml
 GH_CONFIG_DIR=~/.codex/gh gh auth status
+```
+
+ถ้าใช้ OAuth token จาก `gh auth login` แทน PAT (`gh auth status` แสดง `Token scopes: 'gist', 'read:org', 'repo'`) ต้องเพิ่ม scope `workflow` เอง ไม่งั้น push ที่แตะ `.github/workflows/` โดน `refusing to allow an OAuth App to create or update workflow ... without \`workflow\` scope`; `doctor` เตือนเป็น `gh agent token workflow scope (codex)` และ `GitHub token workflow scope` (token ของ user ใน keychain ที่ Claude Code ใช้):
+
+```bash
+GH_CONFIG_DIR=~/.codex/gh gh auth refresh -h github.com -s workflow --insecure-storage
+gh auth refresh -h github.com -s workflow
 ```
 
 3. `agents-adapter apply --target codex` แล้ว `agents-adapter doctor` ต้องได้ `PASS gh agent token (codex)`

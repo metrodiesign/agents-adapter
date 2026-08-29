@@ -49,6 +49,15 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
   checks.push({ level: d.gondolin ? "PASS" : "UNSUPPORTED", name: "Gondolin", detail: d.gondolin ? "available" : "not installed" });
   checks.push({ level: d.openshell ? "PASS" : "UNSUPPORTED", name: "OpenShell", detail: d.openshell ? "available" : "not installed" });
   checks.push({ level: d.ghAuthenticated === null ? "UNSUPPORTED" : d.ghAuthenticated ? "PASS" : probeBlocked(false) ? "UNSUPPORTED" : "WARN", name: "GitHub auth status", detail: d.ghAuthenticated === null ? "gh not installed" : d.ghAuthenticated ? "authenticated (token never printed)" : probeBlocked(false) ? `cannot probe inside the ${d.agentSandbox} sandbox; run doctor from a terminal` : "not authenticated" });
+  // GitHub ปฏิเสธ push ที่แตะ .github/workflows เมื่อ OAuth/classic token ไม่มี scope `workflow` (fine-grained PAT ต้องมี Workflows: write แต่ gh ไม่รายงาน scope ให้ตรวจ)
+  for (const [name, scopes, fix] of [
+    ["GitHub token workflow scope", d.ghTokenScopes, "gh auth refresh -h github.com -s workflow"],
+    ["gh agent token workflow scope (codex)", d.ghAgentTokenScopes, "GH_CONFIG_DIR=~/.codex/gh gh auth refresh -h github.com -s workflow --insecure-storage"],
+  ] as const) {
+    if (scopes === null || scopes === undefined) continue;
+    const ok = scopes.includes("workflow");
+    checks.push({ level: ok ? "PASS" : "WARN", name, detail: ok ? "workflow scope present" : `push touching .github/workflows is refused (\`refusing to allow an OAuth App ... without \`workflow\` scope\`); run: ${fix}` });
+  }
 
   // Codex config conflicts
   const codexConfig = path.join(env.home, ".codex", "config.toml");
