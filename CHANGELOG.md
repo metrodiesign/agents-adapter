@@ -23,6 +23,8 @@
 
 ### Fixed
 
+- shell parser: `NAME=...$VAR` (รวม `export PATH=/opt/homebrew/bin:$PATH` และ prefix assignment `PATH=...:$PATH npm test`) ไม่นับเป็น `SHELL_SUBSTITUTION` เพราะค่าถูกเก็บในตัวแปรเท่านั้น (ใช้ `$NAME` ทีหลังยัง ASK; มี `$(...)`/backtick ข้างในยังตัดสิน inner command และ ASK/DENY ตามเดิม), array assignment `NAME=( a b )` ไม่นับเป็น subshell และ `"${NAME[@]}"`/`${NAME[*]}` ถูกแทนด้วยรายการจริงก่อนขยาย for-loop จึงตัดสินจาก path จริง (`tests=( .claude/hooks/tests/*.test.sh ); for t in "${tests[@]}"; do bash "$t"; done` เป็น ALLOW; array ที่มี `$(ls)` หรือ credential path ยัง ASK/DENY); fixture 10 กรณี
+
 - classifier: ASK ปลอมที่พบจาก ship preflight ของ Codex 6 กรณี: `git rev-list` และ `git archive` เป็น `GIT_STATUS` ALLOW (`--output`/`-o` ของ archive ตัดสินเป็น write จึงยัง DENY ใต้ `/etc`), `shopt` และ `mktemp` เป็น `SHELL_READ_ONLY` (template path ของ mktemp ตัดสินเป็น write), binary ที่มีเวอร์ชัน `python3.12`/`python3.14` normalize เป็น `python3` (`BUILD`), และ `docker run`/`podman run` ตัดสิน path เฉพาะฝั่ง host ของ `-v host:ctr`, `--mount src=`/`source=` โดยไม่ตัดสิน container path (`dst=`, `-w /workspace`) เป็น `OUTSIDE_TRUST_ZONE` อีก (mount `~/.ssh` หรือ `auth.json` ยัง DENY `CREDENTIAL_READ`); fixture 14 กรณี
 
 - classifier: arithmetic expansion `$((count + 1))` เคยถูกนับเป็น command substitution (`SHELL_SUBSTITUTION` ASK) และ `echo $((2*3))` เคยถูกแตกเป็นคำสั่ง `2*3` (`UNKNOWN_COMMAND`); tokenizer/extractor ทั้ง TS และ Python ข้าม `$((...))` เว้นแต่มี `$(`/backtick ซ้อนข้างใน; `exit`/`return` เป็น output sink เหมือน `echo` (argument เป็น status code) ทำให้ test loop แบบ `bash "$f" || status=1; exit "$status"` เป็น ALLOW
