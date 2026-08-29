@@ -6,7 +6,8 @@
  * wrapper (env, command, exec, nice, time, nohup, VAR=value prefix)
  * และ nested shell (sh -c, bash -lc, zsh -c)
  *
- * ข้อจำกัด (ตั้งใจ): ไม่ evaluate glob, brace expansion, heredoc, function, subshell ( ... )
+ * heredoc (<< DELIM, <<- DELIM) และ here-string (<<<): body เป็นข้อมูล stdin ไม่ใช่คำสั่ง; delimiter ไม่ quote และ body มี $(...)/backtick = substitution
+ * ข้อจำกัด (ตั้งใจ): ไม่ evaluate glob, brace expansion, function, subshell ( ... )
  * คำสั่งที่มี feature เหล่านั้นถูก mark hasSubstitution = true และ policy จะถือว่า target ตรวจไม่ได้
  */
 
@@ -41,6 +42,7 @@ function tokenize(input: string): Token[] {
   let cur = "";
   let inWord = false;
   let substitution = false;
+  const heredocs: Array<{ delim: string; quoted: boolean; stripTabs: boolean }> = [];
 
   const flush = (): void => {
     if (inWord) {
@@ -143,6 +145,26 @@ function tokenize(input: string): Token[] {
     }
     if (c === "\n" || c === ";") {
       flush();
+      let unsafeBody = false;
+      if (c === "\n" && heredocs.length > 0) {
+        // heredoc body: ข้อมูล stdin ไม่ใช่คำสั่ง; delimiter ไม่ quote = shell ขยาย $(...)/backtick ในเนื้อหา จึงตรวจไม่ได้
+        i++;
+        for (const h of heredocs) {
+          const body: string[] = [];
+          while (i < n) {
+            let eol = input.indexOf("\n", i);
+            if (eol < 0) eol = n;
+            const line = input.slice(i, eol);
+            i = eol + 1;
+            if ((h.stripTabs ? line.replace(/^\t+/, "") : line) === h.delim) break;
+            body.push(line);
+          }
+          if (!h.quoted && /\$\(|`/.test(body.join("\n"))) unsafeBody = true;
+        }
+        heredocs.length = 0;
+        tokens.push({ text: ";", kind: "op", substitution: unsafeBody });
+        continue;
+      }
       tokens.push({ text: ";", kind: "op", substitution: false });
       i++;
       continue;
@@ -184,6 +206,36 @@ function tokenize(input: string): Token[] {
       flush();
       tokens.push({ text: ";", kind: "op", substitution: true });
       i++;
+      continue;
+    }
+    if (input.startsWith("<<", i)) {
+      flush();
+      if (input[i + 2] === "<") {
+        // here-string <<< word: ข้อมูล stdin ไม่ใช่ path; splitSegments ทิ้ง target
+        tokens.push({ text: "<<<", kind: "redirect", substitution: false });
+        i += 3;
+        continue;
+      }
+      // heredoc << DELIM / <<- DELIM: จำ delimiter ไว้ แล้วข้าม body หลังจบบรรทัด
+      i += 2;
+      const stripTabs = input[i] === "-";
+      if (stripTabs) i++;
+      while (i < n && (input[i] === " " || input[i] === "\t")) i++;
+      let quoted = false;
+      let delim = "";
+      if (input[i] === "'" || input[i] === '"') {
+        const q = input[i++];
+        quoted = true;
+        while (i < n && input[i] !== q) delim += input[i++];
+        i++;
+      } else {
+        if (input[i] === "\\") {
+          quoted = true;
+          i++;
+        }
+        while (i < n && !/[\s;&|<>()]/.test(input[i])) delim += input[i++];
+      }
+      heredocs.push({ delim, quoted, stripTabs });
       continue;
     }
     if (c === ">" || c === "<") {
@@ -239,7 +291,9 @@ function splitSegments(tokens: Token[]): SimpleCommand[] {
       continue;
     }
     if (pendingRedirect !== null) {
-      if (pendingRedirect.startsWith("<")) seg.redirectReads.push(t.text);
+      if (pendingRedirect === "<<<") {
+        // here-string: word เป็นข้อมูล ไม่ใช่ path
+      } else if (pendingRedirect.startsWith("<")) seg.redirectReads.push(t.text);
       else if (!pendingRedirect.endsWith("&")) seg.redirectWrites.push(t.text);
       pendingRedirect = null;
       if (t.substitution) seg.hasSubstitution = true;
