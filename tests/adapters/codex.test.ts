@@ -151,11 +151,13 @@ test("requirements.toml closes danger-full-access and hooks/rules are merged onc
     assert.ok(rules1.includes('pattern = ["git", ["commit", "push"]],\n    decision = "allow"'), "user allow rule kept");
     assert.equal(conflicts.length, 2, conflicts.join("\n"));
     assert.ok(!rules1.includes('pattern = ["rm", ['), "no managed rm -r prompt rule");
-    assert.ok(rules1.includes('pattern = ["gh", "pr", "merge"]'));
+    assert.ok(rules1.includes('pattern = ["gh", "pr", "merge"],\n    decision = "prompt"'), "merge prompts the user instead of forbidden");
     // sandbox escalation allow rules: gh/docker/git network ops run outside the sandbox without a prompt, stricter rules still win
     assert.ok(rules1.includes('pattern = ["gh"],\n    decision = "allow"'));
     assert.ok(rules1.includes('pattern = ["git", ["push", "pull", "ls-remote", "clone"]],\n    decision = "allow"'));
-    assert.equal(evaluateRules(["gh", "pr", "merge", "1"], codexRules(t.env.config))?.decision, "forbidden");
+    assert.equal(evaluateRules(["gh", "pr", "merge", "1"], codexRules(t.env.config))?.decision, "prompt");
+    assert.equal(evaluateRules(["git", "tag", "-a", "v1.0.0"], codexRules(t.env.config))?.decision, "prompt");
+    assert.equal(evaluateRules(["git", "push", "--tags", "origin"], codexRules(t.env.config))?.decision, "prompt");
     assert.equal(evaluateRules(["gh", "pr", "view", "1"], codexRules(t.env.config))?.decision, "allow");
     assert.equal(evaluateRules(["git", "push", "origin", "main"], codexRules(t.env.config))?.decision, "forbidden");
     assert.equal(evaluateRules(["docker", "system", "prune"], codexRules(t.env.config))?.decision, "prompt");

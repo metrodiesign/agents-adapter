@@ -11,6 +11,7 @@
 | FS_CREATE_PROJECT_FILE | ALLOW | native | native | native | native |
 | OUTSIDE_TRUST_ZONE | ASK | native | native | runtime | isolation |
 | SYSTEM_CONFIG_CHANGE | ASK | native | native | runtime | runtime |
+| SYSTEM_PATH_WRITE | DENY | native (Edit deny) + sandbox | runtime + seatbelt | runtime | isolation |
 | DEV_ENV_READ | ALLOW | native | native | native | native |
 | DEV_ENV_WRITE | ALLOW | native | native | native | native |
 | DEV_ENV_PRINT | DENY | native (autoMode hard_deny) | runtime (hook) | runtime | runtime |
@@ -31,15 +32,16 @@
 | GIT_PUSH_HEAD | DENY | native | runtime | runtime | runtime |
 | GIT_PUSH_PROTECTED | DENY | native | runtime + rules forbidden | runtime | runtime |
 | GIT_FORCE_PUSH | DENY | native | runtime + rules forbidden | runtime | runtime |
-| GIT_REMOTE_DELETE / GIT_REMOTE_CHANGE / GIT_RESET_HARD / GIT_CLEAN / GIT_BRANCH_FORCE_DELETE | ASK | native | native (rules prompt) | runtime | runtime |
+| GIT_REMOTE_DELETE / GIT_REMOTE_CHANGE / GIT_RESET_HARD / GIT_CLEAN / GIT_BRANCH_FORCE_DELETE / RELEASE_TAG | ASK | native | native (rules prompt) | runtime | runtime |
 | GH_READ / GH_PR_CREATE / GH_PR_UPDATE | ALLOW | native | native | native | native |
-| GH_PR_MERGE | DENY | native | runtime + rules forbidden + connector prompt | runtime | runtime |
+| GH_PR_MERGE | ASK | native | native (rules prompt) + connector prompt + hook context | runtime | runtime |
 | GH_REPO_CREATE / GH_AUTH_CHANGE | ASK | native | native (rules prompt) | runtime | runtime |
 | GH_REPO_DELETE / GH_SECRET_MANAGE / PUBLIC_GIST | DENY | native | runtime + rules forbidden | runtime | runtime |
 | GH_DELETE_FILE | ASK | native (n/a: connector เป็น Codex-only) | connector approval prompt | runtime | runtime |
 | PIPE_TO_SHELL | DENY | native | runtime | runtime | runtime |
 | PI_SHARE | DENY | native (ไม่มี share command) | native (ไม่มี share command) | runtime (input + tool_call) | runtime |
-| STAGING_DEPLOY / PROD_DEPLOY / PROD_DB_WRITE / PROD_DESTRUCTIVE_DB / LOCAL_DESTRUCTIVE_DB | ASK | native | native (rules prompt) + hook context | runtime | runtime |
+| STAGING_DEPLOY / PROD_DEPLOY / LOCAL_DESTRUCTIVE_DB | ASK | native | native (rules prompt) + hook context | runtime | runtime |
+| PROD_DB_WRITE / PROD_DESTRUCTIVE_DB | DENY | runtime (classifier) | runtime | runtime | runtime |
 | DESTRUCTIVE_DELETE | ASK | native | native (rules prompt) | runtime | runtime |
 | AGENT_SPAWN | ALLOW | native | native | runtime | runtime |
 | SECURITY_AGENT_PROVIDER | DENY | runtime (PreToolUse `provider_guard.py`) | runtime (hook อ่าน `ANTHROPIC_BASE_URL`; Codex native ไม่ใช้ตัวแปรนี้) | runtime | runtime |

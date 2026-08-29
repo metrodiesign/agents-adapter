@@ -50,8 +50,11 @@ test("temp and cache directories are writable, system dirs read-only", () => {
     const ctx = t.env.ctx;
     assert.equal(classifyPath("write", path.join(ctx.tmpdir, "x.txt"), ctx).decision, "ALLOW");
     assert.equal(classifyPath("read", "/usr/lib/node_modules/x/index.js", ctx).decision, "ALLOW");
-    assert.equal(classifyPath("write", "/usr/local/bin/x", ctx).decision, "ASK");
+    assert.equal(classifyPath("write", "/usr/local/bin/x", ctx).decision, "DENY");
     assert.equal(classifyPath("write", path.join(ctx.home, ".zshrc"), ctx).ruleId, "SYSTEM_CONFIG_CHANGE");
+    assert.equal(classifyPath("write", "/etc/hosts", ctx).ruleId, "SYSTEM_PATH_WRITE");
+    assert.equal(classifyPath("write", "/System/Library/x.plist", ctx).decision, "DENY");
+    assert.equal(classifyPath("read", "/etc/hosts", ctx).decision, "ALLOW");
   } finally {
     t.cleanup();
   }

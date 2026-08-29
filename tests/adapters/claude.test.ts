@@ -30,6 +30,10 @@ test("claude settings merge preserves user keys, unknown keys and user entries",
     assert.ok(out.permissions.deny.includes("Bash(rm -rf /)"));
     assert.ok(out.permissions.deny.includes("Bash(git push * main)"));
     assert.ok(out.permissions.ask.includes("Bash(git reset --hard *)"));
+    assert.ok(out.permissions.ask.includes("Bash(gh pr merge *)"), "merge is ASK (user decision), not deny");
+    assert.ok(!out.permissions.deny.includes("Bash(gh pr merge *)"));
+    assert.ok(out.permissions.ask.includes("Bash(git tag v*)") && out.permissions.ask.includes("Bash(git push --tags*)"), "RELEASE_TAG ask rules");
+    assert.ok(out.permissions.deny.includes("Edit(/etc/**)") && out.permissions.deny.includes("Edit(/System/**)"), "SYSTEM_PATH_WRITE deny rules");
     // rm -rf ใน Development Trust Zone เป็น ALLOW; นอก zone sandbox block แล้ว Claude ถามตอนขอ disable sandbox
     assert.ok(!out.permissions.ask.some((p: string) => p.startsWith("Bash(rm -")), "no rm -rf ask rule");
     assert.equal(out.permissions.defaultMode, "auto");

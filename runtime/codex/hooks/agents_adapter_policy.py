@@ -557,9 +557,16 @@ def _is_workspace_delete_target(word: str, ctx: PolicyContext) -> bool:
     return resolved not in roots
 
 
+def is_os_system_path(resolved: str) -> bool:
+    """OS system path (macOS /etc resolve เป็น /private/etc): เขียนไม่ได้ทุกกรณี"""
+    return any(is_under(resolved, p) for p in SYSTEM_READ_ONLY_PREFIXES + ["/private/etc"])
+
+
 def classify_path(op: str, raw: str, ctx: PolicyContext) -> Verdict:
     kind, resolved = classify_path_kind(raw, ctx)
     write = op != "read"
+    if write and kind in ("system_config", "system_read") and is_os_system_path(resolved):
+        return verdict("DENY", "SYSTEM_PATH_WRITE", f"system path: {resolved}", resolved)
     if kind == "credential":
         return verdict("DENY", "CREDENTIAL_WRITE" if write else "CREDENTIAL_READ", f"credential path: {resolved}", resolved)
     if kind == "prod_env":
@@ -960,7 +967,15 @@ def classify_git(words: list[str], ctx: PolicyContext) -> Verdict:
     if sub == "tag":
         if "-d" in lower or "--delete" in lower:
             return verdict("ASK", "GIT_BRANCH_FORCE_DELETE", "delete tag", " ".join(a for a in args if not a.startswith("-")))
-        return verdict("ALLOW", "GIT_COMMIT", "git tag")
+        # git tag ที่มีชื่อ tag เป็น positional = สร้าง tag (release เป็น user decision); ไม่มี positional หรือ -l/--list = อ่าน
+        names = [a for a in args if not a.startswith("-")]
+        if any(f in lower for f in ("-l", "--list", "--contains", "--points-at", "--merged")):
+            return verdict("ALLOW", "GIT_STATUS", "list tags")
+        if "-m" in lower or "--message" in lower:
+            return verdict("ASK", "RELEASE_TAG", f"create tag {names[0] if names else ''}", names[0] if names else "tag")
+        if names:
+            return verdict("ASK", "RELEASE_TAG", f"create tag {names[0]}", names[0])
+        return verdict("ALLOW", "GIT_STATUS", "list tags")
     if sub == "config":
         if "--global" in lower or "--system" in lower:
             return verdict("ASK", "SYSTEM_CONFIG_CHANGE", "git config --global", " ".join(args))
@@ -981,6 +996,12 @@ def classify_git(words: list[str], ctx: PolicyContext) -> Verdict:
 PUSH_FLAGS_WITH_VALUE = {"-o", "--push-option", "--receive-pack", "--exec", "--repo", "--recurse-submodules", "--signed"}
 
 
+def _is_tag_ref(ref: str) -> bool:
+    """refs/tags/x หรือชื่อ tag แบบ version (v1.2.3, 1.2) = tag; ชื่อ branch เช่น release/1.2 ไม่นับ"""
+    r = ref.strip().lstrip("+")
+    return r.lower().startswith("refs/tags/") or re.match(r"^v?\d+(\.\d+)+", r) is not None
+
+
 def _normalize_ref(ref: str) -> str:
     r = ref.strip().lower()
     if r.startswith("+"):
@@ -996,7 +1017,7 @@ def _normalize_ref(ref: str) -> str:
 
 def classify_git_push(args: list[str], ctx: PolicyContext) -> Verdict:
     protected = {b.lower() for b in ctx.protected_branches}
-    force = delete = all_ = mirror = False
+    force = delete = all_ = mirror = tags = False
     positional: list[str] = []
     i = 0
     while i < len(args):
@@ -1015,6 +1036,8 @@ def classify_git_push(args: list[str], ctx: PolicyContext) -> Verdict:
                 all_ = True
             elif key == "--mirror":
                 mirror = True
+            elif key in ("--tags", "--follow-tags"):
+                tags = True
             elif key in PUSH_FLAGS_WITH_VALUE and "=" not in la:
                 i += 1
             i += 1
@@ -1039,6 +1062,8 @@ def classify_git_push(args: list[str], ctx: PolicyContext) -> Verdict:
         return verdict("DENY", "GIT_FORCE_PUSH", "force push is never allowed", " ".join(positional))
     if all_:
         return verdict("DENY", "GIT_PUSH_PROTECTED", "--all pushes protected branches", "--all")
+    if tags and not delete:
+        return verdict("ASK", "RELEASE_TAG", "push tags", f"{remote or ''}:--tags")
     if not remote or not refspecs:
         return verdict("DENY", "GIT_PUSH_BARE", "push must name remote and branch", remote or "")
     results: list[Verdict] = []
@@ -1056,6 +1081,9 @@ def classify_git_push(args: list[str], ctx: PolicyContext) -> Verdict:
             continue
         if delete or src == "":
             results.append(verdict("ASK", "GIT_REMOTE_DELETE", f"delete remote ref {norm_dst}", f"{remote}:{norm_dst}"))
+            continue
+        if _is_tag_ref(src) or _is_tag_ref(dst):
+            results.append(verdict("ASK", "RELEASE_TAG", f"push tag {norm_src}", f"{remote}:{dst}"))
             continue
         results.append(verdict("ALLOW", "GIT_PUSH_FEATURE", f"push {norm_src} to {remote}/{norm_dst}", f"{remote}:{norm_dst}"))
     return strictest(results)
@@ -1104,7 +1132,7 @@ def classify_gh(words: list[str]) -> Verdict:
         return verdict("DENY", "GH_SECRET_MANAGE", f"gh {group}", f"gh {group}")
     if group == "pr":
         if sub == "merge":
-            return verdict("DENY", "GH_PR_MERGE", "merge is a user decision", tail)
+            return verdict("ASK", "GH_PR_MERGE", "merge is a user decision", tail)
         if sub == "create":
             return verdict("ALLOW", "GH_PR_CREATE", "create pull request")
         if sub in ("close", "reopen", "lock"):
@@ -1132,7 +1160,7 @@ def classify_gh(words: list[str]) -> Verdict:
         return verdict("ASK", "UNKNOWN_COMMAND", f"gh repo {sub or ''}")
     if group == "release":
         if sub in ("create", "edit", "upload", "delete", "delete-asset"):
-            return verdict("ASK", "GH_REPO_CREATE", f"gh release {sub}", f"gh release {sub}")
+            return verdict("ASK", "RELEASE_TAG", f"gh release {sub}", f"gh release {sub}")
         if sub in GH_READ_SUBS:
             return verdict("ALLOW", "GH_READ", f"gh release {sub}")
         return verdict("ASK", "UNKNOWN_COMMAND", f"gh release {sub or ''}")
@@ -1147,7 +1175,7 @@ def classify_gh(words: list[str]) -> Verdict:
         skip = {"--method", "-x", "-f", "--field", "--raw-field", "-h", "--header", "--jq", "-q", "--input"}
         url = next((w for w in lower[2:] if not w.startswith("-") and w != method.lower() and w not in skip and not _is_value_of_flag(lower, w)), "")
         if url.endswith("/merge") and method != "GET":
-            return verdict("DENY", "GH_PR_MERGE", "merge via API", url)
+            return verdict("ASK", "GH_PR_MERGE", "merge via API", url)
         if "/gists" in url and method != "GET":
             return verdict("DENY", "PUBLIC_GIST", "gist via API", url)
         if "/secrets" in url and method != "GET":
@@ -1294,7 +1322,7 @@ def _classify_package_manager(name: str, lower: list[str]) -> Verdict:
 
 def _prod_or_local_destructive(joined: str) -> Verdict:
     if PROD_MARKER.search(joined):
-        return verdict("ASK", "PROD_DESTRUCTIVE_DB", "destructive production database operation requires backup and rollback plan", joined)
+        return verdict("DENY", "PROD_DESTRUCTIVE_DB", "destructive production database operation is never run by an agent", joined)
     return verdict("ASK", "LOCAL_DESTRUCTIVE_DB", "destructive database operation", joined)
 
 
@@ -1314,7 +1342,7 @@ def _classify_database(name: str, words: list[str], joined: str) -> Verdict:
     if DB_DESTRUCTIVE_SQL.search(joined):
         return _prod_or_local_destructive(joined)
     if is_prod:
-        return verdict("ASK", "PROD_DB_WRITE", "database client against production target", joined)
+        return verdict("DENY", "PROD_DB_WRITE", "database client against production target is never run by an agent", joined)
     return verdict("ALLOW", "SHELL_READ_ONLY", f"local database client: {name}")
 
 
@@ -1459,7 +1487,7 @@ def _classify_github_tool(name: str, inp: dict, ctx: PolicyContext) -> Verdict:
     if ref.startswith("refs/heads/"):
         ref = ref[len("refs/heads/"):]
     if name in ("merge_pull_request", "enable_auto_merge", "merge_pull_request_branch"):
-        return verdict("DENY", "GH_PR_MERGE", "merge is a user decision", name)
+        return verdict("ASK", "GH_PR_MERGE", "merge is a user decision", name)
     if name in ("delete_repository", "delete_repo"):
         return verdict("DENY", "GH_REPO_DELETE", "repository deletion", name)
     if name == "create_gist" or "gist" in name:
@@ -1478,7 +1506,9 @@ def _classify_github_tool(name: str, inp: dict, ctx: PolicyContext) -> Verdict:
         return verdict("ALLOW", "GIT_PUSH_FEATURE", f"{name} {ref}", ref)
     if name == "create_pull_request":
         return verdict("ALLOW", "GH_PR_CREATE", "create pull request")
-    if name in ("create_repository", "fork_repository", "create_release", "close_pull_request"):
+    if name == "create_release":
+        return verdict("ASK", "RELEASE_TAG", name, name)
+    if name in ("create_repository", "fork_repository", "close_pull_request"):
         return verdict("ASK", "GH_REPO_CREATE", name, name)
     if name.startswith(("get_", "list_", "search_", "read_", "download_")):
         return verdict("ALLOW", "GH_READ", name)

@@ -24,7 +24,11 @@ rules:
   - id: SYSTEM_CONFIG_CHANGE
     category: filesystem
     decision: ASK
-    description: แก้ shell startup file, git global config หรือ system-wide configuration
+    description: แก้ shell startup file, git global config หรือ config dir ของ agent
+  - id: SYSTEM_PATH_WRITE
+    category: filesystem
+    decision: DENY
+    description: เขียน/ลบใต้ OS system path (/System, /Library, /etc, /usr, /opt, /bin, /sbin, /dev, /proc)
 
   # environment files
   - id: DEV_ENV_READ
@@ -157,6 +161,10 @@ rules:
     category: git
     decision: ASK
     description: ลบ local branch แบบบังคับ หรือลบ tag
+  - id: RELEASE_TAG
+    category: git
+    decision: ASK
+    description: สร้าง tag, push tag หรือสร้าง/แก้ GitHub release (release เป็น user decision)
 
   # github
   - id: GH_READ
@@ -173,8 +181,8 @@ rules:
     description: update/comment/review pull request หรือ issue
   - id: GH_PR_MERGE
     category: github
-    decision: DENY
-    description: merge pull request หรือเปิด auto-merge
+    decision: ASK
+    description: merge pull request หรือเปิด auto-merge (user ต้องยืนยันทุกครั้ง)
   - id: GH_REPO_CREATE
     category: github
     decision: ASK
@@ -221,12 +229,12 @@ rules:
     description: deploy production ต้องมี target, impact, backup, rollback และ verification plan
   - id: PROD_DB_WRITE
     category: deploy
-    decision: ASK
-    description: เขียน production database
+    decision: DENY
+    description: เขียน production database ผ่าน agent ไม่ได้ทุกกรณี
   - id: PROD_DESTRUCTIVE_DB
     category: deploy
-    decision: ASK
-    description: destructive production DB ต้องมี backup และ rollback plan
+    decision: DENY
+    description: destructive production DB ผ่าน agent ไม่ได้ทุกกรณี
   - id: LOCAL_DESTRUCTIVE_DB
     category: destructive
     decision: ASK

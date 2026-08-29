@@ -21,16 +21,18 @@ development env (.env, .env.local, .env.development, .env.test, .env.testing, .e
 
 ## ต้องขอ approval หนึ่งครั้งต่อ action + target
 
-`rm -rf` ที่ target เป็น zone root, repository root, `.git`, glob หรือ path นอก Trust Zone (ลบไฟล์/directory ภายใน workspace ไม่ต้องถาม), `git reset --hard`, `git clean -f`, ลบ branch/tag แบบบังคับ, ลบ remote branch, destructive database, Docker prune/volume removal, global package install, shell startup file, git remote change, GitHub auth change, path นอก Trust Zone, staging deploy และ production operation ทุกชนิด (production ต้องมี target, impact, backup, rollback, verification plan)
+`rm -rf` ที่ target เป็น zone root, repository root, `.git`, glob หรือ path นอก Trust Zone (ลบไฟล์/directory ภายใน workspace ไม่ต้องถาม), `git reset --hard`, `git clean -f`, ลบ branch/tag แบบบังคับ, ลบ remote branch, สร้าง/push tag, สร้างหรือแก้ GitHub release, `gh pr merge` (merge เป็น user decision ต้องยืนยันทุกครั้ง), destructive database, Docker prune/volume removal, global package install, shell startup file, git remote change, GitHub auth change, path นอก Trust Zone, staging deploy และ production operation ทุกชนิด (production ต้องมี target, impact, backup, rollback, verification plan)
 
 approval ที่ได้รับใช้กับขั้นตอนต่อเนื่องของงานย่อยเดียวกันได้ ห้ามขยายไป target อื่น
 
 ## Hard boundary (DENY) ที่ hook บังคับใช้
 
 - push ตรงเข้า main, develop, bare `git push`, push ด้วย `HEAD`, force push ทุกแบบ
-- `gh pr merge`, `gh repo delete`, `gh gist`, `gh secret`, `gh auth token`, `gh auth status --show-token`
-- GitHub connector: `merge_pull_request`, `enable_auto_merge`, protected-ref update; `delete_file` ต้องมี approval
+- `gh repo delete`, `gh gist`, `gh secret`, `gh auth token`, `gh auth status --show-token`
+- GitHub connector: protected-ref update; `merge_pull_request`, `enable_auto_merge`, `delete_file` ต้องมี approval
 - อ่าน/แก้ credential file, keychain และ production env (.env.production, .env.production.*, .env.prod, .env.prod.*)
+- production database ทุกชนิด (client ที่ชี้ host/db ที่มี prod/production ในชื่อ, destructive migration ด้วย `--env=production`)
+- เขียน/ลบใต้ OS system path (`/System`, `/Library`, `/etc`, `/usr`, `/opt`, `/bin`, `/sbin`)
 - `--dangerously-bypass-approvals-and-sandbox`, `--sandbox danger-full-access`, bypass flag อื่น
 - `sudo`, pipe จาก curl/wget เข้า shell
 - spawn security agent (auditor, skeptic, security-review) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic (`SECURITY_AGENT_PROVIDER`); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume
@@ -48,7 +50,7 @@ approval ที่ได้รับใช้กับขั้นตอนต�
 
 - ใช้ GitHub connector หรือ GitHub app เป็นช่องทางหลักเมื่อมี; local `gh` เป็น fallback
 - ห้ามพิมพ์ token; ห้ามอ่าน `~/.config/gh` เอง ให้ `gh` อ่านภายในตัวเอง
-- merge, auto-merge, delete-file และ protected-ref เป็นการตัดสินใจของ user
+- merge, auto-merge, delete-file, release/tag และ protected-ref เป็นการตัดสินใจของ user: hook ให้ ASK ต้องรอ user ยืนยันก่อนเสมอ
 
 ## Retry และ completion
 
