@@ -63,6 +63,9 @@ export interface DetectedCapabilities {
   openshell: boolean;
   python3: boolean;
   ghAuthenticated: boolean | null;
+  /** scope ของ token ใน ~/.config/gh และ ~/.codex/gh จาก `gh auth status` (OAuth/classic เท่านั้น; fine-grained PAT = null) */
+  ghTokenScopes?: string[] | null;
+  ghAgentTokenScopes?: string[] | null;
   /** doctor ถูกรันจากใน Bash sandbox ของ agent ไหน (probe ที่ต้องใช้ socket/credential จะล้มเหลวโดยไม่ใช่ปัญหาเครื่อง) */
   agentSandbox: "claude" | "codex" | null;
 }
