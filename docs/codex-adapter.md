@@ -18,7 +18,7 @@
 | `default_permissions` + `sandbox_mode` | ลบ `sandbox_mode`; Codex ปฏิเสธเมื่อทั้งสองถูกตั้งพร้อมกัน |
 | `sandbox_mode = "danger-full-access"` | ลบ และ `requirements.toml` ตั้ง `":danger-full-access" = false` |
 | `filesystem."/" = "read"` | ลบ; ใช้ development roots, toolchain read paths, cache paths แทน |
-| `filesystem."~/.config/gh" = "read"` | เปลี่ยนเป็น `deny`; agent ห้ามอ่านเอง ส่วน `gh` ต้องรันแบบ `require_escalated` (allow rule `["gh"]` ทำให้ไม่ prompt) เพราะ gh อ่าน `config.yml` จาก path นี้เสมอ ไม่ใช่ keychain อย่างเดียว |
+| `filesystem."~/.config/gh"` | คง `read` (เขียนทับเป็น read ถ้า user ตั้ง deny): deny entry ใน managed profile เป็น escalatable=false จึงไม่มีทางให้ `gh`/`gh auth git-credential` รันนอก sandbox แบบ `excludedCommands` ของ Claude; agent ห้ามอ่านเองผ่าน hook `CREDENTIAL_READ` DENY และ rule `gh auth token` forbidden |
 | `workspace_roots."**/.env*" = "deny"` | ลบ (development env ต้องอ่านและแก้ได้) เหลือ deny เฉพาะ production env, key/pem, auth/credentials file |
 | `[apps.<connector>.tools."github.*"]` | ตรวจจับ connector แบบ dynamic (key ใด ๆ ใน `[apps]` ที่มี tool ขึ้นต้น `github.`) แล้วตั้ง `merge_pull_request`, `enable_auto_merge`, `delete_file`, `update_ref` เป็น `approval_mode = "prompt"`; ไม่ hardcode connector id |
 

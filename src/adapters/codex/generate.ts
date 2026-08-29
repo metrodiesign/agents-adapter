@@ -25,6 +25,10 @@ export function codexFilesystemManaged(env: Environment): { profile: Record<stri
   const profile: Record<string, string> = { ":minimal": "read" };
   for (const root of ctx.developmentRoots) profile[root] = "write";
   for (const c of ctx.credentialPaths) profile[tilde(c)] = "deny";
+  // ข้อยกเว้น Codex: deny entry ใน managed profile เป็น escalatable=false (Codex 0.150) จึงไม่มีทางให้ gh รันนอก sandbox
+  // เหมือน excludedCommands ของ Claude; gh และ `gh auth git-credential` (git push/fetch) ต้องอ่าน ~/.config/gh เอง
+  // agent ยังห้ามอ่านเอง: hook CREDENTIAL_READ DENY + rule `gh auth token` forbidden
+  profile["~/.config/gh"] = "read";
   profile["~/.gitconfig"] = "read";
   profile["~/.config/git"] = "read";
   profile["~/.codex/hooks"] = "read";

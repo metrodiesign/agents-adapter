@@ -60,8 +60,9 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
       const perms = (doc.permissions as Record<string, Record<string, unknown>> | undefined)?.[String(doc.default_permissions ?? "")];
       const fsTable = (perms?.filesystem ?? {}) as Record<string, unknown>;
       checks.push({ level: fsTable["/"] === "read" ? "FAIL" : "PASS", name: "filesystem root read", detail: fsTable["/"] === "read" ? '"/" = "read" exposes whole filesystem' : "root not readable" });
-      const ghRead = fsTable["~/.config/gh"] === "read";
-      checks.push({ level: ghRead ? "FAIL" : "PASS", name: "credential exposure (gh config)", detail: ghRead ? "~/.config/gh readable by shell" : "gh config not readable" });
+      // gh ต้องอ่าน ~/.config/gh ใน sandbox (deny entry ไม่ escalatable) จึงยอม read; write เท่านั้นที่เปิดช่องให้แก้ credential
+      const ghWrite = fsTable["~/.config/gh"] === "write";
+      checks.push({ level: ghWrite ? "FAIL" : "PASS", name: "credential exposure (gh config)", detail: ghWrite ? "~/.config/gh writable by shell" : "gh config read-only" });
       const ws = (fsTable[":workspace_roots"] ?? {}) as Record<string, unknown>;
       const prodDenied = nativeProdEnvGlobs(env.ctx.prodEnvPatterns).every((p) => ws[`**/${p}`] === "deny");
       checks.push({ level: prodDenied ? "PASS" : "WARN", name: "production env exposure (codex)", detail: prodDenied ? "production env denied" : "production env not denied in workspace roots" });

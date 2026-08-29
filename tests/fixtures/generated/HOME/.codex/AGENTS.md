@@ -35,17 +35,15 @@ approval ที่ได้รับใช้กับขั้นตอนต�
 - `sudo`, pipe จาก curl/wget เข้า shell
 - spawn security agent (auditor, skeptic, security-review) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic (`SECURITY_AGENT_PROVIDER`); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume
 
-## Command ที่ต้องรันนอก sandbox
+## Sandbox และ credential CLI
 
-permission profile deny `~/.config/gh`, credential store และ docker socket เพื่อไม่ให้ agent อ่าน credential แต่ CLI เจ้าของ credential ต้องอ่านเอง ถ้ารันใน sandbox จะได้ `operation not permitted` (เช่น `failed to load config: open ~/.config/gh/config.yml`) ห้าม retry ในรูปเดิม ให้ทำดังนี้:
-
-- `gh *`, `git push|fetch|pull|ls-remote|clone`, `docker *`, `dotnet test *` ต้องเรียก shell ด้วย `sandbox_permissions: "require_escalated"` ตั้งแต่ครั้งแรก พร้อม `justification` สั้น ๆ
-- `rules/default.rules` มี allow rule ให้ command กลุ่มนี้อยู่แล้ว escalation จึงไม่ prompt; forbidden/prompt rule ที่เจาะจงกว่า (`gh pr merge`, `git push --force`, push เข้า protected branch, `docker prune`) และ hook ยังบังคับใช้ตามเดิม
-- การออกนอก sandbox ไม่ใช่การข้าม permission และห้ามใช้กับ command อื่นที่ไม่ได้อยู่ในรายการนี้
+- deny entry ของ permission profile เป็น escalatable=false: `sandbox_permissions: "require_escalated"` ไม่ช่วยให้อ่าน path ที่ deny ได้ ห้ามใช้เป็นทางแก้
+- `~/.config/gh` เปิด read ให้ sandbox เฉพาะเพื่อให้ `gh` และ `gh auth git-credential` (git push/fetch/pull) ทำงานได้; agent ห้ามอ่าน แสดง หรือคัดลอกไฟล์ในนั้นเอง (hook DENY `CREDENTIAL_READ`)
+- `gh`, `git push <feature>`, `docker` รันใน sandbox ได้ตามปกติ; ถ้าเจอ `operation not permitted` บน `~/.config/gh` แปลว่ายังไม่ได้ `apply --target codex` เวอร์ชันใหม่
 
 ## GitHub
 
-- ใช้ GitHub connector หรือ GitHub app เป็นช่องทางหลักเมื่อมี; local `gh` เป็น fallback (รันแบบ escalated ตามหัวข้อด้านบน)
+- ใช้ GitHub connector หรือ GitHub app เป็นช่องทางหลักเมื่อมี; local `gh` เป็น fallback
 - ห้ามพิมพ์ token; ห้ามอ่าน `~/.config/gh` เอง ให้ `gh` อ่านภายในตัวเอง
 - merge, auto-merge, delete-file และ protected-ref เป็นการตัดสินใจของ user
 
