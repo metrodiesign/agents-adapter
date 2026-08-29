@@ -2981,15 +2981,11 @@
       "expected": "ALLOW"
     },
     {
-      "id": "SHELL_SUBSTITUTION",
-      "name": "assignment from unknown command substitution",
+      "id": "SHELL_READ_ONLY",
+      "name": "assignment from read-only command substitution",
       "kind": "command",
       "command": "X=$(id)",
-      "expected": "ASK",
-      "ruleAny": [
-        "SHELL_SUBSTITUTION",
-        "UNKNOWN_COMMAND"
-      ]
+      "expected": "ALLOW"
     },
     {
       "id": "CREDENTIAL_READ",
@@ -3205,6 +3201,64 @@
       "name": "double-quoted $HOME credential path still denied",
       "kind": "command",
       "command": "cat \"$HOME/.ssh/id_rsa\"",
+      "expected": "DENY",
+      "rule": "CREDENTIAL_READ"
+    },
+    {
+      "id": "SHELL_READ_ONLY",
+      "name": "for loop assigning a path then reading it",
+      "kind": "command",
+      "command": "for f in tracking/order tracking/tracking; do p=app/Views/ci3/$f.php; printf '%-32s ' \"$f\"; rg -o 'x' \"$p\" | sort -u; echo; done",
+      "expected": "ALLOW"
+    },
+    {
+      "id": "SHELL_READ_ONLY",
+      "name": "keyword then assignment only",
+      "kind": "command",
+      "command": "if true; then p=app/Views/order.php; fi",
+      "expected": "ALLOW"
+    },
+    {
+      "id": "SHELL_READ_ONLY",
+      "name": "test on an unset-default variable is not a substitution risk",
+      "kind": "command",
+      "command": "if [ -n \"${WP00C_TEST_PASSWORD:-}\" ]; then echo set; else echo unset; fi",
+      "expected": "ALLOW"
+    },
+    {
+      "id": "SHELL_READ_ONLY",
+      "name": "test builtin with variable",
+      "kind": "command",
+      "command": "test -f \"$CONFIG\" && echo present",
+      "expected": "ALLOW"
+    },
+    {
+      "id": "DEV_ENV_PRINT",
+      "name": "test allowance does not cover printing the variable",
+      "kind": "command",
+      "command": "[ -n \"$TOKEN\" ] && cat \"$TOKEN\"",
+      "expected": "ASK",
+      "rule": "SHELL_SUBSTITUTION"
+    },
+    {
+      "id": "SHELL_READ_ONLY",
+      "name": "assignment from verified local curl substitution",
+      "kind": "command",
+      "command": "code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://127.0.0.1:18404/login || true); echo \"$code\"",
+      "expected": "ALLOW"
+    },
+    {
+      "id": "SHELL_READ_ONLY",
+      "name": "continue and break builtins",
+      "kind": "command",
+      "command": "for f in a b; do [ -f \"app/$f.php\" ] || continue; echo $f; done",
+      "expected": "ALLOW"
+    },
+    {
+      "id": "CREDENTIAL_READ",
+      "name": "assignment from credential substitution still DENY",
+      "kind": "command",
+      "command": "KEY=$(cat ~/.ssh/id_rsa)",
       "expected": "DENY",
       "rule": "CREDENTIAL_READ"
     }

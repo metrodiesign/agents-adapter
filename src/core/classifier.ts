@@ -7,7 +7,7 @@ import * as path from "node:path";
 import type { PolicyContext } from "./context.ts";
 import { type Verdict, strictest, verdict } from "./decisions.ts";
 import { classifyPath, classifyPathKind, expandPath, looksLikePath, resolveReal, type PathOp } from "./paths.ts";
-import { commandName, commandSubstitutions, expandLiteralBindings, parseCommand, type SimpleCommand } from "./shell.ts";
+import { commandName, commandSubstitutions, expandLiteralBindings, parseCommand, stripWrappers, type SimpleCommand } from "./shell.ts";
 
 const BYPASS_FLAGS = [
   "--dangerously-skip-permissions",
@@ -22,7 +22,7 @@ const PRINT_CMDS = new Set(["cat", "less", "more", "head", "tail", "grep", "rg",
 const READ_ONLY_CMDS = new Set([
   "ls", "pwd", "echo", "printf", "cat", "head", "tail", "less", "more", "grep", "rg", "egrep", "fgrep", "find", "fd", "wc", "sort", "uniq", "cut",
   "awk", "sed", "diff", "file", "stat", "du", "df", "which", "whereis", "type", "tree", "date", "whoami", "uname", "env", "printenv", "true",
-  "false", "test", "[", "jq", "yq", "xargs", "tr", "basename", "dirname", "realpath", "readlink", "ps", "sleep", "cd", "export", "source", ".",
+  "false", "test", "[", "continue", "break", "jq", "yq", "xargs", "tr", "basename", "dirname", "realpath", "readlink", "ps", "sleep", "cd", "export", "source", ".",
   "alias", "man", "bat", "nl", "tac", "hostname", "id", "kill", "pkill", "killall", "pgrep", "pidof", "lsof", "netstat", "ping", "curl", "wget", "tee", "mkdir",
   "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "zip", "tar", "gzip", "gunzip", "rm", "column",
   "seq", "expr", "bc", "md5", "md5sum", "shasum", "sha256sum", "openssl", "ssh-keygen", "cmp", "comm", "join", "paste", "split", "rev", "fold",
@@ -54,7 +54,8 @@ interface Ctx {
 export function classifyCommand(command: string, ctx: PolicyContext, depth = 0): Verdict {
   // for VAR in <literal>; VAR=<literal>: ตัดสินจากค่าจริงทุก combination แทน ASK
   const variants = depth < 4 ? expandLiteralBindings(command) : [];
-  if (variants.length > 0) return strictest(variants.map((v) => classifyCommandOnce(v, ctx, depth + 1)));
+  // ขยายซ้ำ: p=app/$f.php ถูก bind ได้หลัง $f ถูกแทนแล้ว (depth จำกัด 4)
+  if (variants.length > 0) return strictest(variants.map((v) => classifyCommand(v, ctx, depth + 1)));
   return classifyCommandOnce(command, ctx, depth);
 }
 
@@ -77,6 +78,8 @@ function classifySegment(seg: SimpleCommand, next: SimpleCommand | undefined, c:
   let words = seg.words;
   // shell keyword นำหน้า (do/then/else/if/while/!/{ ...) ไม่ใช่ command: ตัดออกก่อนให้ name/path/print ตรวจจาก command จริง
   while (words.length > 0 && SHELL_KEYWORDS.has(words[0]) && words[0] !== "for" && words[0] !== "select" && words[0] !== "case") words = words.slice(1);
+  // do p=app/x.php: หลัง keyword ยังมี VAR=value prefix ได้ ตัดเหมือน segment ปกติ (ไม่งั้น x.php กลายเป็นชื่อคำสั่ง)
+  if (words !== seg.words) words = stripWrappers(words);
   const name = commandName(words);
 
   // 1. bypass flag: DENY ก่อนอย่างอื่น
@@ -103,7 +106,7 @@ const GIT_QUERY_SUB_RE = /\$\(\s*git\s+(\S+)([^$`()]*)\)/g;
 
 /** echo/printf แค่พิมพ์ argument: ค่าที่ขยายมาทำอะไรไม่ได้ ส่วน command ใน $(...) ถูก classify แยกอยู่แล้ว (DENY ชนะ) */
 // exit/return: argument เป็น status code ไม่ใช่ path หรือ command
-const OUTPUT_SINKS = new Set(["echo", "printf", "exit", "return"]);
+const OUTPUT_SINKS = new Set(["echo", "printf", "exit", "return", "[", "[[", "test"]);
 
 function outputSinkSubstitution(seg: SimpleCommand, name: string): boolean {
   if (!OUTPUT_SINKS.has(name)) return false;

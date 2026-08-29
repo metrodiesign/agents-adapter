@@ -393,7 +393,8 @@ def _split_segments(tokens) -> list[SimpleCommand]:
                 seg.has_substitution = True
             continue
         # NAME=...$VAR: ค่าถูกเก็บในตัวแปรเท่านั้น (การใช้ $NAME ทีหลังยังเป็น substitution); ยกเว้นมี $(...)/backtick ข้างใน
-        if subst and not (ASSIGN_WORD_RE.match(text) and not re.search(r"\$\(|`", text)):
+        # NAME=$(cmd): cmd ข้างในถูก classify แยกผ่าน command_substitutions; ค่าเก็บในตัวแปร การใช้ $NAME ทีหลังยังเป็น substitution
+        if subst and not ASSIGN_WORD_RE.match(text):
             seg.has_substitution = True
         seg.words.append(text)
     push(False)
@@ -423,7 +424,7 @@ ASSIGN_WORD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=")
 MAX_EXPANSIONS = 32
 ARRAY_ASSIGN_RE = re.compile(r"(?:^|[;&|\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=\(([^()$`]*)\)")
 FOR_RE = re.compile(r"\bfor\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([^;\n]+?)\s*(?:;|\n)\s*do\b")
-ASSIGN_RE = re.compile(r"(?:^|[;&|\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=(\"[^\"$`]*\"|'[^']*'|[^\s;&|$`()]+)(?=\s*(?:[;&|\n]|$))")
+ASSIGN_RE = re.compile(r"(?:^|[;&|\n])\s*(?:(?:do|then|else)\s+)?([A-Za-z_][A-Za-z0-9_]*)=(\"[^\"$`]*\"|'[^']*'|[^\s;&|$`()]+)(?=\s*(?:[;&|\n]|$))")
 LIST_WORD_RE = re.compile(r"\"[^\"]*\"|'[^']*'|\S+")
 
 
@@ -746,7 +747,7 @@ PRINT_CMDS = {"cat", "less", "more", "head", "tail", "grep", "rg", "egrep", "fgr
 READ_ONLY_CMDS = {
     "ls", "pwd", "echo", "printf", "cat", "head", "tail", "less", "more", "grep", "rg", "egrep", "fgrep", "find", "fd", "wc", "sort", "uniq", "cut",
     "awk", "sed", "diff", "file", "stat", "du", "df", "which", "whereis", "type", "tree", "date", "whoami", "uname", "env", "printenv", "true",
-    "false", "test", "[", "jq", "yq", "xargs", "tr", "basename", "dirname", "realpath", "readlink", "ps", "sleep", "cd", "export", "source", ".",
+    "false", "test", "[", "continue", "break", "jq", "yq", "xargs", "tr", "basename", "dirname", "realpath", "readlink", "ps", "sleep", "cd", "export", "source", ".",
     "alias", "man", "bat", "nl", "tac", "hostname", "id", "kill", "pkill", "killall", "pgrep", "pidof", "lsof", "netstat", "ping", "curl", "wget", "tee", "mkdir",
     "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "zip", "tar", "gzip", "gunzip", "rm", "column",
     "seq", "expr", "bc", "md5", "md5sum", "shasum", "sha256sum", "openssl", "ssh-keygen", "cmp", "comm", "join", "paste", "split", "rev", "fold",
@@ -776,7 +777,8 @@ def classify_command(command: str, ctx: PolicyContext, depth: int = 0) -> Verdic
     # for VAR in <literal>; VAR=<literal>: ตัดสินจากค่าจริงทุก combination แทน ASK
     variants = expand_literal_bindings(command) if depth < 4 else []
     if variants:
-        return strictest([_classify_command_once(v, ctx, depth + 1) for v in variants])
+        # ขยายซ้ำ: p=app/$f.php ถูก bind ได้หลัง $f ถูกแทนแล้ว (depth จำกัด 4)
+        return strictest([classify_command(v, ctx, depth + 1) for v in variants])
     return _classify_command_once(command, ctx, depth)
 
 
@@ -801,6 +803,9 @@ def _classify_segment(seg: SimpleCommand, nxt: Optional[SimpleCommand], ctx: Pol
     # shell keyword นำหน้า (do/then/else/if/while/!/{ ...) ไม่ใช่ command: ตัดออกก่อนให้ name/path/print ตรวจจาก command จริง
     while words and words[0] in SHELL_KEYWORDS and words[0] not in ("for", "select", "case"):
         words = words[1:]
+    # do p=app/x.php: หลัง keyword ยังมี VAR=value prefix ได้ ตัดเหมือน segment ปกติ (ไม่งั้น x.php กลายเป็นชื่อคำสั่ง)
+    if words is not seg.words:
+        words = strip_wrappers(words)
     name = command_name(words)
     bypass = _find_bypass(words)
     if bypass:
@@ -823,7 +828,7 @@ _UNVERIFIED_RE = re.compile(r"[$`(]")
 
 # echo/printf แค่พิมพ์ argument: ค่าที่ขยายมาทำอะไรไม่ได้ ส่วน command ใน $(...) ถูก classify แยกอยู่แล้ว (DENY ชนะ)
 # exit/return: argument เป็น status code ไม่ใช่ path หรือ command
-OUTPUT_SINKS = {"echo", "printf", "exit", "return"}
+OUTPUT_SINKS = {"echo", "printf", "exit", "return", "[", "[[", "test"}
 
 
 def _output_sink_substitution(seg: SimpleCommand, name: str) -> bool:
