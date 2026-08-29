@@ -140,6 +140,11 @@ test("doctor warns when an OAuth gh token lacks the workflow scope", async () =>
     assert.ok(noScope.some((c) => c.name === "gh agent token workflow scope (codex)" && c.level === "PASS"));
     const unknown = await runDoctor(t.env, { parity: false, detected: { ...base, ghTokenScopes: null, ghAgentTokenScopes: null } });
     assert.ok(!unknown.some((c) => c.name.includes("workflow scope")), "fine-grained PAT: nothing to check");
+    // token ย้ายเข้า keyring หลัง gh auth refresh: sandbox อ่านไม่ได้ (HTTP 401) ต้อง FAIL พร้อมคำสั่ง re-login
+    const keyring = await runDoctor(t.env, { parity: false, detected: { ...base, ghAgentTokenKeyring: true } });
+    assert.ok(keyring.some((c) => c.name === "gh agent token storage (codex)" && c.level === "FAIL" && c.detail.includes("--insecure-storage")));
+    const plain = await runDoctor(t.env, { parity: false, detected: { ...base, ghAgentTokenKeyring: false } });
+    assert.ok(plain.some((c) => c.name === "gh agent token storage (codex)" && c.level === "PASS"));
   } finally {
     t.cleanup();
   }

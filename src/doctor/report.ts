@@ -52,7 +52,7 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
   // GitHub ปฏิเสธ push ที่แตะ .github/workflows เมื่อ OAuth/classic token ไม่มี scope `workflow` (fine-grained PAT ต้องมี Workflows: write แต่ gh ไม่รายงาน scope ให้ตรวจ)
   for (const [name, scopes, fix] of [
     ["GitHub token workflow scope", d.ghTokenScopes, "gh auth refresh -h github.com -s workflow"],
-    ["gh agent token workflow scope (codex)", d.ghAgentTokenScopes, "GH_CONFIG_DIR=~/.codex/gh gh auth refresh -h github.com -s workflow --insecure-storage"],
+    ["gh agent token workflow scope (codex)", d.ghAgentTokenScopes, "re-login with a token that has the scope: GH_CONFIG_DIR=~/.codex/gh gh auth logout -h github.com; then gh auth login --with-token --insecure-storage (gh auth refresh moves the token into the keyring)"],
   ] as const) {
     if (scopes === null || scopes === undefined) continue;
     const ok = scopes.includes("workflow");
@@ -95,6 +95,9 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
         const loose = (hostsStat.mode & 0o077) !== 0;
         checks.push({ level: loose ? "FAIL" : envOk ? "PASS" : "WARN", name: "gh agent token (codex)", detail: loose ? "~/.codex/gh/hosts.yml readable by group/other; chmod 600" : envOk ? "present, GH_CONFIG_DIR set (token never printed)" : "present but shell_environment_policy.set.GH_CONFIG_DIR not applied" });
       }
+      // gh auth refresh (แม้ใส่ --insecure-storage) ย้าย token เข้า keyring: seatbelt อ่าน keychain ไม่ได้ -> gh ใน sandbox ตอบ HTTP 401
+      if (d.ghAgentTokenKeyring === true) checks.push({ level: "FAIL", name: "gh agent token storage (codex)", detail: "~/.codex/gh token is in the keyring (gh auth status shows `(keyring)`): the Codex sandbox cannot read it (HTTP 401 Requires authentication); run: GH_CONFIG_DIR=~/.codex/gh gh auth logout -h github.com; then pbpaste | GH_CONFIG_DIR=~/.codex/gh gh auth login --with-token --insecure-storage" });
+      else if (d.ghAgentTokenKeyring === false) checks.push({ level: "PASS", name: "gh agent token storage (codex)", detail: "plaintext hosts.yml (readable inside the seatbelt)" });
       const ws = (fsTable[":workspace_roots"] ?? {}) as Record<string, unknown>;
       // pattern เป็น root-level ตั้งแต่เลิกใช้ `**/` (seatbelt deny unlink ทั้ง workspace)
       const prodDenied = nativeProdEnvGlobs(env.ctx.prodEnvPatterns).every((p) => ws[p] === "deny");

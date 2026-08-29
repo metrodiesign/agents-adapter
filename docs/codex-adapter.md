@@ -58,7 +58,7 @@ profile `Auto mode` extends `:workspace` และกำหนดเฉพาะ
 - GitHub connector/app เป็นช่องทางหลักถ้ามี; local `gh` เป็น fallback
 - block: `gh auth token`, `gh auth status --show-token`, `gh pr merge`, `gh repo delete`, `gh gist`, `gh secret` ทั้งใน hook และ rules (`forbidden`)
 - ข้อจำกัด Codex 0.150.1: token ของ `gh` ใน `~/.config/gh` อยู่ใน macOS keychain (`gh auth status` = `(keyring)`) แต่ seatbelt ของ Codex ปฏิเสธ `file-read-metadata ~/Library/Keychains/login.keychain-db` และ `ipc-posix-shm-write-create com.apple.AppleDatabaseChanged` (base policy ไม่มี key ให้เปิด) และ escalation ก็ยังบังคับ deny entry ของ profile ดังนั้น keychain ใช้ไม่ได้ทุกโหมด และไม่เปิด keychain ให้ sandbox เพราะเป็น credential store
-- ทางแก้: agent token แยกใน `~/.codex/gh` (permission profile `read`, `shell_environment_policy.set.GH_CONFIG_DIR` ชี้ไปที่นั่น, `GH_NO_UPDATE_NOTIFIER=1` กัน gh เขียน state) ทำให้ `gh` และ `gh auth git-credential` (git push/pull/fetch) ทำงานใน sandbox โดยไม่ต้อง escalation; agent ยังอ่าน dir นี้ไม่ได้ (`credential_paths` -> hook DENY ทั้ง Claude/Codex/Pi) และ `doctor` ตรวจว่า `hosts.yml` มีอยู่และ mode 600 โดยไม่พิมพ์เนื้อหา
+- ทางแก้: agent token แยกใน `~/.codex/gh` (permission profile `read`, `shell_environment_policy.set.GH_CONFIG_DIR` ชี้ไปที่นั่น, `GH_NO_UPDATE_NOTIFIER=1` กัน gh เขียน state; `shell_environment_policy.set` ยังตั้ง `DOTNET_SYSTEM_NET_DISABLEIPV6=1` เพราะ seatbelt ปฏิเสธ `network-outbound` ไป `::ffff:127.0.0.1` ที่ .NET dual-stack socket ใช้ ทำให้ VSTest testhost ต่อ vstest.console ไม่ได้ (`failed to connect to testhost`, `SocketException (13): Permission denied`); บังคับ IPv4 แล้ว `dotnet test` ผ่านใน sandbox โดยไม่ต้อง escalation) ทำให้ `gh` และ `gh auth git-credential` (git push/pull/fetch) ทำงานใน sandbox โดยไม่ต้อง escalation; agent ยังอ่าน dir นี้ไม่ได้ (`credential_paths` -> hook DENY ทั้ง Claude/Codex/Pi) และ `doctor` ตรวจว่า `hosts.yml` มีอยู่และ mode 600 โดยไม่พิมพ์เนื้อหา
 
 ### GitHub setup สำหรับ Codex (ทำครั้งเดียว, user รันเอง)
 
@@ -75,8 +75,15 @@ GH_CONFIG_DIR=~/.codex/gh gh auth status
 ถ้าใช้ OAuth token จาก `gh auth login` แทน PAT (`gh auth status` แสดง `Token scopes: 'gist', 'read:org', 'repo'`) ต้องเพิ่ม scope `workflow` เอง ไม่งั้น push ที่แตะ `.github/workflows/` โดน `refusing to allow an OAuth App to create or update workflow ... without \`workflow\` scope`; `doctor` เตือนเป็น `gh agent token workflow scope (codex)` และ `GitHub token workflow scope` (token ของ user ใน keychain ที่ Claude Code ใช้):
 
 ```bash
-GH_CONFIG_DIR=~/.codex/gh gh auth refresh -h github.com -s workflow --insecure-storage
 gh auth refresh -h github.com -s workflow
+```
+
+ห้ามใช้ `gh auth refresh` กับ agent token: พิสูจน์แล้ว (2026-08-29, gh 2.x) ว่า `GH_CONFIG_DIR=~/.codex/gh gh auth refresh ... --insecure-storage` ย้าย token เข้า keyring (`gh auth status` แสดง `(keyring)`) ทำให้ `gh` ใน seatbelt ตอบ `HTTP 401: Requires authentication` ทั้งที่บน host ยัง authenticated; `doctor` จับเป็น `FAIL gh agent token storage (codex)` ให้ logout แล้ว login ใหม่ด้วย token ที่มี scope ครบ:
+
+```bash
+GH_CONFIG_DIR=~/.codex/gh gh auth logout -h github.com
+pbpaste | GH_CONFIG_DIR=~/.codex/gh gh auth login --with-token --insecure-storage
+chmod 600 ~/.codex/gh/*.yml
 ```
 
 3. `agents-adapter apply --target codex` แล้ว `agents-adapter doctor` ต้องได้ `PASS gh agent token (codex)`

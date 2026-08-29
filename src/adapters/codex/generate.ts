@@ -16,9 +16,13 @@ import { codexRules, renderRulesBlock } from "./rules.ts";
 export const CODEX_HOOK_DIR_NAME = "agents-adapter";
 const PROFILE = "Auto mode";
 export const CODEX_GH_CONFIG_DIR_TILDE = "~/.codex/gh";
-/** env ที่ Codex ตั้งให้ทุก shell command: gh และ `gh auth git-credential` (git push/pull/fetch) ใช้ token จาก ~/.codex/gh */
+/**
+ * env ที่ Codex ตั้งให้ทุก shell command: gh และ `gh auth git-credential` (git push/pull/fetch) ใช้ token จาก ~/.codex/gh;
+ * DOTNET_SYSTEM_NET_DISABLEIPV6: seatbelt ปฏิเสธ connect ไป v4-mapped IPv6 loopback (`::ffff:127.0.0.1`, log เป็น `network-outbound remote:*:<port>`)
+ * ที่ .NET dual-stack socket ใช้ ทำให้ VSTest testhost ต่อ vstest.console ไม่ได้ (`failed to connect to testhost`); บังคับ IPv4 แล้ว `dotnet test` ผ่านใน sandbox
+ */
 export function codexShellEnvManaged(env: Environment): Record<string, string> {
-  return { GH_CONFIG_DIR: path.join(env.home, ".codex", "gh"), GH_NO_UPDATE_NOTIFIER: "1" };
+  return { GH_CONFIG_DIR: path.join(env.home, ".codex", "gh"), GH_NO_UPDATE_NOTIFIER: "1", DOTNET_SYSTEM_NET_DISABLEIPV6: "1" };
 }
 
 function validateToml(content: string): void {
@@ -159,7 +163,7 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
     if (k in envSet && envSet[k] !== v) conflicts.push(`shell_environment_policy.set.${k}: ${JSON.stringify(envSet[k])} -> ${JSON.stringify(v)}`);
     envSet[k] = v;
   }
-  managedKeys.push("shell_environment_policy.set.GH_CONFIG_DIR", "shell_environment_policy.set.GH_NO_UPDATE_NOTIFIER");
+  managedKeys.push(...Object.keys(codexShellEnvManaged(env)).map((k) => `shell_environment_policy.set.${k}`));
 
   // 4. auto_review policy managed block
   const ar = ensureObj(doc, ["auto_review"]);

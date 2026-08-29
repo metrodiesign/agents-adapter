@@ -75,6 +75,7 @@ test("codex config: removes danger-full-access, root read and gh config read; ke
     const envSet = doc.shell_environment_policy.set;
     assert.equal(envSet.GH_CONFIG_DIR, path.join(t.env.home, ".codex", "gh"));
     assert.equal(envSet.GH_NO_UPDATE_NOTIFIER, "1");
+    assert.equal(envSet.DOTNET_SYSTEM_NET_DISABLEIPV6, "1"); // VSTest testhost loopback: seatbelt denies ::ffff:127.0.0.1
     assert.equal(fsTable["~/.ssh"], "deny");
     assert.equal(fsTable["~/.ssh"], "deny");
     assert.equal(fsTable["~/custom/tools"], "read");
