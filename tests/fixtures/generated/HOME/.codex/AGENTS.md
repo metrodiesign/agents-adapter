@@ -52,6 +52,10 @@ approval ที่ได้รับใช้กับขั้นตอนต�
 - ห้ามพิมพ์ token; ห้ามอ่าน `~/.config/gh` เอง ให้ `gh` อ่านภายในตัวเอง
 - merge, auto-merge, delete-file, release/tag และ protected-ref เป็นการตัดสินใจของ user: hook ให้ ASK ต้องรอ user ยืนยันก่อนเสมอ
 
+## หลัง agents-adapter apply
+
+- Codex อ่าน `config.toml`, `rules/*.rules` และ `auto_review.policy` ตอนเริ่ม process เท่านั้น: session ที่เปิดอยู่ (รวม subagent thread) ยังใช้ policy เก่า ถ้าเจอ deny/prompt ที่ไม่ตรง policy ปัจจุบัน ให้ user ปิดแล้วเปิด `codex` ใหม่ก่อน ห้ามวน retry
+
 ## Retry และ completion
 
 - failure เดิมซ้ำสองครั้งให้เปลี่ยน hypothesis หรือ tool

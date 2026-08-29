@@ -21,6 +21,8 @@
 
 ### Fixed
 
+- Codex: หลัง `apply` process ที่เปิดอยู่ยังใช้ config/rules/auto_review เดิม (หลักฐาน: thread ลูกของ session ที่เริ่มก่อน apply ยังโดน seatbelt deny `rmdir .git/rebase-merge` จาก `**/` glob เก่า, prompt จาก user rule ที่ถูกตัดไปแล้ว และ reviewer deny ด้วย policy เก่า); `apply` พิมพ์ note ให้ restart ทุก session และ AGENTS.md บอก agent ให้รายงาน user แทน retry; auto_review policy ระบุชัดว่าไฟล์/directory ใต้ `.git` (rebase-merge, index.lock, MERGE_HEAD) เป็น workspace target ลบได้ ไม่ใช่ `.git` เอง
+
 - doctor: `stat ~/.codex/gh/hosts.yml` ที่ตอบ EPERM/EACCES ใน Bash sandbox ของ Claude/Codex (credential path ถูก deny read) รายงานเป็น UNSUPPORTED ของ check `gh agent token (codex)` แทนที่จะโยนออกมาเป็น `FAIL codex config parse` และตัด check ที่เหลือของ Codex ทิ้ง; check `production env exposure (codex)` อ่าน pattern แบบ root-level ตามที่ generator เขียนตั้งแต่เลิกใช้ `**/` (ก่อนหน้านี้ WARN ผิดเสมอ)
 
 - Codex: deny glob ใน `:workspace_roots` เปลี่ยนจาก `**/<pattern>` เป็น pattern ระดับ root (`.env.production`, `*.key`, `auth.json`, ...) เพราะ Codex 0.150 seatbelt ตีความ `**/` ว่าทุก directory ใน workspace อาจเป็น parent ของไฟล์ต้องห้าม แล้ว deny `file-write-unlink` ของ directory ทั้งหมด ทำให้ `rmdir`, `rm -r`, `mv <dir>` ล้ม `Operation not permitted` แม้ directory ว่าง (reproduce: `codex sandbox --log-denials -- rmdir <empty-dir>`; profile จำลองที่มีเฉพาะ `"**/*.key" = "deny"` ก็ล้ม, ตัด `**/` แล้วผ่าน); `apply` ลบ key `**/…` เดิมออกจาก config ที่ติดตั้งแล้ว; ไฟล์ต้องห้ามที่อยู่ลึกกว่า root ยังถูก hook classifier DENY ทุก CLI

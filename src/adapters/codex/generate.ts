@@ -72,7 +72,7 @@ export function codexFilesystemManaged(env: Environment): { profile: Record<stri
 export const AUTO_REVIEW_POLICY = `${HASH_START}
 Approve only reversible, task-scoped development actions whose target and intent are explicit in the current user request.
 Never approve: merge or auto-merge of pull requests, release or tag creation, repository deletion, gist creation, credential or token access, force push, push to protected branches, production deploy, production database access, or writes under OS system paths (/System, /Library, /etc, /usr, /opt).
-Approve destructive local operations (delete, rename, overwrite) when every target is inside the Development Trust Zone workspace and is not a repository root, .git directory or the zone root.
+Approve destructive local operations (delete, rename, overwrite) when every target is inside the Development Trust Zone workspace and is not a repository root, the .git directory itself or the zone root. Files and subdirectories inside .git (rebase-merge, rebase-apply, MERGE_HEAD, index.lock, hooks, refs) are ordinary workspace targets: approve their removal when the transcript shows git left them behind.
 Approve delete_file, protected-ref update, staging deploy or destructive operations outside the workspace only when the current user request names that exact action and target.
 ${HASH_END}`;
 
@@ -351,6 +351,7 @@ export function renderCodex(env: Environment, mode: RenderMode): AdapterPlan {
   changes.push(change(ctxDefaultPath, existingCtxDefault, remove ? null : stableJson(serializableContext(env.ctx)), validateJson));
 
   notes.push("hooks require trust in Codex before they run: open codex once and accept the new hooks (hooks.state trusted_hash)");
+  notes.push("Codex loads config.toml, rules and the auto_review policy at process start: restart every running codex session (including its subagent threads), otherwise the seatbelt, execpolicy and reviewer keep the pre-apply policy");
   notes.push("ASK is enforced natively by rules (prompt) + approvals reviewer policy; PreToolUse hook enforces DENY and adds context for ASK");
   notes.push("requirements.toml at ~/.codex is honoured by Codex only when loaded as system requirements; verify with `codex doctor`");
   return {
