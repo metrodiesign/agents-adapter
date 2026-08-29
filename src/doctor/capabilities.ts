@@ -30,5 +30,6 @@ export function detectCapabilities(): DetectedCapabilities {
     openshell: which("openshell"),
     python3: run("python3", ["--version"]) !== null,
     ghAuthenticated: gh,
+    agentSandbox: process.env.CODEX_SANDBOX ? "codex" : process.env.CLAUDECODE ? "claude" : null,
   };
 }

@@ -43,10 +43,12 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
   ver("pi", d.piVersion);
   checks.push({ level: "PASS", name: "config file", detail: env.configPath.replace(env.home, "~") });
   checks.push({ level: d.python3 ? "PASS" : "FAIL", name: "python3 for Codex hooks", detail: d.python3 ? "available" : "missing" });
-  checks.push({ level: d.docker ? "PASS" : "WARN", name: "Docker availability", detail: d.docker ? "available" : "not available (Pi isolated profile needs docker/gondolin/openshell)" });
+  // ใน Bash sandbox ของ Claude/Codex socket ของ docker และ ~/.config/gh ถูกปิด: probe ล้มเหลวไม่ได้แปลว่าเครื่องไม่มี
+  const probeBlocked = (ok: boolean): boolean => !ok && d.agentSandbox !== null;
+  checks.push({ level: d.docker ? "PASS" : probeBlocked(d.docker) ? "UNSUPPORTED" : "WARN", name: "Docker availability", detail: d.docker ? "available" : probeBlocked(d.docker) ? `cannot probe inside the ${d.agentSandbox} sandbox; run doctor from a terminal` : "not available (Pi isolated profile needs docker/gondolin/openshell)" });
   checks.push({ level: d.gondolin ? "PASS" : "UNSUPPORTED", name: "Gondolin", detail: d.gondolin ? "available" : "not installed" });
   checks.push({ level: d.openshell ? "PASS" : "UNSUPPORTED", name: "OpenShell", detail: d.openshell ? "available" : "not installed" });
-  checks.push({ level: d.ghAuthenticated === null ? "UNSUPPORTED" : d.ghAuthenticated ? "PASS" : "WARN", name: "GitHub auth status", detail: d.ghAuthenticated === null ? "gh not installed" : d.ghAuthenticated ? "authenticated (token never printed)" : "not authenticated" });
+  checks.push({ level: d.ghAuthenticated === null ? "UNSUPPORTED" : d.ghAuthenticated ? "PASS" : probeBlocked(false) ? "UNSUPPORTED" : "WARN", name: "GitHub auth status", detail: d.ghAuthenticated === null ? "gh not installed" : d.ghAuthenticated ? "authenticated (token never printed)" : probeBlocked(false) ? `cannot probe inside the ${d.agentSandbox} sandbox; run doctor from a terminal` : "not authenticated" });
 
   // Codex config conflicts
   const codexConfig = path.join(env.home, ".codex", "config.toml");
@@ -141,6 +143,7 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
       if (drift.notInstalled) checks.push({ level: "WARN", name: `policy drift (${target})`, detail: "never applied" });
       else checks.push({ level: drift.policyDrift.length === 0 ? "PASS" : "WARN", name: `policy drift (${target})`, detail: drift.policyDrift.length === 0 ? "generated output matches installed files" : drift.policyDrift.join("; ") });
       if (drift.hashDrift.length > 0) checks.push({ level: "WARN", name: `generated hash drift (${target})`, detail: drift.hashDrift.join("; ") });
+      if (drift.foreignEdit.length > 0) checks.push({ level: "PASS", name: `generated hash drift (${target})`, detail: "edited outside managed keys only: " + drift.foreignEdit.map((f) => f.replace("modified since apply: ", "")).join(", ") });
     } catch (err) {
       checks.push({ level: "FAIL", name: `policy drift (${target})`, detail: err instanceof Error ? err.message : String(err) });
     }

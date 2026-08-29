@@ -100,7 +100,7 @@ test("doctor reports FAIL on legacy codex config and PASS after apply; never pri
     fs.writeFileSync(path.join(home, ".codex", "auth.json"), '{"token":"SECRET-VALUE-XYZ"}');
   });
   try {
-    const detected = { claudeVersion: "2.1.250", codexVersion: "0.150.1", piVersion: "0.84.3", docker: true, gondolin: false, openshell: false, python3: true, ghAuthenticated: true };
+    const detected = { claudeVersion: "2.1.250", codexVersion: "0.150.1", piVersion: "0.84.3", docker: true, gondolin: false, openshell: false, python3: true, ghAuthenticated: true, agentSandbox: null };
     const before = await runDoctor(t.env, { parity: false, detected });
     assert.ok(before.some((c) => c.name === "danger-full-access" && c.level === "FAIL"));
     assert.ok(before.some((c) => c.name === "filesystem root read" && c.level === "FAIL"));
