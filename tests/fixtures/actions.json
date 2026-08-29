@@ -315,6 +315,9 @@
     { "id": "SHELL_SUBSTITUTION", "name": "backtick substitution", "kind": "command", "command": "ls `pwd`", "expected": "ASK" },
     { "id": "SHELL_SUBSTITUTION", "name": "variable expansion unknown", "kind": "command", "command": "cat $FILE", "expected": "ASK" },
     { "id": "SHELL_SUBSTITUTION", "name": "subshell", "kind": "command", "command": "(cd x && ls)", "expected": "ASK" },
+    { "id": "SHELL_READ_ONLY", "name": "arithmetic expansion is not a substitution", "kind": "command", "command": "count=0; count=$((count + 1)); echo \"SUITES=$((count * 2))\"", "expected": "ALLOW" },
+    { "id": "SHELL_READ_ONLY", "name": "exit with unresolved status var", "kind": "command", "command": "bash scripts/run.test.sh || status=1; exit \"$status\"", "expected": "ALLOW", "ruleAny": ["SHELL_READ_ONLY", "BUILD"] },
+    { "id": "SHELL_SUBSTITUTION", "name": "arithmetic with nested command substitution", "kind": "command", "command": "ls $(( $(date +%s) - 60 ))", "expected": "ASK" },
     { "id": "DEV_ENV_PRINT", "name": "substitution still denies deny-class", "kind": "command", "command": "cat .env $(date)", "expected": "DENY" },
     { "id": "GIT_PUSH_PROTECTED", "name": "substitution still denies push main", "kind": "command", "command": "git push origin main $(echo)", "expected": "DENY" },
 

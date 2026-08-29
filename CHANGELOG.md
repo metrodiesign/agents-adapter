@@ -23,6 +23,8 @@
 
 ### Fixed
 
+- classifier: arithmetic expansion `$((count + 1))` เคยถูกนับเป็น command substitution (`SHELL_SUBSTITUTION` ASK) และ `echo $((2*3))` เคยถูกแตกเป็นคำสั่ง `2*3` (`UNKNOWN_COMMAND`); tokenizer/extractor ทั้ง TS และ Python ข้าม `$((...))` เว้นแต่มี `$(`/backtick ซ้อนข้างใน; `exit`/`return` เป็น output sink เหมือน `echo` (argument เป็น status code) ทำให้ test loop แบบ `bash "$f" || status=1; exit "$status"` เป็น ALLOW
+
 - classifier: ชื่อ MCP tool ที่ server มี `_` เดี่ยวและ namespace app นำหน้า (`mcp__codex_apps__github__get_profile`, `...__search_installed_repositories_v2`) เคยตกเป็น `UNKNOWN_COMMAND` ASK เพราะ regex รับเฉพาะ `mcp__<server ไม่มี _>__<tool>`; ตอนนี้ split ด้วย `__` แล้ว map `github__*` เป็น GitHub connector (read = `GH_READ` ALLOW, merge = `GH_PR_MERGE` ASK, protected ref = DENY) ทั้ง TS และ Python
 
 - Codex: หลัง `apply` process ที่เปิดอยู่ยังใช้ config/rules/auto_review เดิม (หลักฐาน: thread ลูกของ session ที่เริ่มก่อน apply ยังโดน seatbelt deny `rmdir .git/rebase-merge` จาก `**/` glob เก่า, prompt จาก user rule ที่ถูกตัดไปแล้ว และ reviewer deny ด้วย policy เก่า); `apply` พิมพ์ note ให้ restart ทุก session และ AGENTS.md บอก agent ให้รายงาน user แทน retry; auto_review policy ระบุชัดว่าไฟล์/directory ใต้ `.git` (rebase-merge, index.lock, MERGE_HEAD) เป็น workspace target ลบได้ ไม่ใช่ `.git` เอง

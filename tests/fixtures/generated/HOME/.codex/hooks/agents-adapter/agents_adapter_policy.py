@@ -163,6 +163,13 @@ def _tokenize(inp: str) -> list[tuple[str, str, bool]]:
                     cur += inp[i + 1]
                     i += 2
                     continue
+                if inp.startswith("$((", i):
+                    end = _arithmetic_end(inp, i)
+                    if re.search(r"\$\(|`", inp[i + 3:end]):
+                        subst = True
+                    cur += inp[i:end]
+                    i = end
+                    continue
                 if (inp[i] == "$" and inp[i + 1 : i + 2] not in NUMERIC_PARAM) or inp[i] == "`":
                     subst = True
                 cur += inp[i]
@@ -182,6 +189,15 @@ def _tokenize(inp: str) -> list[tuple[str, str, bool]]:
                 cur += inp[i]
                 i += 1
             i += 1
+            continue
+        if inp.startswith("$((", i):
+            # arithmetic expansion $((count + 1)): ค่าเป็นตัวเลขเสมอ ตรวจได้ ยกเว้นมี command substitution ซ้อนข้างใน
+            in_word = True
+            end = _arithmetic_end(inp, i)
+            if re.search(r"\$\(|`", inp[i + 3:end]):
+                subst = True
+            cur += inp[i:end]
+            i = end
             continue
         if c == "$" and i + 1 < n and inp[i + 1] in "({":
             in_word = True
@@ -365,6 +381,19 @@ def expand_literal_bindings(command: str) -> list[str]:
     return variants
 
 
+def _arithmetic_end(inp: str, start: int) -> int:
+    """index หลัง `))` ที่ปิด `$((` ที่ตำแหน่ง start (นับวงเล็บซ้อน); ถ้าไม่ปิดคืน len"""
+    depth = 0
+    for i in range(start + 1, len(inp)):
+        if inp[i] == "(":
+            depth += 1
+        elif inp[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+    return len(inp)
+
+
 def command_substitutions(command: str) -> list[str]:
     """คืน command ภายใน $(...) และ `...` ระดับนอกสุด (mirror ของ shell.ts)"""
     out: list[str] = []
@@ -387,6 +416,9 @@ def command_substitutions(command: str) -> list[str]:
                 i += 1
             out.append(command[start:i])
             i += 1
+            continue
+        if command.startswith("$((", i):
+            i = _arithmetic_end(command, i)
             continue
         if c == "$" and i + 1 < n and command[i + 1] == "(":
             depth = 0
@@ -701,7 +733,8 @@ _UNVERIFIED_RE = re.compile(r"[$`(]")
 
 
 # echo/printf แค่พิมพ์ argument: ค่าที่ขยายมาทำอะไรไม่ได้ ส่วน command ใน $(...) ถูก classify แยกอยู่แล้ว (DENY ชนะ)
-OUTPUT_SINKS = {"echo", "printf"}
+# exit/return: argument เป็น status code ไม่ใช่ path หรือ command
+OUTPUT_SINKS = {"echo", "printf", "exit", "return"}
 
 
 def _output_sink_substitution(seg: SimpleCommand, name: str) -> bool:
