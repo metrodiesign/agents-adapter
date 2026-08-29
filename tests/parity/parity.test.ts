@@ -18,7 +18,7 @@ test("all adapters agree with the matrix and with each other on every fixture", 
 test("no required rule is UNSUPPORTED without an isolation fallback", () => {
   const t = makeTestEnv();
   try {
-    const detected = { claudeVersion: "2.1.0", codexVersion: "0.150.0", piVersion: "0.84.0", docker: true, gondolin: false, openshell: false, python3: true, ghAuthenticated: true };
+    const detected = { claudeVersion: "2.1.0", codexVersion: "0.150.0", piVersion: "0.84.0", docker: true, gondolin: false, openshell: false, python3: true, ghAuthenticated: true, agentSandbox: null };
     for (const adapter of Object.values(ADAPTERS)) {
       const caps = adapter.capabilities(t.env, detected);
       const unsupported = Object.entries(caps).filter(([, c]) => c.level === "unsupported").map(([k]) => k);
@@ -33,7 +33,7 @@ test("no required rule is UNSUPPORTED without an isolation fallback", () => {
 test("Pi host mode without any isolation runtime reports UNSUPPORTED for credential rules", () => {
   const t = makeTestEnv();
   try {
-    const detected = { claudeVersion: "2.1.0", codexVersion: "0.150.0", piVersion: "0.84.0", docker: false, gondolin: false, openshell: false, python3: true, ghAuthenticated: true };
+    const detected = { claudeVersion: "2.1.0", codexVersion: "0.150.0", piVersion: "0.84.0", docker: false, gondolin: false, openshell: false, python3: true, ghAuthenticated: true, agentSandbox: null };
     const caps = ADAPTERS.pi.capabilities(t.env, detected);
     assert.equal(caps.CREDENTIAL_READ.level, "unsupported");
   } finally {
