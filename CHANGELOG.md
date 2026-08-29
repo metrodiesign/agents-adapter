@@ -23,6 +23,8 @@
 
 ### Fixed
 
+- classifier: ชื่อ MCP tool ที่ server มี `_` เดี่ยวและ namespace app นำหน้า (`mcp__codex_apps__github__get_profile`, `...__search_installed_repositories_v2`) เคยตกเป็น `UNKNOWN_COMMAND` ASK เพราะ regex รับเฉพาะ `mcp__<server ไม่มี _>__<tool>`; ตอนนี้ split ด้วย `__` แล้ว map `github__*` เป็น GitHub connector (read = `GH_READ` ALLOW, merge = `GH_PR_MERGE` ASK, protected ref = DENY) ทั้ง TS และ Python
+
 - Codex: หลัง `apply` process ที่เปิดอยู่ยังใช้ config/rules/auto_review เดิม (หลักฐาน: thread ลูกของ session ที่เริ่มก่อน apply ยังโดน seatbelt deny `rmdir .git/rebase-merge` จาก `**/` glob เก่า, prompt จาก user rule ที่ถูกตัดไปแล้ว และ reviewer deny ด้วย policy เก่า); `apply` พิมพ์ note ให้ restart ทุก session และ AGENTS.md บอก agent ให้รายงาน user แทน retry; auto_review policy ระบุชัดว่าไฟล์/directory ใต้ `.git` (rebase-merge, index.lock, MERGE_HEAD) เป็น workspace target ลบได้ ไม่ใช่ `.git` เอง
 
 - doctor: `stat ~/.codex/gh/hosts.yml` ที่ตอบ EPERM/EACCES ใน Bash sandbox ของ Claude/Codex (credential path ถูก deny read) รายงานเป็น UNSUPPORTED ของ check `gh agent token (codex)` แทนที่จะโยนออกมาเป็น `FAIL codex config parse` และตัด check ที่เหลือของ Codex ทิ้ง; check `production env exposure (codex)` อ่าน pattern แบบ root-level ตามที่ generator เขียนตั้งแต่เลิกใช้ `**/` (ก่อนหน้านี้ WARN ผิดเสมอ)

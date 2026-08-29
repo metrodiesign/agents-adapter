@@ -1417,12 +1417,16 @@ def classify_tool(tool_name: str, inp: Optional[dict], ctx: PolicyContext) -> Ve
     raw = tool_name
     name = raw.lower()
     inp = inp or {}
-    m = re.match(r"^mcp__([^_]+)__(.+)$", name)
-    is_github = name.startswith("github.") or (m is not None and "github" in m.group(1)) or (m is None and name in GITHUB_TOOL_NAMES)
-    if m:
-        name = m.group(2)
+    # mcp__<server>__<tool>: server อาจมี `_` เดี่ยว (codex_apps) และ tool อาจมี namespace app นำหน้า (github__get_profile)
+    parts = name[len("mcp__"):].split("__") if name.startswith("mcp__") else None
+    server = parts[0] if parts and len(parts) >= 2 else None
+    if parts and len(parts) >= 2:
+        name = "__".join(parts[1:])
+    is_github = name.startswith("github.") or name.startswith("github__") or (server is not None and "github" in server) or (server is None and name in GITHUB_TOOL_NAMES)
     if name.startswith("github."):
         name = name[len("github."):]
+    elif name.startswith("github__"):
+        name = name[len("github__"):]
     if is_github:
         return _classify_github_tool(name, inp, ctx)
     if name in ("bash", "shell", "exec_command", "unified_exec", "run_command", "local_shell", "powershell", "shell_command"):
