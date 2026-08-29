@@ -19,10 +19,20 @@ export interface PiUi {
   confirm(title: string, message: string, opts?: { timeout?: number }): Promise<boolean>;
   notify(message: string, type?: "info" | "warning" | "error"): void;
 }
+/** subset ของ Pi ExtensionContext ที่ auto-review ใช้ (ดู examples/extensions/qna.ts ของ Pi) */
+export interface PiModelRegistry {
+  complete(model: unknown, context: { systemPrompt?: string; messages: unknown[] }, options?: { signal?: AbortSignal }): Promise<{ content: Array<{ type: string; text?: string }> }>;
+}
+export interface PiSessionManager {
+  getBranch(): Array<{ type: string; message?: { role?: string; content?: unknown } }>;
+}
 export interface PiContext {
   ui: PiUi;
   hasUI: boolean;
   cwd: string;
+  model?: unknown;
+  modelRegistry?: PiModelRegistry;
+  sessionManager?: PiSessionManager;
 }
 export interface PiApi {
   on(event: string, handler: (event: any, ctx: PiContext) => unknown): void;
@@ -37,13 +47,24 @@ export interface BashResultLike {
 
 const CONFIG_FILE = path.join(path.dirname(new URL(import.meta.url).pathname), "config.json");
 
+/** ข้อความ policy ของ Claude Auto mode (allow/soft_deny/hard_deny/environment) ที่ generate ลง config.json */
+export interface AutoModeSets {
+  allow: string[];
+  soft_deny: string[];
+  hard_deny: string[];
+  environment: string[];
+}
+
 let cached: Omit<PolicyContext, "cwd"> | null = null;
+let autoMode: AutoModeSets | null = null;
 
 export function loadContext(cwd: string): PolicyContext {
   if (cached === null) {
     try {
-      const raw = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8")) as Omit<PolicyContext, "cwd">;
-      cached = raw;
+      const raw = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8")) as Omit<PolicyContext, "cwd"> & { autoMode?: AutoModeSets };
+      const { autoMode: am, ...rest } = raw;
+      cached = rest;
+      autoMode = am ?? null;
     } catch {
       // fail closed: ไม่มี config ก็ยังปกป้อง credential ด้วยค่าเริ่มต้นแคบที่สุด
       const home = os.homedir();
@@ -86,9 +107,99 @@ export function approvalKey(v: Verdict): string {
   return `${v.ruleId}|${v.target ?? ""}|${env}`;
 }
 
+/**
+ * rule ที่ Claude ใส่ใน permissions.ask (user decision): dialog เสมอ ไม่ส่งให้ reviewer
+ * ต้องตรงกับ ask list ใน src/adapters/claude/rules.ts
+ */
+export const USER_DECISION_RULES: ReadonlySet<string> = new Set([
+  "GH_PR_MERGE",
+  "RELEASE_TAG",
+  "GIT_RESET_HARD",
+  "GIT_CLEAN",
+  "GIT_BRANCH_FORCE_DELETE",
+  "GIT_REMOTE_DELETE",
+  "GIT_REMOTE_CHANGE",
+  "SYSTEM_CONFIG_CHANGE",
+  "GH_AUTH_CHANGE",
+  "GH_REPO_CREATE",
+  "GH_DELETE_FILE",
+  "DOCKER_PRUNE",
+  "DOCKER_DELETE_VOLUME",
+  "GLOBAL_DEP_INSTALL",
+  "STAGING_DEPLOY",
+  "PROD_DEPLOY",
+  "LOCAL_DESTRUCTIVE_DB",
+]);
+
+const REVIEW_TIMEOUT_MS = 20_000;
+
+/** ข้อความ user ล่าสุดใน branch ปัจจุบันของ session (reviewer ใช้ตัดสิน intent เหมือน Claude Auto mode) */
+export function lastUserRequest(ctx: PiContext): string {
+  const entries = ctx.sessionManager?.getBranch() ?? [];
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const e = entries[i];
+    if (e.type !== "message" || e.message?.role !== "user") continue;
+    const c = e.message.content;
+    const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((p) => (p && typeof p === "object" && (p as { type?: string }).type === "text" ? String((p as { text?: string }).text ?? "") : "")).join("\n") : "";
+    if (text.trim() !== "") return text.slice(0, 4000);
+  }
+  return "";
+}
+
+export function autoReviewPrompt(sets: AutoModeSets): string {
+  const list = (xs: string[]): string => xs.map((x) => `- ${x}`).join("\n");
+  return [
+    "You are the permission classifier for an autonomous coding agent (same role as Claude Code Auto mode).",
+    "Decide whether ONE pending tool action may run without asking the human.",
+    "Reply with exactly one word: allow or ask.",
+    "Answer allow only when the action is reversible, task-scoped and its target and intent are explicit in the current user request.",
+    "Answer ask when unsure, when the action matches soft_deny without explicit user intent, or when it matches hard_deny.",
+    "",
+    "## allow",
+    list(sets.allow),
+    "",
+    "## soft_deny (needs explicit user intent naming action and target)",
+    list(sets.soft_deny),
+    "",
+    "## hard_deny (never allow)",
+    list(sets.hard_deny),
+    "",
+    "## environment",
+    list(sets.environment),
+  ].join("\n");
+}
+
+/** เรียก model ปัจจุบันตัดสิน ASK; คืน true เมื่อตอบ allow, false เมื่อตอบ ask/error/ไม่มี model */
+export async function autoReview(v: Verdict, ctx: PiContext, what: string): Promise<boolean> {
+  if (!autoMode || !ctx.model || !ctx.modelRegistry) return false;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), REVIEW_TIMEOUT_MS);
+  try {
+    const request = lastUserRequest(ctx);
+    const user = {
+      role: "user",
+      content: [{ type: "text", text: [`Current user request:\n${request || "(none)"}`, "", `Pending action: ${what}`, `Rule: ${v.ruleId}`, `Target: ${v.target ?? "-"}`, `Risk: ${v.reason}`, "", "allow or ask?"].join("\n") }],
+      timestamp: Date.now(),
+    };
+    const res = await ctx.modelRegistry.complete(ctx.model, { systemPrompt: autoReviewPrompt(autoMode), messages: [user] }, { signal: ac.signal });
+    const text = res.content.filter((c) => c.type === "text").map((c) => c.text ?? "").join(" ").trim().toLowerCase();
+    return /^allow\b/.test(text);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function resolveAsk(v: Verdict, ctx: PiContext, what: string): Promise<boolean> {
   const key = approvalKey(v);
   if (approvals.has(key)) return approvals.get(key) as boolean;
+  // Claude Auto mode: ask rule = dialog เสมอ; ASK อื่นให้ classifier ตัดสินก่อน, ไม่ allow ค่อยถาม user
+  if (!USER_DECISION_RULES.has(v.ruleId) && (await autoReview(v, ctx, what))) {
+    approvals.set(key, true);
+    ctx.ui.notify(`agents-adapter auto-review allowed [${v.ruleId}] ${v.target ?? ""}`.trim(), "info");
+    return true;
+  }
   if (!ctx.hasUI) return false; // ไม่มี UI ให้ถาม = fail closed
   const ok = await ctx.ui.confirm(
     `agents-adapter: อนุมัติ ${v.ruleId}?`,
@@ -111,8 +222,9 @@ export function _resetApprovalsForTests(): void {
 }
 
 /** ใช้ใน parity test: ฉีด context แทนการอ่าน config.json */
-export function _setContextForTests(ctx: PolicyContext): void {
+export function _setContextForTests(ctx: PolicyContext, sets: AutoModeSets | null = null): void {
   const { cwd: _cwd, ...rest } = ctx;
   cached = rest;
+  autoMode = sets;
   approvals.clear();
 }

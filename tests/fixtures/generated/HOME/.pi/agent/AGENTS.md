@@ -25,6 +25,8 @@ development env (.env, .env.local, .env.development, .env.test, .env.testing, .e
 
 approval ถูก cache ใน session สำหรับ target เดิมเท่านั้น
 
+ASK อื่นนอกรายการข้างบน (เช่น command substitution, unknown command, path นอก Trust Zone) ถูก auto-review ด้วย model ปัจจุบันตามข้อความ Auto mode ของ Claude ก่อน: allow เมื่อ action reversible, task-scoped และ target/intent อยู่ในคำขอล่าสุดของ user; ไม่ allow จึงถาม dialog ระบุ action + target ในคำขอให้ชัดเพื่อลด dialog
+
 ## DENY: extension block ทันทีพร้อม rule id
 
 - push เข้า main, develop, bare push, `HEAD` push, force push ทุกแบบ
