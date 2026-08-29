@@ -126,11 +126,6 @@
       "Edit(**/.env.prod.live)"
     ],
     "ask": [
-      "Bash(rm -rf *)",
-      "Bash(rm -fr *)",
-      "Bash(rm -r -f *)",
-      "Bash(rm -Rf *)",
-      "Bash(rm --recursive --force *)",
       "Bash(git reset --hard *)",
       "Bash(git clean -f*)",
       "Bash(git clean --force*)",

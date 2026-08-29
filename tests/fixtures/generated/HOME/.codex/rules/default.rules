@@ -48,12 +48,6 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["rm", ["-rf", "-fr", "-Rf", "-fR", "-r", "-R", "--recursive"]],
-    decision = "prompt",
-    justification = "agents-adapter DESTRUCTIVE_DELETE: recursive delete requires approval",
-)
-
-prefix_rule(
     pattern = ["git", "reset", "--hard"],
     decision = "prompt",
     justification = "agents-adapter GIT_RESET_HARD",

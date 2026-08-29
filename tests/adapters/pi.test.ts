@@ -41,16 +41,17 @@ test("pi ASK uses ctx.ui.confirm and caches approval per rule+target only", asyn
     _resetApprovalsForTests();
     const asked: string[] = [];
     const ctx = { cwd: t.world.cwd, hasUI: true, ui: { confirm: async (title: string) => { asked.push(title); return true; }, notify: () => undefined } };
-    const r1 = await gateToolCall({ toolName: "bash", input: { command: "rm -rf dist" } }, ctx);
-    const r2 = await gateToolCall({ toolName: "bash", input: { command: "rm -rf dist" } }, ctx);
-    const r3 = await gateToolCall({ toolName: "bash", input: { command: "rm -rf build" } }, ctx);
+    // rm -rf ใน workspace เป็น ALLOW แล้ว; ใช้ target ที่ยัง ASK (cwd และ .git)
+    const r1 = await gateToolCall({ toolName: "bash", input: { command: "rm -rf ." } }, ctx);
+    const r2 = await gateToolCall({ toolName: "bash", input: { command: "rm -rf ." } }, ctx);
+    const r3 = await gateToolCall({ toolName: "bash", input: { command: "rm -rf .git" } }, ctx);
     assert.equal(r1, undefined);
     assert.equal(r2, undefined);
     assert.equal(r3, undefined);
     assert.equal(asked.length, 2, "same target asked once, different target asked again");
     const noUi = { ...ctx, hasUI: false };
     _resetApprovalsForTests();
-    const r4 = await gateToolCall({ toolName: "bash", input: { command: "rm -rf dist" } }, noUi);
+    const r4 = await gateToolCall({ toolName: "bash", input: { command: "rm -rf ." } }, noUi);
     assert.equal(r4?.block, true);
     assert.ok(r4?.reason?.includes("ASK [DESTRUCTIVE_DELETE]"));
   } finally {

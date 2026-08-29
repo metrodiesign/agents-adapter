@@ -546,6 +546,17 @@ def classify_path_kind(raw: str, ctx: PolicyContext) -> tuple[str, str]:
     return "outside", resolved
 
 
+def _is_workspace_delete_target(word: str, ctx: PolicyContext) -> bool:
+    """rm -rf target ที่อยู่ใน Development Trust Zone และไม่ใช่ zone root, cwd, home, `/`, `.git` หรือ glob (พวกนั้นยัง ASK)"""
+    if re.search(r"[*?]", word):
+        return False
+    kind, resolved = classify_path_kind(word, ctx)
+    if kind != "trusted" or os.path.basename(resolved) == ".git":
+        return False
+    roots = [resolve_real(expand_path(p, ctx), ctx) for p in list(ctx.development_roots) + [ctx.cwd, ctx.home, "/"]]
+    return resolved not in roots
+
+
 def classify_path(op: str, raw: str, ctx: PolicyContext) -> Verdict:
     kind, resolved = classify_path_kind(raw, ctx)
     write = op != "read"
@@ -820,7 +831,10 @@ def _classify_by_command(name: str, words: list[str], seg: SimpleCommand, nxt: O
         recursive = bool(re.search(r"r", flags, re.I)) or "--recursive" in long
         force = "f" in flags or "--force" in long
         if recursive and force:
-            return [verdict("ASK", "DESTRUCTIVE_DELETE", f"recursive force delete: {joined}", " ".join(w for w in words[1:] if not w.startswith("-")))]
+            targets = [w for w in words[1:] if not w.startswith("-")]
+            if targets and all(_is_workspace_delete_target(t, ctx) for t in targets):
+                return [verdict("ALLOW", "FS_WRITE_SOURCE", f"recursive delete inside Development Trust Zone: {' '.join(targets)}", " ".join(targets))]
+            return [verdict("ASK", "DESTRUCTIVE_DELETE", f"recursive force delete: {joined}", " ".join(targets))]
         return [verdict("ALLOW", "FS_WRITE_SOURCE", "delete file")]
     if name in ("pi", "claude", "codex"):
         return [verdict("ALLOW", "BUILD", f"agent CLI: {name}")]

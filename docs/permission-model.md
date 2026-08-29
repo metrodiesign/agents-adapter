@@ -5,7 +5,7 @@
 | decision | semantics | ตัวอย่าง |
 |---|---|---|
 | `ALLOW` | ดำเนินการได้โดยไม่ถาม user ซ้ำ ภายใน Development Trust Zone | `npm test`, `git push -u origin feature/x`, `gh pr create` |
-| `ASK` | ขออนุมัติหนึ่งครั้งต่อ action + target + environment + account | `rm -rf dist`, `git reset --hard`, `npm install -g x`, `kubectl apply` |
+| `ASK` | ขออนุมัติหนึ่งครั้งต่อ action + target + environment + account | `rm -rf ~/Documents/old` (นอก zone; `rm -rf dist` ใน workspace เป็น ALLOW), `git reset --hard`, `npm install -g x`, `kubectl apply` |
 | `DENY` | hard block; ห้ามข้ามด้วย prompt, subagent, plugin, project config, CLI flag, dangerous bypass flag, auto-review, tool alias หรือ shell wrapper | `git push origin main`, `gh pr merge`, `cat ~/.ssh/id_rsa`, `--dangerously-skip-permissions` |
 
 ## Development Trust Zone
