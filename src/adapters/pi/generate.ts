@@ -5,6 +5,7 @@ import type { Environment } from "../../config/loader.ts";
 import { renderTemplate, stableJson, upsertBlock, removeBlock } from "../../config/merger.ts";
 import { serializableContext } from "../../core/policy-loader.ts";
 import { claudeBlockVars } from "../claude/generate.ts";
+import { autoModeEntries } from "../claude/rules.ts";
 import { change, readIfExists, validateJson } from "../fs-helpers.ts";
 import type { AdapterPlan, RenderMode } from "../types.ts";
 
@@ -37,8 +38,9 @@ export function renderPi(env: Environment, mode: RenderMode): AdapterPlan {
     const target = path.join(libDir, "core", f);
     changes.push(change(target, readIfExists(target), remove ? null : fs.readFileSync(path.join(env.repoRoot, "src", "core", f), "utf8")));
   }
+  // config.json = PolicyContext + autoMode (ข้อความ classifier ชุดเดียวกับ Claude Auto mode ให้ extension auto-review ASK)
   const cfgTarget = path.join(libDir, "config.json");
-  changes.push(change(cfgTarget, readIfExists(cfgTarget), remove ? null : stableJson(serializableContext(env.ctx)), validateJson));
+  changes.push(change(cfgTarget, readIfExists(cfgTarget), remove ? null : stableJson({ ...serializableContext(env.ctx), autoMode: autoModeEntries(env.config, env.ctx) }), validateJson));
 
   // settings.json: validate เท่านั้น; Pi auto-discover extension จาก ~/.pi/agent/extensions จึงไม่มี managed key
   const settingsPath = path.join(agentDir, "settings.json");

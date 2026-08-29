@@ -59,6 +59,72 @@ test("pi ASK uses ctx.ui.confirm and caches approval per rule+target only", asyn
   }
 });
 
+test("pi ASK is auto-reviewed by the session model like Claude Auto mode; ask rules stay a dialog", async () => {
+  const t = makeTestEnv();
+  try {
+    const sets = { allow: ["routine dev work"], soft_deny: ["needs intent"], hard_deny: ["never merge"], environment: ["trust zone"] };
+    _setContextForTests(t.env.ctx, sets);
+    const asked: string[] = [];
+    const reviewed: string[] = [];
+    let answer = "allow";
+    const ctx = {
+      cwd: t.world.cwd,
+      hasUI: true,
+      ui: { confirm: async (title: string) => { asked.push(title); return true; }, notify: () => undefined },
+      model: { id: "test-model" },
+      modelRegistry: {
+        complete: async (_m: unknown, c: { systemPrompt?: string; messages: unknown[] }) => {
+          reviewed.push(JSON.stringify(c));
+          return { content: [{ type: "text", text: answer }] };
+        },
+      },
+      sessionManager: { getBranch: () => [{ type: "message", message: { role: "user", content: [{ type: "text", text: "list files with ls $(date)" }] } }] },
+    };
+    // classifier says allow -> no dialog, cached per rule+target
+    assert.equal(await gateToolCall({ toolName: "bash", input: { command: "ls $(date)" } }, ctx), undefined);
+    assert.equal(await gateToolCall({ toolName: "bash", input: { command: "ls $(date)" } }, ctx), undefined);
+    assert.equal(reviewed.length, 1, "second call served from approval cache");
+    assert.equal(asked.length, 0);
+    assert.ok(reviewed[0].includes("## hard_deny") && reviewed[0].includes("never merge"), "system prompt carries the autoMode sets");
+    assert.ok(reviewed[0].includes("list files with ls $(date)"), "reviewer sees the current user request");
+    assert.ok(reviewed[0].includes("SHELL_SUBSTITUTION"));
+    // classifier says ask -> fall back to the dialog
+    answer = "ask";
+    assert.equal(await gateToolCall({ toolName: "bash", input: { command: "ls $(whoami)" } }, ctx), undefined);
+    assert.equal(asked.length, 1);
+    // user-decision rule never reaches the reviewer
+    const before = reviewed.length;
+    await gateToolCall({ toolName: "bash", input: { command: "gh pr merge 1" } }, ctx);
+    assert.equal(reviewed.length, before);
+    assert.equal(asked.length, 2);
+    // reviewer failure -> dialog, never allow
+    answer = "allow";
+    ctx.modelRegistry.complete = async () => { throw new Error("no api key"); };
+    await gateToolCall({ toolName: "bash", input: { command: "ls $(id)" } }, ctx);
+    assert.equal(asked.length, 3);
+    // no UI + no model = fail closed (unchanged)
+    _resetApprovalsForTests();
+    const r = await gateToolCall({ toolName: "bash", input: { command: "ls $(date)" } }, { cwd: t.world.cwd, hasUI: false, ui: ctx.ui });
+    assert.equal(r?.block, true);
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("pi config.json carries the Claude autoMode sets", () => {
+  const t = makeTestEnv();
+  try {
+    const p = renderPi(t.env, { mode: "apply", previousManaged: {} });
+    const cfg = p.changes.find((c) => c.path.endsWith("agents-adapter-lib/config.json"));
+    const doc = JSON.parse(cfg?.after ?? "{}") as { autoMode?: { allow: string[]; hard_deny: string[]; environment: string[] } };
+    assert.ok(doc.autoMode && doc.autoMode.allow.length > 0 && doc.autoMode.hard_deny.length > 0);
+    assert.ok(!doc.autoMode.allow.includes("$defaults"));
+    assert.ok(doc.autoMode.environment.some((e) => e.includes("example-owner")));
+  } finally {
+    t.cleanup();
+  }
+});
+
 test("pi user_bash gate blocks with a bash result instead of executing", async () => {
   const t = makeTestEnv();
   try {

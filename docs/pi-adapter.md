@@ -24,6 +24,28 @@ DENY  -> { block: true, reason: "agents-adapter DENY [RULE_ID]: ..." }
 ```
 
 - ไม่มี UI (print mode) = fail closed: ASK กลายเป็น block
+
+## Auto-review (เทียบ Claude Auto mode)
+
+Pi 0.84 ไม่มี auto-review ในตัว extension จึงจำลองลำดับตัดสินของ Claude Auto mode (`permissions.ask` ถาม user เสมอ, ที่เหลือให้ classifier ตัดสินก่อน, classifier ไม่ allow ค่อยถาม user):
+
+```text
+ASK
+  rule ใน USER_DECISION_RULES (= permissions.ask ของ Claude: GH_PR_MERGE, RELEASE_TAG, GIT_RESET_HARD,
+    GIT_CLEAN, GIT_BRANCH_FORCE_DELETE, GIT_REMOTE_DELETE, GIT_REMOTE_CHANGE, SYSTEM_CONFIG_CHANGE,
+    GH_AUTH_CHANGE, GH_REPO_CREATE, GH_DELETE_FILE, DOCKER_PRUNE, DOCKER_DELETE_VOLUME,
+    GLOBAL_DEP_INSTALL, STAGING_DEPLOY, PROD_DEPLOY, LOCAL_DESTRUCTIVE_DB)
+      -> dialog เสมอ
+  rule อื่น (SHELL_SUBSTITUTION, UNKNOWN_COMMAND, OUTSIDE_TRUST_ZONE, DESTRUCTIVE_DELETE, ...)
+      -> ctx.modelRegistry.complete(ctx.model, autoMode prompt + user request ล่าสุด + action/target/risk)
+         ตอบ allow -> ทำต่อ (cache ต่อ session ตาม rule + target, notify บอก)
+         ตอบ ask / error / timeout 20s / ไม่มี model -> dialog เหมือนเดิม
+```
+
+- ข้อความ classifier มาจาก `reference/claude/settings.sanitized.json` ชุดเดียวกับ `autoMode.allow/soft_deny/hard_deny/environment` ของ Claude และถูก generate ลง `agents-adapter-lib/config.json` (key `autoMode`)
+- DENY ไม่ผ่าน reviewer; reviewer เห็นเฉพาะข้อความ user ล่าสุดจาก `ctx.sessionManager.getBranch()`
+- ใช้ model ปัจจุบันของ session (ไม่มี reviewer model แยกแบบ Codex) 1 completion ต่อ ASK ที่ยังไม่ cache
+- evaluator/parity ใช้ fake context ไม่มี model จึงยัง block (fail closed) เหมือนเดิม
 - `user_bash` ไม่มี block flag ใน Pi API จึงคืน `result` (exitCode 1 + ข้อความ) แทนการรัน
 - `/share` ถูก `input` handler ตอบ `{ action: "handled" }` พร้อม notify
 

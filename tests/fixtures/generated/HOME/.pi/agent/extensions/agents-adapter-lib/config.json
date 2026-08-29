@@ -112,5 +112,48 @@
   ],
   "anthropicHosts": [
     "api.anthropic.com"
-  ]
+  ],
+  "autoMode": {
+    "allow": [
+      "อนุญาตงานพัฒนา routine ภายใน Development Trust Zone ได้แก่ อ่าน/เขียน source, build, test, lint, formatter, code generation และ static analysis",
+      "อนุญาตอ่านและแก้ .env, .env.local, .env.development, .env.test และ .env.testing ภายใน trusted repo เพื่อ build/test/debug แต่ห้ามแสดงหรือ commit secret",
+      "อนุญาตติดตั้งและอัปเดต dependency แบบ project-local พร้อม lock file ผ่าน npm, pnpm, yarn, composer, dotnet, pip, CocoaPods, Gradle, Maven, Go, Cargo และ SwiftPM",
+      "อนุญาต local Docker operations สำหรับ build, pull, up, start, stop, restart, logs, exec และ run เมื่อ target เป็น local development และไม่มี destructive volume removal",
+      "อนุญาต commit และ push เฉพาะ feature branch ที่ระบุชื่อชัดเจนหลัง review/verify gate ผ่าน รวมถึงสร้างหรืออัปเดต PR, issue, comment และตรวจ CI ใน GitHub namespace YOUR_GITHUB_USER",
+      "อนุญาตเรียก codex CLI/plugin เพื่อ review, วิเคราะห์ หรือ delegate งานใน current workspace โดยคง sandbox และ approval policy ของ Codex เอง",
+      "อนุญาตแก้ ~/.claude และ ~/.codex เมื่อ task ปัจจุบันระบุชัดว่าเป็นการตั้งค่า Agent/tool แต่ไม่อนุญาตอ่านหรือแก้ credential files"
+    ],
+    "soft_deny": [
+      "ต้องมี user intent ที่ระบุ action และ target ก่อน local destructive cleanup, destructive migration, database reset, remote branch/tag/release deletion หรือ history rewrite ที่ไม่ใช่ force push",
+      "ต้องมี user intent ชัดเจนก่อนติดตั้ง package แบบ global, แก้ shell startup file, system-wide configuration หรือ path นอก Development Trust Zone",
+      "ต้องมี user intent ชัดเจนก่อนเพิ่ม เปลี่ยน หรือลบ Git remote รวมถึงเปลี่ยน GitHub authentication",
+      "ต้องมี user intent ชัดเจนก่อน deploy staging, แก้ shared CI/CD, shared environment หรือ cloud resource",
+      "production deploy, production database mutation และ production infrastructure change ต้องระบุ target, impact, backup และ rollback plan ก่อนทำ"
+    ],
+    "hard_deny": [
+      "ห้าม push ตรงเข้า main หรือ develop; ต้องใช้ feature branch ที่ระบุชื่อชัดเจนและ PR",
+      "ห้าม bare git push หรือ push ด้วย HEAD เพราะไม่ระบุปลายทาง branch ชัดเจน",
+      "ห้าม force push ทุกแบบ รวม --force-with-lease",
+      "ห้าม merge pull request แทน user",
+      "ห้ามลบ repository หรือเผยแพร่ repository content ผ่าน public gist",
+      "ห้ามใช้ dangerous permission, sandbox หรือ hook bypass flags",
+      "ห้ามอ่าน แสดง คัดลอก หรือแก้เนื้อหา credential store โดยตรง; อนุญาตเฉพาะ CLI เจ้าของ credential ใช้ภายในของตัวเอง",
+      "ห้าม commit, log, paste, upload หรือส่ง secret, token, password, private key, connection string หรือ credential file ไปยัง repository, PR, issue, log หรือบริการภายนอก"
+    ],
+    "environment": [
+      "Organization: ใช้บัญชี GitHub YOUR_GITHUB_USER สำหรับงานพัฒนาซอฟต์แวร์ส่วนตัวและ private repositories",
+      "Primary use of Claude Code: software development, code review, testing, local containers และ multi-agent engineering workflow",
+      "Source control: github.com/YOUR_GITHUB_USER และ repositories ภายใต้ namespace นี้เป็น trusted source-control destination",
+      "Trusted repo: current repository และทุก Git repository ภายใต้ ${HOME}/Desktop/Project เป็น Development Trust Zone",
+      "Repository visibility: ใช้สถานะจริงของแต่ละ repository; private repository รับ confidential source ได้แต่ไม่รับ secret",
+      "Trusted internal domains: registry.npmjs.org, localhost, 127.0.0.1 และ host.docker.internal",
+      "Key internal services: local development services, local databases, local Docker และ internal API ที่ registry.npmjs.org",
+      "Internal package registry: ไม่มี private registry ที่ประกาศไว้; public registries ใน sandbox.network.allowedDomains ใช้สำหรับ dependency installation",
+      "Secrets management: development secret อยู่ในไฟล์ env ที่ถูก gitignore หรือ credential store ของ CLI; ห้ามพิมพ์หรือ commit ค่า secret",
+      "Sensitive data locations & audiences: .env.production*, .env.prod*, credential stores, keychains, ~/.ssh, ~/.aws, ~/.azure, ~/.kube, ~/.config/gh และ ~/.codex/auth.json ใช้ได้เฉพาะผ่าน CLI เจ้าของ credential และห้ามเปิดเผยเนื้อหา",
+      "Sensitive remote targets: hostname, namespace, container, database หรือ environment ที่มี prod หรือ production เป็นชื่อหรือ segment ให้ถือเป็น production",
+      "Protected IaC scopes: IAM, RBAC, network, DNS, quota, node pool และ resource ที่อยู่ใน production",
+      "Additional context: main และ develop เป็น protected branches ตาม policy; PR merge เป็นการตัดสินใจของ user"
+    ]
+  }
 }
