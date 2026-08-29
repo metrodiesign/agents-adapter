@@ -70,13 +70,25 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
       const hosts = path.join(ghDir, "hosts.yml");
       const envSet = ((doc.shell_environment_policy as Record<string, unknown> | undefined)?.set ?? {}) as Record<string, unknown>;
       const envOk = envSet.GH_CONFIG_DIR === ghDir;
-      if (!fs.existsSync(hosts)) checks.push({ level: "WARN", name: "gh agent token (codex)", detail: "~/.codex/gh/hosts.yml missing: gh/git push fail in the Codex sandbox; see docs/codex-adapter.md GitHub setup" });
+      // ~/.codex/gh เป็น credential path: Bash sandbox ของ Claude deny read ทั้ง dir (stat ก็ EPERM) ไม่ใช่ปัญหา config
+      let hostsStat: fs.Stats | null | "blocked" = null;
+      try {
+        hostsStat = fs.statSync(hosts);
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") hostsStat = null;
+        else if ((code === "EPERM" || code === "EACCES") && d.agentSandbox !== null) hostsStat = "blocked";
+        else throw err;
+      }
+      if (hostsStat === "blocked") checks.push({ level: "UNSUPPORTED", name: "gh agent token (codex)", detail: `cannot stat ~/.codex/gh inside the ${d.agentSandbox} sandbox (credential path); run doctor from a terminal` });
+      else if (hostsStat === null) checks.push({ level: "WARN", name: "gh agent token (codex)", detail: "~/.codex/gh/hosts.yml missing: gh/git push fail in the Codex sandbox; see docs/codex-adapter.md GitHub setup" });
       else {
-        const loose = (fs.statSync(hosts).mode & 0o077) !== 0;
+        const loose = (hostsStat.mode & 0o077) !== 0;
         checks.push({ level: loose ? "FAIL" : envOk ? "PASS" : "WARN", name: "gh agent token (codex)", detail: loose ? "~/.codex/gh/hosts.yml readable by group/other; chmod 600" : envOk ? "present, GH_CONFIG_DIR set (token never printed)" : "present but shell_environment_policy.set.GH_CONFIG_DIR not applied" });
       }
       const ws = (fsTable[":workspace_roots"] ?? {}) as Record<string, unknown>;
-      const prodDenied = nativeProdEnvGlobs(env.ctx.prodEnvPatterns).every((p) => ws[`**/${p}`] === "deny");
+      // pattern เป็น root-level ตั้งแต่เลิกใช้ `**/` (seatbelt deny unlink ทั้ง workspace)
+      const prodDenied = nativeProdEnvGlobs(env.ctx.prodEnvPatterns).every((p) => ws[p] === "deny");
       checks.push({ level: prodDenied ? "PASS" : "WARN", name: "production env exposure (codex)", detail: prodDenied ? "production env denied" : "production env not denied in workspace roots" });
       const hooksState = (doc.hooks as Record<string, unknown> | undefined)?.state as Record<string, unknown> | undefined;
       const hooksJson = path.join(env.home, ".codex", "hooks.json");

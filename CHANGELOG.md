@@ -21,6 +21,8 @@
 
 ### Fixed
 
+- doctor: `stat ~/.codex/gh/hosts.yml` ที่ตอบ EPERM/EACCES ใน Bash sandbox ของ Claude/Codex (credential path ถูก deny read) รายงานเป็น UNSUPPORTED ของ check `gh agent token (codex)` แทนที่จะโยนออกมาเป็น `FAIL codex config parse` และตัด check ที่เหลือของ Codex ทิ้ง; check `production env exposure (codex)` อ่าน pattern แบบ root-level ตามที่ generator เขียนตั้งแต่เลิกใช้ `**/` (ก่อนหน้านี้ WARN ผิดเสมอ)
+
 - Codex: deny glob ใน `:workspace_roots` เปลี่ยนจาก `**/<pattern>` เป็น pattern ระดับ root (`.env.production`, `*.key`, `auth.json`, ...) เพราะ Codex 0.150 seatbelt ตีความ `**/` ว่าทุก directory ใน workspace อาจเป็น parent ของไฟล์ต้องห้าม แล้ว deny `file-write-unlink` ของ directory ทั้งหมด ทำให้ `rmdir`, `rm -r`, `mv <dir>` ล้ม `Operation not permitted` แม้ directory ว่าง (reproduce: `codex sandbox --log-denials -- rmdir <empty-dir>`; profile จำลองที่มีเฉพาะ `"**/*.key" = "deny"` ก็ล้ม, ตัด `**/` แล้วผ่าน); `apply` ลบ key `**/…` เดิมออกจาก config ที่ติดตั้งแล้ว; ไฟล์ต้องห้ามที่อยู่ลึกกว่า root ยังถูก hook classifier DENY ทุก CLI
 
 ### Changed
