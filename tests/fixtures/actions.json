@@ -47,6 +47,8 @@
     { "id": "CREDENTIAL_READ", "name": "codex auth.json", "kind": "tool", "tool": { "name": "Read", "input": { "file_path": "{HOME}/.codex/auth.json" } }, "expected": "DENY" },
     { "id": "CREDENTIAL_READ", "name": "gh config dir", "kind": "tool", "tool": { "name": "read", "input": { "path": "{HOME}/.config/gh/hosts.yml" } }, "expected": "DENY" },
     { "id": "CREDENTIAL_READ", "name": "keychain", "kind": "command", "command": "ls ~/Library/Keychains", "expected": "DENY" },
+    { "id": "CREDENTIAL_READ", "name": "codex gh agent token", "kind": "command", "command": "cat ~/.codex/gh/hosts.yml", "expected": "DENY" },
+    { "id": "CREDENTIAL_READ", "name": "codex gh agent token via tool", "kind": "tool", "tool": { "name": "read", "input": { "path": "{HOME}/.codex/gh/hosts.yml" } }, "expected": "DENY" },
     { "id": "CREDENTIAL_READ", "name": "pem file anywhere", "kind": "command", "command": "cat certs/server.pem", "expected": "DENY" },
     { "id": "CREDENTIAL_READ", "name": "gh auth token", "kind": "command", "command": "gh auth token", "expected": "DENY" },
     { "id": "CREDENTIAL_READ", "name": "gh auth status show token", "kind": "command", "command": "gh auth status --show-token", "expected": "DENY" },

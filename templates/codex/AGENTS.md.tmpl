@@ -38,8 +38,9 @@ approval ที่ได้รับใช้กับขั้นตอนต�
 
 - deny entry ของ permission profile เป็น escalatable=false: `sandbox_permissions: "require_escalated"` ไม่ช่วยให้อ่าน path ที่ deny ได้ ห้ามใช้เป็นทางแก้
 - `~/.config/gh` เปิด read ให้ sandbox เฉพาะเพื่อให้ `gh` อ่าน config ของตัวเองได้; agent ห้ามอ่าน แสดง หรือคัดลอกไฟล์ในนั้นเอง (hook DENY `CREDENTIAL_READ`)
-- token ของ `gh` อยู่ใน macOS keychain ซึ่ง seatbelt ของ Codex ปิดไว้ทุกโหมด (`~/Library/Keychains` deny + base policy) ดังนั้น `gh` และ `git push/pull/fetch/clone` กับ private repo หรือ remote ที่ต้อง auth ใช้ไม่ได้บน Codex: อาการคือ `HTTP 401: Requires authentication`, `The token in default is invalid` หรือ `could not read Username for 'https://github.com': Device not configured`
-- เมื่อเจออาการข้างบน ห้ามวน retry, ห้าม `unset GH_TOKEN`, ห้ามขอ escalation, ห้ามเสนอ `gh auth login --insecure-storage` หรือใส่ token ใน env; ให้หยุดที่ commit บน feature branch แล้วรายงาน handoff: ชื่อ branch, จำนวน commit, base branch และคำสั่ง `git push -u origin <branch>` + `gh pr create` ให้ user หรือ Claude Code (ซึ่งรัน `gh` นอก sandbox ผ่าน `excludedCommands`) เป็นคนส่ง
+- token ของ user ใน `~/.config/gh` อยู่ใน macOS keychain ซึ่ง seatbelt ของ Codex ปิดทุกโหมด (แม้ escalated) จึงใช้ agent token แยก: `GH_CONFIG_DIR=~/.codex/gh` (ค่าจริงเป็น absolute path) ถูกตั้งให้ทุก shell command แล้ว `gh`, `git push <feature>`, `git pull/fetch/clone` ทำงานใน sandbox ได้เลย ไม่ต้อง escalation ไม่ต้อง `unset GH_TOKEN`
+- agent ห้ามอ่าน แสดง คัดลอก หรือแก้ `~/.codex/gh` (hook DENY `CREDENTIAL_READ`); ห้าม `gh auth token`; ห้ามใส่ token ใน env หรือ command
+- ถ้า `gh` ตอบ `HTTP 401` / `Bad credentials` / `gh auth login` หรือ `git push` ตาย `could not read Username` แปลว่า agent token ยังไม่ได้ตั้งหรือหมดอายุ: ห้ามวน retry ห้าม `gh auth login` เอง ให้ commit บน feature branch แล้วรายงาน user ให้รัน setup ใน docs/codex-adapter.md (GitHub) หรือ push จาก Claude Code/terminal
 - `docker`, `dotnet test` และ command ที่ติด sandbox ด้วยเหตุอื่น (socket, loopback) ยังใช้ `sandbox_permissions: "require_escalated"` ได้ตาม rule
 
 ## GitHub

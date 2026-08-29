@@ -63,6 +63,16 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
       // gh ต้องอ่าน ~/.config/gh ใน sandbox (deny entry ไม่ escalatable) จึงยอม read; write เท่านั้นที่เปิดช่องให้แก้ credential
       const ghWrite = fsTable["~/.config/gh"] === "write";
       checks.push({ level: ghWrite ? "FAIL" : "PASS", name: "credential exposure (gh config)", detail: ghWrite ? "~/.config/gh writable by shell" : "gh config read-only" });
+      // agent token ของ gh สำหรับ Codex sandbox (keychain ใช้ไม่ได้ใน seatbelt): ตรวจแค่มีไฟล์และ mode ไม่พิมพ์เนื้อหา
+      const ghDir = path.join(env.home, ".codex", "gh");
+      const hosts = path.join(ghDir, "hosts.yml");
+      const envSet = ((doc.shell_environment_policy as Record<string, unknown> | undefined)?.set ?? {}) as Record<string, unknown>;
+      const envOk = envSet.GH_CONFIG_DIR === ghDir;
+      if (!fs.existsSync(hosts)) checks.push({ level: "WARN", name: "gh agent token (codex)", detail: "~/.codex/gh/hosts.yml missing: gh/git push fail in the Codex sandbox; see docs/codex-adapter.md GitHub setup" });
+      else {
+        const loose = (fs.statSync(hosts).mode & 0o077) !== 0;
+        checks.push({ level: loose ? "FAIL" : envOk ? "PASS" : "WARN", name: "gh agent token (codex)", detail: loose ? "~/.codex/gh/hosts.yml readable by group/other; chmod 600" : envOk ? "present, GH_CONFIG_DIR set (token never printed)" : "present but shell_environment_policy.set.GH_CONFIG_DIR not applied" });
+      }
       const ws = (fsTable[":workspace_roots"] ?? {}) as Record<string, unknown>;
       const prodDenied = nativeProdEnvGlobs(env.ctx.prodEnvPatterns).every((p) => ws[`**/${p}`] === "deny");
       checks.push({ level: prodDenied ? "PASS" : "WARN", name: "production env exposure (codex)", detail: prodDenied ? "production env denied" : "production env not denied in workspace roots" });

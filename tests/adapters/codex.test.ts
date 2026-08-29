@@ -71,6 +71,10 @@ test("codex config: removes danger-full-access, root read and gh config read; ke
     const fsTable = doc.permissions["Auto mode"].filesystem;
     assert.equal(fsTable["/"], undefined);
     assert.equal(fsTable["~/.config/gh"], "read"); // gh must read it in-sandbox: deny entries are not escalatable
+    assert.equal(fsTable["~/.codex/gh"], "read"); // agent token dir: gh reads it, agent is denied by the hook
+    const envSet = doc.shell_environment_policy.set;
+    assert.equal(envSet.GH_CONFIG_DIR, path.join(t.env.home, ".codex", "gh"));
+    assert.equal(envSet.GH_NO_UPDATE_NOTIFIER, "1");
     assert.equal(fsTable["~/.ssh"], "deny");
     assert.equal(fsTable["~/.ssh"], "deny");
     assert.equal(fsTable["~/custom/tools"], "read");

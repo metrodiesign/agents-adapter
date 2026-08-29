@@ -55,7 +55,23 @@ profile `Auto mode` extends `:workspace` และกำหนดเฉพาะ
 
 - GitHub connector/app เป็นช่องทางหลักถ้ามี; local `gh` เป็น fallback
 - block: `gh auth token`, `gh auth status --show-token`, `gh pr merge`, `gh repo delete`, `gh gist`, `gh secret` ทั้งใน hook และ rules (`forbidden`)
-- ข้อจำกัด Codex 0.150.1: token ของ `gh` อยู่ใน macOS keychain (`gh auth status` = `(keyring)`) แต่ seatbelt ของ Codex ปฏิเสธ `file-read-metadata ~/Library/Keychains/login.keychain-db` และ `ipc-posix-shm-write-create com.apple.AppleDatabaseChanged` (base policy ไม่มี key ให้เปิด) และ escalation ก็ยังบังคับ deny entry ของ profile ดังนั้น `gh`/`git push` ที่ต้อง auth ใช้ไม่ได้ทุกโหมด AGENTS.md managed block จึงสั่งให้ Codex หยุดที่ commit แล้ว handoff ให้ user หรือ Claude Code push/เปิด PR; ไม่เปิด keychain ให้ sandbox เพราะเป็น credential store
+- ข้อจำกัด Codex 0.150.1: token ของ `gh` ใน `~/.config/gh` อยู่ใน macOS keychain (`gh auth status` = `(keyring)`) แต่ seatbelt ของ Codex ปฏิเสธ `file-read-metadata ~/Library/Keychains/login.keychain-db` และ `ipc-posix-shm-write-create com.apple.AppleDatabaseChanged` (base policy ไม่มี key ให้เปิด) และ escalation ก็ยังบังคับ deny entry ของ profile ดังนั้น keychain ใช้ไม่ได้ทุกโหมด และไม่เปิด keychain ให้ sandbox เพราะเป็น credential store
+- ทางแก้: agent token แยกใน `~/.codex/gh` (permission profile `read`, `shell_environment_policy.set.GH_CONFIG_DIR` ชี้ไปที่นั่น, `GH_NO_UPDATE_NOTIFIER=1` กัน gh เขียน state) ทำให้ `gh` และ `gh auth git-credential` (git push/pull/fetch) ทำงานใน sandbox โดยไม่ต้อง escalation; agent ยังอ่าน dir นี้ไม่ได้ (`credential_paths` -> hook DENY ทั้ง Claude/Codex/Pi) และ `doctor` ตรวจว่า `hosts.yml` มีอยู่และ mode 600 โดยไม่พิมพ์เนื้อหา
+
+### GitHub setup สำหรับ Codex (ทำครั้งเดียว, user รันเอง)
+
+1. สร้าง fine-grained PAT ที่ https://github.com/settings/personal-access-tokens: จำกัด repository ที่ Codex ต้องแตะ, permission `Contents: Read and write`, `Pull requests: Read and write`, `Metadata: Read`, ตั้งวันหมดอายุ (แนะนำ 90 วัน) ไม่ใช้ token ของ user เอง
+2. เก็บลง config dir ของ agent (เขียน `hosts.yml` แบบ plaintext เฉพาะ dir นี้ ไม่แตะ keychain):
+
+```bash
+mkdir -p ~/.codex/gh && chmod 700 ~/.codex/gh
+pbpaste | GH_CONFIG_DIR=~/.codex/gh gh auth login --with-token --insecure-storage
+chmod 600 ~/.codex/gh/*.yml
+GH_CONFIG_DIR=~/.codex/gh gh auth status
+```
+
+3. `agents-adapter apply --target codex` แล้ว `agents-adapter doctor` ต้องได้ `PASS gh agent token (codex)`
+4. เมื่อ token หมดอายุหรือต้อง rotate: ลบ token ใน GitHub แล้วรันข้อ 2 ใหม่; `hosts.yml` ไม่อยู่ใน backup ของ agents-adapter
 
 ## Evaluator
 

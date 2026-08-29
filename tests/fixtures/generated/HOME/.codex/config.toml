@@ -16,6 +16,7 @@ description = "agents-adapter managed workspace profile"
 "~/.kube" = "deny"
 "~/.config/gcloud" = "deny"
 "~/.config/gh" = "read"
+"~/.codex/gh" = "read"
 "~/.git-credentials" = "deny"
 "~/.netrc" = "deny"
 "~/.npmrc" = "deny"
@@ -108,6 +109,10 @@ localhost = "allow"
 "registry-1.docker.io" = "allow"
 "auth.docker.io" = "allow"
 "mcr.microsoft.com" = "allow"
+
+[shell_environment_policy.set]
+GH_CONFIG_DIR = "${HOME}/.codex/gh"
+GH_NO_UPDATE_NOTIFIER = "1"
 
 [auto_review]
 policy = "# agents-adapter:start\nApprove only reversible, task-scoped development actions whose target and intent are explicit in the current user request.\nNever approve: merge or auto-merge of pull requests, repository deletion, gist creation, credential or token access, force push, push to protected branches, production deploy or production database mutation.\nApprove delete_file, protected-ref update, staging deploy or destructive local operations only when the current user request names that exact action and target.\n# agents-adapter:end"
