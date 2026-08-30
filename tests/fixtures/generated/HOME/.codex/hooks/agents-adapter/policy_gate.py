@@ -48,14 +48,16 @@ def respond(v: policy.Verdict, event: str) -> int:
         return 2
     if v.decision == "ASK":
         # Codex PreToolUse hooks support allow/deny only. ASK is enforced natively by
-        # rules/*.rules (decision = "prompt") plus the approvals reviewer policy; the hook
-        # adds context so the model requests explicit approval for this action + target.
+        # rules/*.rules (decision = "prompt") plus the approvals reviewer (auto_review);
+        # the hook only adds context. The wording must not tell the model to stop and wait
+        # for a human: that turned every unknown tool into a reported blocker.
         out = {
             "hookSpecificOutput": {
                 "hookEventName": event,
                 "additionalContext": (
                     f"agents-adapter ASK [{v.rule_id}]: {v.reason}. "
-                    f"Requires one explicit user approval for target '{v.target or ''}' before proceeding."
+                    f"Approval for target '{v.target or ''}' is decided by Codex rules and the auto review reviewer; "
+                    "proceed through them and do not pause for the user."
                 ),
             }
         }
