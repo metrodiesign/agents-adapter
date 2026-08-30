@@ -27,8 +27,10 @@ const READ_ONLY_CMDS = new Set([
   "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "zip", "tar", "gzip", "gunzip", "rm", "column",
   "seq", "expr", "bc", "md5", "md5sum", "shasum", "sha256sum", "openssl", "ssh-keygen", "cmp", "comm", "join", "paste", "split", "rev", "fold",
   "watch", "time", "wait", "clear", "tput", "stty", "read", "set", "unset", "shift", "exit", "return", "trap", "ulimit", "umask", "declare", "local", "eval",
-  "shopt", "mktemp",
+  "shopt", "mktemp", "sips",
 ]);
+/** sips flag ที่อ่านอย่างเดียว; flag อื่นถือว่าเขียนไฟล์ภาพ */
+const SIPS_READ_FLAGS = new Set(["-g", "--getProperty", "-1", "--oneLine", "-h", "--help", "-H", "--helpProperties", "--formats", "-v", "--version", "--debug"]);
 const WRITE_CMDS = new Set(["tee", "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "tar", "rm", "sed", "mktemp"]);
 const BUILD_CMDS = new Set([
   "make", "cmake", "ninja", "tsc", "vite", "webpack", "esbuild", "rollup", "next", "nuxt", "gradle", "gradlew", "mvn", "mvnw", "xcodebuild", "swift",
@@ -154,13 +156,15 @@ function classifyWordPaths(seg: SimpleCommand, name: string, c: Ctx): Verdict[] 
   const out: Verdict[] = [];
   const isPrint = PRINT_CMDS.has(name) && !(name === "sed" && seg.words.some((w) => w === "-i" || w.startsWith("-i")));
   const isWrite = WRITE_CMDS.has(name) && !(name === "sed" && !seg.words.some((w) => w === "-i" || w.startsWith("-i")));
+  // sips: -g/--getProperty อ่าน metadata เท่านั้น; flag อื่น (-z, -s, --out, -r ...) เขียนไฟล์ภาพ (in place ถ้าไม่มี --out)
+  const isSipsWrite = name === "sips" && seg.words.slice(1).some((w) => w.startsWith("-") && !SIPS_READ_FLAGS.has(w));
   const isDelete = name === "rm" || name === "rmdir";
   const rawArgs = name === "docker" || name === "podman" ? dockerHostArgs(seg.words) : seg.words.slice(1);
   const args = rawArgs.filter((w) => !w.startsWith("-") || w.includes("/"));
 
   for (const w of args) {
     if (!looksLikePath(w, c.ctx)) continue;
-    const op: PathOp = isDelete ? "delete" : isWrite && isWriteTarget(name, w, args) ? "write" : "read";
+    const op: PathOp = isDelete ? "delete" : isSipsWrite || (isWrite && isWriteTarget(name, w, args)) ? "write" : "read";
     const v = classifyPath(op, w, c.ctx);
     if (v.ruleId === "DEV_ENV_READ" && isPrint) {
       out.push(verdict("DENY", "DEV_ENV_PRINT", `printing development env: ${w}`, v.target));
@@ -770,6 +774,8 @@ export function classifyTool(call: ToolCall, ctx: PolicyContext): Verdict {
   if (AGENT_TOOLS.has(name)) return classifyAgentSpawn(raw, input, ctx);
   if (AGENT_COORDINATION_TOOLS.has(name)) return verdict("ALLOW", "AGENT_SPAWN", `agent coordination: ${raw}`, raw);
   if (name === "update_plan" || name === "todowrite" || name === "todoread") return verdict("ALLOW", "SHELL_READ_ONLY", `plan tool: ${raw}`);
+  // Codex Goal mode: create_goal/update_goal/get_goal แก้แค่ state ของ session ไม่แตะไฟล์หรือ network
+  if (/^(create|update|get|list|complete|clear)_goals?$/.test(name)) return verdict("ALLOW", "SHELL_READ_ONLY", `goal tool: ${raw}`);
   return verdict("ASK", "UNKNOWN_COMMAND", `unknown tool: ${raw}`, raw);
 }
 

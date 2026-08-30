@@ -752,8 +752,11 @@ READ_ONLY_CMDS = {
     "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "zip", "tar", "gzip", "gunzip", "rm", "column",
     "seq", "expr", "bc", "md5", "md5sum", "shasum", "sha256sum", "openssl", "ssh-keygen", "cmp", "comm", "join", "paste", "split", "rev", "fold",
     "watch", "time", "wait", "clear", "tput", "stty", "read", "set", "unset", "shift", "exit", "return", "trap", "ulimit", "umask", "declare", "local", "eval",
-    "shopt", "mktemp",
+    "shopt", "mktemp", "sips",
 }
+# sips flags that only read; any other flag is treated as writing the image file
+SIPS_READ_FLAGS = {"-g", "--getProperty", "-1", "--oneLine", "-h", "--help", "-H", "--helpProperties", "--formats", "-v", "--version", "--debug"}
+GOAL_TOOL_RE = re.compile(r"^(create|update|get|list|complete|clear)_goals?$")
 WRITE_CMDS = {"tee", "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "truncate", "install", "rmdir", "patch", "unzip", "tar", "rm", "sed", "mktemp"}
 BUILD_CMDS = {
     "make", "cmake", "ninja", "tsc", "vite", "webpack", "esbuild", "rollup", "next", "nuxt", "gradle", "gradlew", "mvn", "mvnw", "xcodebuild", "swift",
@@ -924,6 +927,8 @@ def _classify_word_paths(seg: SimpleCommand, name: str, ctx: PolicyContext) -> l
     out: list[Verdict] = []
     is_print = name in PRINT_CMDS and not (name == "sed" and _has_inplace(seg.words))
     is_write = name in WRITE_CMDS and not (name == "sed" and not _has_inplace(seg.words))
+    # sips: -g/--getProperty reads metadata only; any other flag (-z, -s, --out, -r ...) writes the image (in place without --out)
+    is_sips_write = name == "sips" and any(w.startswith("-") and w not in SIPS_READ_FLAGS for w in seg.words[1:])
     is_delete = name in ("rm", "rmdir")
     raw_args = _docker_host_args(seg.words) if name in ("docker", "podman") else seg.words[1:]
     args = [w for w in raw_args if not w.startswith("-") or "/" in w]
@@ -932,7 +937,7 @@ def _classify_word_paths(seg: SimpleCommand, name: str, ctx: PolicyContext) -> l
             continue
         if is_delete:
             op = "delete"
-        elif is_write and _is_write_target(name, w, args):
+        elif is_sips_write or (is_write and _is_write_target(name, w, args)):
             op = "write"
         else:
             op = "read"
@@ -1626,6 +1631,9 @@ def classify_tool(tool_name: str, inp: Optional[dict], ctx: PolicyContext) -> Ve
         return verdict("ALLOW", "AGENT_SPAWN", f"agent coordination: {raw}", raw)
     if name in ("update_plan", "todowrite", "todoread"):
         return verdict("ALLOW", "SHELL_READ_ONLY", f"plan tool: {raw}")
+    # Codex Goal mode: create_goal/update_goal/get_goal only touch session state, not files or network
+    if GOAL_TOOL_RE.match(name):
+        return verdict("ALLOW", "SHELL_READ_ONLY", f"goal tool: {raw}")
     if name in AGENT_TOOLS:
         return classify_agent_spawn(raw, inp, ctx)
     return verdict("ASK", "UNKNOWN_COMMAND", f"unknown tool: {raw}", raw)

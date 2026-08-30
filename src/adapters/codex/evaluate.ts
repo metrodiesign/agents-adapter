@@ -57,7 +57,7 @@ export function runPolicyGate(toolName: string, toolInput: unknown, ctx: PolicyC
   if (out !== "") {
     const parsed = JSON.parse(out) as { hookSpecificOutput?: { additionalContext?: string } };
     const text = parsed.hookSpecificOutput?.additionalContext ?? "";
-    const m = text.match(/ASK \[([A-Z_]+)\]: (.*?)\. Requires one explicit user approval for target '(.*)'/);
+    const m = text.match(/ASK \[([A-Z_]+)\]: (.*?)\. Approval for target '(.*)' is decided by Codex rules/);
     if (m) return verdict("ASK", m[1], m[2], m[3]);
   }
   const allow = res.stderr.match(/ALLOW \[([A-Z_]+)\]: (.*)/);
