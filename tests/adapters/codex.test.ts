@@ -106,6 +106,20 @@ test("codex config: removes danger-full-access, root read and gh config read; ke
   }
 });
 
+test("codex unix_sockets is additive: policy sockets are added, user sockets are kept", () => {
+  const t = makeTestEnv();
+  try {
+    const withUserSocket = `[permissions."Auto mode".network.unix_sockets]\n"/opt/com.docker.sandboxes/sandboxd/docker.sock" = "allow"\n`;
+    const doc = parseToml(renderCodexConfig(withUserSocket, t.env, { mode: "apply", previousManaged: {} }).content) as Record<string, any>;
+    const sockets = doc.permissions["Auto mode"].network.unix_sockets;
+    assert.equal(sockets["/opt/com.docker.sandboxes/sandboxd/docker.sock"], "allow", "user socket preserved");
+    assert.equal(sockets["/var/run/docker.sock"], "allow");
+    assert.equal(sockets[path.join(t.env.home, ".docker/run/docker.sock")], "allow");
+  } finally {
+    t.cleanup();
+  }
+});
+
 test("codex config render is idempotent", () => {
   const t = makeTestEnv();
   try {

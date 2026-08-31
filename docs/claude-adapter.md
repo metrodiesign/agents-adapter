@@ -17,8 +17,10 @@ Claude Code เป็น reference adapter: policy ถูกสกัดจา�
 | `permissions.deny`, `permissions.ask`, `permissions.allow` | entries ที่ generate จาก matrix (state จำรายการเดิมเพื่อลบ stale entry); entries ของ user คงอยู่ |
 | `permissions.additionalDirectories` | เติม development roots |
 | `permissions.disableBypassPermissionsMode` | บังคับ `"disable"`; `defaultMode = bypassPermissions` ถูก reset |
-| `sandbox.enabled`, `sandbox.autoAllowBashIfSandboxed` | บังคับ `true` |
-| `sandbox.filesystem.denyRead`, `denyWrite`, `allowWrite` | เติม credential path, shell startup file, development roots |
+| `sandbox.enabled`, `sandbox.autoAllowBashIfSandboxed`, `sandbox.allowUnsandboxedCommands`, `sandbox.failIfUnavailable`, `sandbox.network.allowLocalBinding` | บังคับ `true`; ถ้า `allowUnsandboxedCommands` เป็น false ทั้ง `excludedCommands` จะไร้ผลโดยไม่มีสัญญาณเตือน |
+| `sandbox.network.allowUnixSockets` | เติม `/var/run/docker.sock` และ `~/.docker/run/docker.sock` (symlink target) เพราะ `docker` ที่ถูกเรียกจาก script เป็น process ลูก จึงไม่ได้รับการยกเว้นจาก `excludedCommands` |
+| `env` | เติม `DOTNET_SYSTEM_NET_DISABLEIPV6=1` (seatbelt ปฏิเสธ v4-mapped IPv6 loopback ที่ VSTest testhost ใช้); ค่า env อื่นของ user คงอยู่ |
+| `sandbox.filesystem.denyRead`, `denyWrite`, `allowWrite` | เติม credential path, shell startup file, development roots และ `always_writable` (temp + cache ของ toolchain) |
 | `sandbox.credentials.files`, `sandbox.credentials.envVars` | เติม credential path/env var แบบ `mode: deny` |
 | `sandbox.excludedCommands` | เติม `gh *`, `docker *`, `codex *`, `dotnet test *` และ git network ops (`git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *`, รวมรูป `rtk git fetch *`, `rtk git pull *`, `rtk gh *`, `rtk docker *` ที่ rtk hook rewrite) เพราะ git เรียก `gh auth git-credential` ที่ต้องอ่าน `~/.config/gh`; permission rules ยังบังคับตามเดิม |
 | `sandbox.network.allowedDomains` | เติม trusted domains + public registries |
@@ -26,7 +28,7 @@ Claude Code เป็น reference adapter: policy ถูกสกัดจา�
 | `autoMode.classifyAllShell` | `true` |
 | `language` | `thai` |
 
-key อื่น (`model`, `hooks`, `enabledPlugins`, `extraKnownMarketplaces`, `statusLine`, `env`, ...) ไม่ถูกแตะ
+key อื่น (`model`, `hooks`, `enabledPlugins`, `extraKnownMarketplaces`, `statusLine`, ...) ไม่ถูกแตะ; ใน `env` แตะเฉพาะ key ที่ระบุในตาราง
 
 ## พฤติกรรมที่บังคับใช้
 

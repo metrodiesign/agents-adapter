@@ -110,6 +110,12 @@ localhost = "allow"
 "auth.docker.io" = "allow"
 "mcr.microsoft.com" = "allow"
 
+[permissions."Auto mode".network.unix_sockets]
+"/var/run/docker.sock" = "allow"
+"${HOME}/.docker/run/docker.sock" = "allow"
+"/tmp" = "allow"
+"/private/tmp" = "allow"
+
 [shell_environment_policy.set]
 GH_CONFIG_DIR = "${HOME}/.codex/gh"
 GH_NO_UPDATE_NOTIFIER = "1"
