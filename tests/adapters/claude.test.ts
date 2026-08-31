@@ -121,6 +121,7 @@ test("claude sandbox keeps toolchains working inside the sandbox: docker socket,
     for (const p of ["/tmp", "/private/tmp"]) assert.ok(s.sandbox.network.allowUnixSockets.includes(p), p);
     // VSTest testhost ใช้ v4-mapped IPv6 loopback ที่ seatbelt ปฏิเสธ
     assert.equal(s.env.DOTNET_SYSTEM_NET_DISABLEIPV6, "1");
+    assert.ok(!s.sandbox.excludedCommands.includes("dotnet test *"), "dotnet test no longer needs to leave the sandbox");
     // ถ้า allowUnsandboxedCommands หาย excludedCommands ทั้งชุดไร้ผลโดยเงียบ
     assert.equal(s.sandbox.allowUnsandboxedCommands, true);
     assert.equal(s.sandbox.failIfUnavailable, true);

@@ -29,11 +29,14 @@ agent_config_dirs:
 # git network ops ต้องออกด้วย: git เรียก credential helper (gh auth git-credential) เป็น subprocess
 # ซึ่งอ่าน ~/.config/gh ไม่ได้ใน sandbox ทำให้ fetch/pull/push ของ private repo พัง
 # การออกนอก sandbox ไม่ใช่ bypass permission: deny ของ push main/develop, bare push, force push ยังบังคับตามเดิม
+# `docker *` ยังต้องออก: buildx เขียน ~/.docker/buildx (วัดแล้ว `docker build` ใน sandbox ล้มด้วย
+# `failed to update builder last activity time: ... operation not permitted`) และ registry auth อ่าน
+# ~/.docker/config.json ซึ่งเป็น credential path; allowUnixSockets ครอบเฉพาะ process ลูกที่เรียก daemon
+# `dotnet test` ไม่ต้องออกแล้ว: env DOTNET_SYSTEM_NET_DISABLEIPV6 + unix socket ใน temp dir ทำให้รันใน sandbox ได้
 excluded_commands:
   - "gh *"
   - "docker *"
   - "codex *"
-  - "dotnet test *"
   - "git push *"
   - "git fetch *"
   - "git pull *"

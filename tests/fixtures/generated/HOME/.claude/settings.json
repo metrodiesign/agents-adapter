@@ -312,7 +312,6 @@
       "gh *",
       "docker *",
       "codex *",
-      "dotnet test *",
       "git push *",
       "git fetch *",
       "git pull *",

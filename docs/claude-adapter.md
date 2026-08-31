@@ -22,7 +22,7 @@ Claude Code เป็น reference adapter: policy ถูกสกัดจา�
 | `env` | เติม `DOTNET_SYSTEM_NET_DISABLEIPV6=1` (seatbelt ปฏิเสธ v4-mapped IPv6 loopback ที่ VSTest testhost ใช้); ค่า env อื่นของ user คงอยู่ |
 | `sandbox.filesystem.denyRead`, `denyWrite`, `allowWrite` | เติม credential path, shell startup file, development roots และ `always_writable` (temp + cache ของ toolchain) |
 | `sandbox.credentials.files`, `sandbox.credentials.envVars` | เติม credential path/env var แบบ `mode: deny` |
-| `sandbox.excludedCommands` | เติม `gh *`, `docker *`, `codex *`, `dotnet test *` และ git network ops (`git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *`, รวมรูป `rtk git fetch *`, `rtk git pull *`, `rtk gh *`, `rtk docker *` ที่ rtk hook rewrite) เพราะ git เรียก `gh auth git-credential` ที่ต้องอ่าน `~/.config/gh`; permission rules ยังบังคับตามเดิม |
+| `sandbox.excludedCommands` | เติม `gh *`, `docker *` (buildx เขียน `~/.docker/buildx` และ registry auth อ่าน `~/.docker/config.json`), `codex *` และ git network ops (`git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *`, รวมรูป `rtk git fetch *`, `rtk git pull *`, `rtk gh *`, `rtk docker *` ที่ rtk hook rewrite) เพราะ git เรียก `gh auth git-credential` ที่ต้องอ่าน `~/.config/gh`; permission rules ยังบังคับตามเดิม |
 | `sandbox.network.allowedDomains` | เติม trusted domains + public registries |
 | `autoMode.allow/soft_deny/hard_deny/environment` | entries ที่ขึ้นต้นด้วย `[agents-adapter] `; `$defaults` และ entries ของ user คงอยู่ |
 | `autoMode.classifyAllShell` | `true` |
