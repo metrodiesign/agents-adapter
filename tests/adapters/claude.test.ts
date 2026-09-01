@@ -110,6 +110,29 @@ test("claude sandbox excludes git network ops so the gh credential helper can ru
   }
 });
 
+test("claude sandbox keeps toolchains working inside the sandbox: docker socket, dotnet IPv4, cache dirs", () => {
+  const t = makeTestEnv();
+  try {
+    const s = JSON.parse(renderClaudeSettings(null, t.env, { mode: "apply", previousManaged: {} }).content);
+    // docker ที่ถูกเรียกจาก script เป็น process ลูก ไม่ได้รับการยกเว้นจาก excludedCommands
+    assert.ok(s.sandbox.network.allowUnixSockets.includes("/var/run/docker.sock"), "docker.sock allowed");
+    assert.ok(s.sandbox.network.allowUnixSockets.some((p: string) => p.endsWith("/.docker/run/docker.sock")), "docker.sock symlink target allowed");
+    // MSBuild worker node ใช้ NamedPipeServerStream = AF_UNIX socket ใน temp dir
+    for (const p of ["/tmp", "/private/tmp"]) assert.ok(s.sandbox.network.allowUnixSockets.includes(p), p);
+    // VSTest testhost ใช้ v4-mapped IPv6 loopback ที่ seatbelt ปฏิเสธ
+    assert.equal(s.env.DOTNET_SYSTEM_NET_DISABLEIPV6, "1");
+    assert.ok(!s.sandbox.excludedCommands.includes("dotnet test *"), "dotnet test no longer needs to leave the sandbox");
+    // ถ้า allowUnsandboxedCommands หาย excludedCommands ทั้งชุดไร้ผลโดยเงียบ
+    assert.equal(s.sandbox.allowUnsandboxedCommands, true);
+    assert.equal(s.sandbox.failIfUnavailable, true);
+    assert.equal(s.sandbox.network.allowLocalBinding, true);
+    // always_writable (temp + cache ของ toolchain) ต้องไหลเข้า allowWrite; test env ตั้ง alwaysWritable = [tmpdir]
+    assert.ok((s.sandbox.filesystem.allowWrite as string[]).includes(t.env.ctx.tmpdir), "always_writable flows into allowWrite");
+  } finally {
+    t.cleanup();
+  }
+});
+
 test("claude provider guard hook is added once, removed on uninstall, and the runtime file is rendered", () => {
   const t = makeTestEnv();
   try {

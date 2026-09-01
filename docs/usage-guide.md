@@ -72,7 +72,7 @@ Claude Code กันไฟล์ของตัวเอง (`~/.claude/setting
 | `git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *` | git เรียก `gh auth git-credential` เป็น subprocess |
 | `rtk git fetch *`, `rtk git pull *` | rtk hook rewrite คำสั่ง git ก่อนถึง sandbox |
 | `docker *`, `rtk docker *` | ใช้ Docker socket |
-| `codex *`, `dotnet test *` | runtime ของตัวเอง |
+| `codex *` | runtime ของตัวเอง (`dotnet test` ไม่ต้องออกแล้ว: รันใน sandbox ได้ด้วย `env.DOTNET_SYSTEM_NET_DISABLEIPV6` + `allowUnixSockets`) |
 
 ข้อจำกัดของ pattern matching:
 

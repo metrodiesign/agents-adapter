@@ -7,7 +7,7 @@ import { trustedDomains } from "../../config/loader.ts";
 import { HASH_END, HASH_START, isObject, renderTemplate, stableJson, upsertBlock, removeBlock, type Json } from "../../config/merger.ts";
 import { classifyCommand } from "../../core/classifier-facade.ts";
 import type { PolicyContext } from "../../core/context.ts";
-import { serializableContext } from "../../core/policy-loader.ts";
+import { loadTrustedDefaults, serializableContext } from "../../core/policy-loader.ts";
 import { claudeBlockVars } from "../claude/generate.ts";
 import { change, readIfExists, validateJson } from "../fs-helpers.ts";
 import type { AdapterPlan, RenderMode } from "../types.ts";
@@ -22,7 +22,7 @@ export const CODEX_GH_CONFIG_DIR_TILDE = "~/.codex/gh";
  * ที่ .NET dual-stack socket ใช้ ทำให้ VSTest testhost ต่อ vstest.console ไม่ได้ (`failed to connect to testhost`); บังคับ IPv4 แล้ว `dotnet test` ผ่านใน sandbox
  */
 export function codexShellEnvManaged(env: Environment): Record<string, string> {
-  return { GH_CONFIG_DIR: path.join(env.home, ".codex", "gh"), GH_NO_UPDATE_NOTIFIER: "1", DOTNET_SYSTEM_NET_DISABLEIPV6: "1" };
+  return { GH_CONFIG_DIR: path.join(env.home, ".codex", "gh"), GH_NO_UPDATE_NOTIFIER: "1", ...loadTrustedDefaults().sandbox_shell_env };
 }
 
 function validateToml(content: string): void {
@@ -156,6 +156,14 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
     if (!(key in domains)) domains[key] = "allow";
   }
   managedKeys.push(`permissions."${PROFILE}".network.domains (additive)`);
+
+  // 3a. unix socket: เติมเฉพาะ socket ใน policy; entry เดิมของ user (เช่น docker.sandboxes) คงไว้ ห้าม strip
+  const sockets = ensureObj(net, ["unix_sockets"]);
+  for (const s of loadTrustedDefaults().allowed_unix_sockets) {
+    const key = s.replace(/\$\{HOME\}/g, env.home);
+    if (!(key in sockets)) sockets[key] = "allow";
+  }
+  managedKeys.push(`permissions."${PROFILE}".network.unix_sockets (additive)`);
 
   // 3b. shell env: GH_CONFIG_DIR ชี้ agent token dir (keychain ของ gh ใช้ใน seatbelt ไม่ได้); key อื่นใน set ของ user คงไว้
   const envSet = ensureObj(ensureObj(doc, ["shell_environment_policy"]), ["set"]);

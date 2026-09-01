@@ -36,6 +36,8 @@ export interface TrustedDefaults {
   always_writable: string[];
   agent_config_dirs: string[];
   excluded_commands: string[];
+  allowed_unix_sockets: string[];
+  sandbox_shell_env: Record<string, string>;
   security_agent_types: string[];
   anthropic_hosts: string[];
   public_registries: string[];

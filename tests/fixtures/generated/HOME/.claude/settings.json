@@ -292,14 +292,26 @@
         "${HOME}/.claude",
         "${HOME}/.codex",
         "${HOME}/.pi",
-        "${HOME}/.agents"
+        "${HOME}/.agents",
+        "/tmp",
+        "/private/tmp",
+        "${HOME}/.cache",
+        "${HOME}/.npm",
+        "${HOME}/.pnpm-store",
+        "${HOME}/Library/Caches",
+        "${HOME}/.composer/cache",
+        "${HOME}/.nuget/packages",
+        "${HOME}/.gradle",
+        "${HOME}/.m2",
+        "${HOME}/.cargo",
+        "${HOME}/go/pkg",
+        "${HOME}/.local/state/agents-adapter"
       ]
     },
     "excludedCommands": [
       "gh *",
       "docker *",
       "codex *",
-      "dotnet test *",
       "git push *",
       "git fetch *",
       "git pull *",
@@ -338,7 +350,14 @@
         "registry-1.docker.io",
         "auth.docker.io",
         "mcr.microsoft.com"
-      ]
+      ],
+      "allowUnixSockets": [
+        "/var/run/docker.sock",
+        "${HOME}/.docker/run/docker.sock",
+        "/tmp",
+        "/private/tmp"
+      ],
+      "allowLocalBinding": true
     },
     "credentials": {
       "files": [
@@ -467,7 +486,9 @@
       ]
     },
     "enabled": true,
-    "autoAllowBashIfSandboxed": true
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": true,
+    "failIfUnavailable": true
   },
   "autoMode": {
     "allow": [
@@ -518,6 +539,9 @@
     "classifyAllShell": true
   },
   "language": "thai",
+  "env": {
+    "DOTNET_SYSTEM_NET_DISABLEIPV6": "1"
+  },
   "hooks": {
     "PreToolUse": [
       {

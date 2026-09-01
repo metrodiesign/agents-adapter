@@ -19,8 +19,10 @@ export interface ClaudeManaged {
   credentialEnvVars: string[];
   excludedCommands: string[];
   allowedDomains: string[];
+  allowedUnixSockets: string[];
   additionalDirectories: string[];
   allowWrite: string[];
+  shellEnv: Record<string, string>;
 }
 
 export function claudeManaged(env: Environment): ClaudeManaged {
@@ -39,8 +41,11 @@ export function claudeManaged(env: Environment): ClaudeManaged {
     credentialEnvVars: protectedPaths.credential_env_vars,
     excludedCommands: defaults.excluded_commands,
     allowedDomains: trustedDomains(config),
+    // socket ที่ process ลูกใน sandbox ต้องต่อได้ (docker ที่ถูกเรียกจาก script ไม่ได้รับการยกเว้นจาก excludedCommands)
+    allowedUnixSockets: defaults.allowed_unix_sockets.map((p) => p.replace(/\$\{HOME\}/g, ctx.home)),
     additionalDirectories: ctx.developmentRoots,
-    allowWrite: [...ctx.developmentRoots, ...ctx.agentConfigDirs],
+    allowWrite: [...ctx.developmentRoots, ...ctx.agentConfigDirs, ...ctx.alwaysWritable],
+    shellEnv: defaults.sandbox_shell_env,
   };
 }
 
@@ -67,6 +72,7 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
     [["sandbox", "filesystem", "allowWrite"], "allowWrite", "claude.sandbox.filesystem.allowWrite"],
     [["sandbox", "excludedCommands"], "excludedCommands", "claude.sandbox.excludedCommands"],
     [["sandbox", "network", "allowedDomains"], "allowedDomains", "claude.sandbox.network.allowedDomains"],
+    [["sandbox", "network", "allowUnixSockets"], "allowedUnixSockets", "claude.sandbox.network.allowUnixSockets"],
   ];
   for (const [p, key, stateKey] of lists) {
     const current = getPath(settings, p);
@@ -108,8 +114,14 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
     [["permissions", "disableBypassPermissionsMode"], "disable"],
     [["sandbox", "enabled"], true],
     [["sandbox", "autoAllowBashIfSandboxed"], true],
+    // ถ้า allowUnsandboxedCommands เป็น false ทั้ง excludedCommands จะไร้ผลโดยไม่มีสัญญาณเตือน
+    [["sandbox", "allowUnsandboxedCommands"], true],
+    // fail-closed: ถ้า sandbox ใช้ไม่ได้ต้องหยุด ไม่ใช่รันดิบ
+    [["sandbox", "failIfUnavailable"], true],
+    [["sandbox", "network", "allowLocalBinding"], true],
     [["autoMode", "classifyAllShell"], true],
     [["language"], "thai"],
+    ...Object.entries(m.shellEnv).map(([k, v]) => [["env", k], v] as [string[], Json]),
   ];
   for (const [p, value] of scalars) {
     const cur = getPath(settings, p);
@@ -230,6 +242,7 @@ export function claudeManagedState(env: Environment): Record<string, unknown> {
     "claude.sandbox.filesystem.allowWrite": m.allowWrite,
     "claude.sandbox.excludedCommands": m.excludedCommands,
     "claude.sandbox.network.allowedDomains": m.allowedDomains,
+    "claude.sandbox.network.allowUnixSockets": m.allowedUnixSockets,
     "claude.sandbox.credentials.files": m.credentialFiles.map((p) => ({ path: p, mode: "deny" })),
     "claude.sandbox.credentials.envVars": m.credentialEnvVars.map((n) => ({ name: n, mode: "deny" })),
     ...Object.fromEntries(Object.entries(autoModeEntries(env.config, env.ctx)).map(([k, v]) => [`claude.autoMode.${k}`, v])),

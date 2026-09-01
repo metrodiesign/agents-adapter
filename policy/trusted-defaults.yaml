@@ -29,11 +29,14 @@ agent_config_dirs:
 # git network ops ต้องออกด้วย: git เรียก credential helper (gh auth git-credential) เป็น subprocess
 # ซึ่งอ่าน ~/.config/gh ไม่ได้ใน sandbox ทำให้ fetch/pull/push ของ private repo พัง
 # การออกนอก sandbox ไม่ใช่ bypass permission: deny ของ push main/develop, bare push, force push ยังบังคับตามเดิม
+# `docker *` ยังต้องออก: buildx เขียน ~/.docker/buildx (วัดแล้ว `docker build` ใน sandbox ล้มด้วย
+# `failed to update builder last activity time: ... operation not permitted`) และ registry auth อ่าน
+# ~/.docker/config.json ซึ่งเป็น credential path; allowUnixSockets ครอบเฉพาะ process ลูกที่เรียก daemon
+# `dotnet test` ไม่ต้องออกแล้ว: env DOTNET_SYSTEM_NET_DISABLEIPV6 + unix socket ใน temp dir ทำให้รันใน sandbox ได้
 excluded_commands:
   - "gh *"
   - "docker *"
   - "codex *"
-  - "dotnet test *"
   - "git push *"
   - "git fetch *"
   - "git pull *"
@@ -44,6 +47,25 @@ excluded_commands:
   - "rtk git pull *"
   - "rtk gh *"
   - "rtk docker *"
+
+# unix socket ที่ process ใน sandbox ต่อได้
+# docker CLI ที่ถูกเรียกจาก script/compose เป็น process ลูก ไม่ได้รับการยกเว้นจาก excluded_commands
+# (ตัดสินจากข้อความคำสั่งเท่านั้น) จึงต้องเปิด socket ให้ตรง ๆ ไม่งั้น script ที่ห่อ docker พังกลางทาง
+# /var/run/docker.sock เป็น symlink ไป ~/.docker/run/docker.sock ต้องมีทั้งคู่
+# ไม่รวม docker.sandboxes sockets โดยตั้งใจ
+# /tmp, /private/tmp: .NET NamedPipeServerStream บน Unix = AF_UNIX socket ใน temp dir
+# MSBuild worker node bind ไม่ได้จะล้มด้วย `MSB1025` + `SocketException (13): Permission denied`
+allowed_unix_sockets:
+  - "/var/run/docker.sock"
+  - "${HOME}/.docker/run/docker.sock"
+  - "/tmp"
+  - "/private/tmp"
+
+# env ที่ทุก adapter ตั้งให้ shell command เพื่อให้ toolchain ทำงานใน sandbox ได้
+# DOTNET_SYSTEM_NET_DISABLEIPV6: seatbelt ปฏิเสธ connect ไป v4-mapped IPv6 loopback (`::ffff:127.0.0.1`)
+# ที่ .NET dual-stack socket ใช้ ทำให้ VSTest testhost ต่อ vstest.console ไม่ได้ (`failed to connect to testhost`)
+sandbox_shell_env:
+  DOTNET_SYSTEM_NET_DISABLEIPV6: "1"
 
 # agent type ที่ทำงาน security audit: ห้าม spawn เมื่อ ANTHROPIC_BASE_URL ชี้ provider ที่ไม่ใช่ Anthropic
 # content filter ของ provider อื่น (เช่น OpenAI cyber filter) ตอบ 400 และแฟล็ก context ถาวร ทุก request ถัดไปของ agent ตัวนั้นล้มหมด
