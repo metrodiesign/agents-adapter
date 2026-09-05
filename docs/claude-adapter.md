@@ -23,7 +23,6 @@ Claude Code เป็น reference adapter: policy ถูกสกัดจา�
 | `env` | เติม `GH_CONFIG_DIR=~/.claude/gh` (absolute path; gh และ `gh auth git-credential` ที่ git เรียกอ่าน agent token จากที่นี่แทน `~/.config/gh` + keychain), `GH_NO_UPDATE_NOTIFIER=1` และ `DOTNET_SYSTEM_NET_DISABLEIPV6=1` (seatbelt ปฏิเสธ v4-mapped IPv6 loopback ที่ VSTest testhost ใช้); ค่า env อื่นของ user คงอยู่ |
 | `sandbox.filesystem.denyRead`, `denyWrite`, `allowWrite` | เติม credential path, system config ใต้ home ทั้งชุด (shell rc, `settings.json`, `config.toml`, hooks/rules/extensions ของทุก CLI, `~/.config/agents-adapter/config.yaml`; `denyWrite` เท่านั้น อ่านได้), development roots และ `always_writable` (temp + cache ของ toolchain + `~/.docker/buildx`); ข้อยกเว้นเดียว: `~/.claude/gh` ไม่อยู่ใน `denyRead` เพราะ gh subprocess ของ Claude เองต้องอ่าน (ยัง `denyWrite`, ยัง `Read(~/.claude/gh/**)`/`Edit(...)` deny และ `Bash(*/.claude/gh*)`/`Bash(*/.codex/gh*)` deny); `~/.codex/gh` ยัง `denyRead` |
 | `sandbox.filesystem.allowRead` | `~/.claude/gh` เท่านั้น: Claude Code merge `permissions.deny` `Read(...)` เข้า `denyRead` ของ sandbox (schema: `Merged with paths from Read(...) deny permission rules`) การตัดออกจาก `denyRead` จึงไม่พอ; `allowRead` `takes precedence over denyRead` ทำให้ gh ใน sandbox อ่าน token ได้ ส่วน `Read`/`Edit` tool และ Bash pattern ยัง deny ตามเดิม (วัด: ไม่มี = `gh auth status` ตอบ `open ~/.claude/gh/config.yml: operation not permitted`) |
-| `sandbox.filesystem.allowGitConfig` | `true` (trusted-defaults `sandbox_git_config_writable`): Claude ใส่ `**/.git/config` ใน mandatory write-deny ของทุกคำสั่ง (function `HRr` ใน binary 2.1.261 ยกเฉพาะเมื่อ flag นี้เปิด; `**/.git/hooks/**` ยัง deny เสมอ) ปิดไว้ `git push -u origin <branch>`, `git branch -d`, `git remote add`, `git config --local` ตอบ `could not lock config file .git/config: Operation not permitted` (push สำเร็จแต่ upstream ไม่ถูกบันทึก); ช่องเสี่ยงที่รับ: agent แก้ `core.hooksPath`/`credential.helper` ของ repo ได้ ซึ่ง Codex อนุญาตอยู่แล้ว (workspace `.git` write) ส่วน git global config ยัง ASK |
 | `sandbox.credentials.files`, `sandbox.credentials.envVars` | เติม credential path/env var แบบ `mode: deny` (ยกเว้น `~/.claude/gh` ตามข้อบน) |
 | `sandbox.excludedCommands` | เหลือ `codex *` (Codex CLI อ่าน `~/.codex/auth.json` ซึ่ง deny โดยตั้งใจ) และ `~/.claude/hooks/agents-adapter/agents-free-port.sh *` (wrapper ที่ต้องส่ง signal ข้าม sandbox); `gh *`, `docker *`, git network ops และรูป `rtk ...` ถูกถอดเพราะมี capability ทดแทนใน sandbox (`GH_CONFIG_DIR`, `allowMachLookup`, `allowUnixSockets`, `~/.docker/buildx`); permission rules ยังบังคับตามเดิม |
 | `hooks/agents-adapter/agents-free-port.sh`, `hooks/agents-adapter/sandbox-probe.sh` | copy จาก `runtime/shared/` (mode 755) ลง dir ที่ Claude กัน sandbox เขียน; wrapper มี `permissions.allow` `Bash(<absolute path> *)` คู่กับ `excludedCommands`; probe ไม่อยู่ใน `excludedCommands` (ต้องวัดจากข้างใน) |
@@ -81,3 +80,16 @@ GH_CONFIG_DIR=~/.claude/gh gh auth status
 ## Idempotency
 
 รัน `apply --target claude` ซ้ำโดยไม่มี policy change ได้ `no changes`; managed block ไม่ถูกสร้างซ้ำ (`tests/adapters/claude.test.ts`)
+
+### ข้อจำกัดที่ไม่มี key แก้: `.git/config` ของ repo ปัจจุบัน
+
+Claude ใส่ `<repo>/.git/config` และ `.git/hooks` ของ repo ที่ session เปิดอยู่ใน mandatory write-deny ของทุกคำสั่งใน sandbox (function `HRr` ใน binary 2.1.261) `allowWrite` ทับไม่ได้ และ option `allowGitConfig` ของ sandbox runtime ไม่ถูกอ่านจาก settings.json (Claude Code ส่งเฉพาะ `filesystem.{denyRead,allowRead,allowWrite,denyWrite,disabled}` เข้า runtime; ตั้งแล้ววัดใน session ใหม่ยัง `Operation not permitted`) ผลที่วัดได้:
+
+| คำสั่ง | ผล |
+|---|---|
+| `git push -u origin <branch>` | push สำเร็จ exit 0 แต่พิมพ์ `could not lock config file .git/config: Operation not permitted` และไม่บันทึก upstream |
+| `git branch -d <branch>` | ลบสำเร็จ พิมพ์ `update of config-file failed` (ล้าง upstream entry ไม่ได้) |
+| `git remote add`, `git config --local`, `git switch --track` ใน repo ปัจจุบัน | ล้มเหลว exit 255 |
+| `git init`, `git clone`, `--track` ใน repo อื่น (`$TMPDIR`, sibling ใน zone) | เขียนได้ปกติ |
+
+แนวปฏิบัติ: push ด้วย `git push -u origin <branch>` ต่อไปได้ (ผลสำเร็จ) แต่คำสั่งถัดไปต้องระบุ remote/branch เอง เช่น `git pull --ff-only origin <branch>`; การตั้ง upstream หรือแก้ config ของ repo ปัจจุบันให้ user รันจาก terminal เอง; ข้อความ `fatal: failed to store: -60008` ที่ตามมาเป็น credential helper `osxkeychain` เก็บ token ลง keychain ไม่ได้ใน sandbox ไม่กระทบผล
