@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import { nativeProdEnvGlobs } from "../../core/paths.ts";
 import * as path from "node:path";
 import type { PolicyContext } from "../../core/context.ts";
-import { REPO_ROOT } from "../../core/policy-loader.ts";
+import { REPO_ROOT, agentGhConfigDir, wrapperPaths } from "../../core/policy-loader.ts";
 import type { UserConfig } from "../../core/policy-loader.ts";
 
 export interface ClaudePatterns {
@@ -63,6 +63,11 @@ export function claudePatterns(config: UserConfig, ctx: PolicyContext): ClaudePa
     const suffix = isFileLike(tilde) ? "" : "/**";
     deny.push(`Read(${tilde}${suffix})`, `Edit(${tilde}${suffix})`);
   }
+  // agent token dir ของ gh: sandbox ของ Claude ไม่บัง ~/.claude/gh (gh subprocess ต้องอ่าน) ชั้น deterministic ที่เหลือคือ
+  // pattern ระดับ Bash: path ตรง ๆ ของทั้งสอง dir, ตัวแปร GH_CONFIG_DIR ที่ env ชี้ไปที่ dir นี้ และชื่อไฟล์ gh/hosts.yml;
+  // รูปที่เลี่ยงได้ (glob, find -exec, python open) เหลือ autoMode classifier เป็น gate เช่นเดียวกับ hook ของ Codex
+  for (const cli of ["claude", "codex"] as const) deny.push(`Bash(*${agentGhConfigDir(ctx.home, cli).replace(ctx.home, "")}*)`);
+  deny.push("Bash(*GH_CONFIG_DIR*)", "Bash(*gh/hosts.yml*)");
   for (const pat of nativeProdEnvGlobs(ctx.prodEnvPatterns)) {
     deny.push(`Read(**/${pat})`, `Edit(**/${pat})`);
   }
@@ -174,6 +179,8 @@ export function claudePatterns(config: UserConfig, ctx: PolicyContext): ClaudePa
     "Bash(gh release list *)",
     "Bash(gh release view *)",
     "Bash(codex *)",
+    // wrapper ของ agents-adapter (excludedCommands ด้วย absolute path เดียวกัน): ปลด TCP port ที่ dev server ใน repo ปัจจุบันค้างยึด
+    ...wrapperPaths(ctx.home, "claude").map((p) => `Bash(${p} *)`),
   ];
   return { deny, ask, allow };
 }

@@ -44,13 +44,13 @@ trusted_domains:
 1. `git pull --ff-only origin main`
 2. `node src/cli.ts plan --target all` — อ่านรายการ modify ก่อนทุกครั้ง
 3. `node src/cli.ts apply --target all --yes`
-4. `node src/cli.ts doctor` — ต้องได้ `policy drift` PASS ครบสาม CLI
+4. `node src/cli.ts doctor` — ต้องได้ `policy drift` PASS ครบสาม CLI และ `CLAUDE.md user rules (claude)` PASS: ส่วนที่ user เขียนเองใน `~/.claude/CLAUDE.md` (เหนือ managed block) ที่ยังบอกว่า `gh *`/`docker *` รันนอก sandbox ผ่าน `excludedCommands` หรือให้เพิ่ม binary ที่เจอ `-26276` ใน `excludedCommands` ต้องแก้เองให้ตรง managed block
 
 ไฟล์ที่ apply แก้เป็นประจำเมื่อ policy เปลี่ยน: `~/.claude/settings.json`, `~/.codex/config.toml`, `~/.codex/hooks/agents-adapter/agents-adapter.config.json`, `~/.pi/agent/extensions/agents-adapter-lib/config.json`
 
 ## ใช้งานผ่าน Claude Code
 
-ไม่ต้องตั้งค่าเพิ่ม: `permissions`, `sandbox`, `autoMode` ถูก merge เข้า `~/.claude/settings.json` และ Claude โหลดใหม่ทันทีหลัง apply โดยไม่ต้องเปิด session ใหม่
+ไม่ต้องตั้งค่าเพิ่ม: `permissions`, `sandbox`, `autoMode`, `env` ถูก merge เข้า `~/.claude/settings.json`; `permissions` และ `autoMode` มีผลทันที แต่ `sandbox` (filesystem/network/excludedCommands) และ `env` ถูกอ่านตอนเริ่ม session ต้องเปิด Claude session ใหม่หลัง apply
 
 ### รัน apply จากใน Claude session ไม่ได้
 
@@ -64,21 +64,36 @@ Claude Code กันไฟล์ของตัวเอง (`~/.claude/setting
 
 ### คำสั่งที่ต้องออกนอก Bash sandbox
 
-`sandbox.excludedCommands` รัน CLI ที่ต้องใช้ keychain หรือ credential helper นอก outer sandbox แต่ permission rules และ classifier ยังบังคับตามเดิม
+`sandbox.excludedCommands` เหลือ 2 pattern; ที่เหลือมี capability ทดแทนใน sandbox (ตารางถัดไป) การออกนอก sandbox ไม่ใช่ bypass permission: permission rules และ classifier ยังบังคับตามเดิม
 
 | pattern | เหตุผล |
 |---|---|
-| `gh *`, `rtk gh *` | อ่าน `~/.config/gh` ซึ่ง sandbox deny |
-| `git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *` | git เรียก `gh auth git-credential` เป็น subprocess |
-| `rtk git fetch *`, `rtk git pull *` | rtk hook rewrite คำสั่ง git ก่อนถึง sandbox |
-| `docker *`, `rtk docker *` | ใช้ Docker socket |
-| `codex *` | runtime ของตัวเอง (`dotnet test` ไม่ต้องออกแล้ว: รันใน sandbox ได้ด้วย `env.DOTNET_SYSTEM_NET_DISABLEIPV6` + `allowUnixSockets`) |
+| `codex *` | Codex CLI อ่าน `~/.codex/auth.json` (credential path ที่ deny โดยตั้งใจ) และใช้ sandbox ของตัวเอง |
+| `${HOME}/.claude/hooks/agents-adapter/agents-free-port.sh *` (absolute path) | ต้องส่ง signal ไป process นอก tree ของ sandbox; ไฟล์อยู่ใน dir ที่ Claude กัน sandbox เขียน (และ `denyWrite` กัน `~/.codex/hooks` ฝั่ง Codex); agent ต้องเรียกด้วย absolute path ตรง ๆ ไม่มี `bash` นำหน้า ไม่ใช้ `~` ไม่งั้นคำสั่งไม่ match แล้ว wrapper ตอบ `refused: running inside the sandbox` exit 4 |
 
-ข้อจำกัดของ pattern matching:
+capability ที่แทน entry เดิม (ทุกค่ามาจาก `policy/trusted-defaults.yaml` และ `protected-paths.yaml`):
 
-- match ทั้งบรรทัด: `cd repo && gh pr view 1` หรือ `gh pr checks 1 | tail` ไม่ match `gh *` ต้องรัน `gh` เป็นคำสั่งเดี่ยว
-- rtk hook (Rust Token Killer) rewrite `git fetch`, `git pull`, `gh`, `docker` เป็น `rtk ...` แต่ไม่ rewrite `git push`, `git clone`, `git ls-remote`, `docker compose`, `codex`
-- อาการเมื่อไม่ match: `failed to read configuration: open ~/.config/gh/config.yml: operation not permitted` ตามด้วย `fatal: could not read Password` (gh อ่าน config ตัวเองไม่ได้ จึงให้รหัสผ่าน git ไม่ได้)
+| entry เดิม | ทดแทนด้วย | หลักฐาน |
+|---|---|---|
+| `gh *`, `rtk gh *` | `env.GH_CONFIG_DIR=~/.claude/gh` (agent token) + `allowMachLookup: com.apple.trustd.agent` (Go TLS) | token ปลอมใน dir ที่ sandbox อ่านได้: `gh api user` ตอบ `Bad credentials` เมื่อเปิด trustd, `x509: OSStatus -26276` เมื่อไม่เปิด |
+| `git push/fetch/pull/ls-remote/clone *`, `rtk git fetch/pull *` | `GH_CONFIG_DIR` เดียวกัน (git เรียก `gh auth git-credential` เป็น process ลูก) | `git ls-remote <private>` ใน sandbox ตอบ `Invalid username or token` (helper ทำงาน) แทน `could not read Username` |
+| `docker *`, `rtk docker *` | `allowUnixSockets` (daemon) + `~/.docker/buildx` ใน `allowWrite` + trustd (registry token) | `docker build --pull` ผ่านใน seatbelt profile เดียวกับ Claude เมื่อมีทั้งสอง; ขาด buildx = `failed to update builder last activity time`, ขาด trustd = `failed to fetch anonymous token ... -26276` |
+| `dotnet test *` | `env.DOTNET_SYSTEM_NET_DISABLEIPV6=1` + AF_UNIX ใน `/tmp` | PR #43 |
+
+ข้อจำกัดของ pattern matching ที่ยังอยู่:
+
+- match ต่อ segment (`;`, `&&`, `|`): segment เดียวที่ match ยกทั้งบรรทัดออกนอก sandbox; process ลูกของ script ไม่เคยได้รับการยกเว้น
+- rtk hook (Rust Token Killer) rewrite `git fetch`, `git pull`, `gh`, `docker` เป็น `rtk ...` ซึ่งตอนนี้ไม่มีผลกับ sandbox แล้วเพราะทุกตัวรันข้างในได้
+
+### ตรวจ sandbox หลัง apply
+
+sandbox profile และ `env` ถูกอ่านตอนเริ่ม session: หลัง `apply --target claude` ให้เปิด Claude session ใหม่แล้วรัน
+
+```bash
+bash ~/.claude/hooks/agents-adapter/sandbox-probe.sh   # ติดตั้งโดย apply; หรือ bash scripts/sandbox-probe.sh จาก repo นี้
+```
+
+ต้องไม่มี `FAIL`; `DENY(known)` คือข้อจำกัดที่ policy บอก agent ไว้แล้ว (`/bin/ps` setuid, signal ข้าม sandbox, `~/.npmrc`, `::ffff:127.0.0.1`) และ `SKIP` คือ toolchain ที่เครื่องไม่มี รายละเอียดใน `docs/claude-adapter.md`
 
 ### Trust Zone ใน Claude
 

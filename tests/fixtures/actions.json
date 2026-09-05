@@ -487,6 +487,32 @@
     },
     {
       "id": "CREDENTIAL_READ",
+      "name": "claude gh agent token",
+      "kind": "command",
+      "command": "cat ~/.claude/gh/hosts.yml",
+      "expected": "DENY"
+    },
+    {
+      "id": "CREDENTIAL_READ",
+      "name": "claude gh agent token via tool",
+      "kind": "tool",
+      "tool": {
+        "name": "read",
+        "input": {
+          "path": "{HOME}/.claude/gh/hosts.yml"
+        }
+      },
+      "expected": "DENY"
+    },
+    {
+      "id": "CREDENTIAL_WRITE",
+      "name": "claude gh agent token overwrite",
+      "kind": "command",
+      "command": "cp hosts.yml ~/.claude/gh/hosts.yml",
+      "expected": "DENY"
+    },
+    {
+      "id": "CREDENTIAL_READ",
       "name": "pem file anywhere",
       "kind": "command",
       "command": "cat certs/server.pem",

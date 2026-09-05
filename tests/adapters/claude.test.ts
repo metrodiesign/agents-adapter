@@ -99,12 +99,62 @@ test("claude CLAUDE.md managed block is inserted once", () => {
   }
 });
 
-test("claude sandbox excludes git network ops so the gh credential helper can run", () => {
+test("claude sandbox keeps only codex and the agents-adapter wrapper outside the sandbox; every removed entry has an in-sandbox replacement", () => {
   const t = makeTestEnv();
   try {
     const s = JSON.parse(renderClaudeSettings(null, t.env, { mode: "apply", previousManaged: {} }).content);
-    for (const c of ["git push *", "git fetch *", "git pull *", "rtk git fetch *", "rtk git pull *", "rtk gh *", "rtk docker *"]) assert.ok(s.sandbox.excludedCommands.includes(c), c);
-    assert.ok(s.permissions.deny.includes("Bash(git push * main)"), "push to protected branch still denied");
+    const excluded = s.sandbox.excludedCommands as string[];
+    const wrapper = path.join(t.env.home, ".claude", "hooks", "agents-adapter", "agents-free-port.sh");
+    assert.deepEqual(excluded, ["codex *", `${wrapper} *`]);
+    // gh *, rtk gh *, git push/fetch/pull/ls-remote/clone, rtk git fetch/pull, docker *, rtk docker *: ต้องไม่กลับมา
+    for (const c of ["gh *", "rtk gh *", "git push *", "git fetch *", "git pull *", "git ls-remote *", "git clone *", "rtk git fetch *", "rtk git pull *", "docker *", "rtk docker *", "dotnet test *", "ps *", "kill *", "pgrep *"]) assert.ok(!excluded.includes(c), `${c} must stay inside the sandbox`);
+    // replacement 1: gh + git credential helper อ่าน agent token จาก ~/.claude/gh ซึ่ง sandbox ต้องไม่บัง
+    const ghDir = path.join(t.env.home, ".claude", "gh");
+    assert.equal(s.env.GH_CONFIG_DIR, ghDir);
+    assert.equal(s.env.GH_NO_UPDATE_NOTIFIER, "1");
+    assert.ok(!s.sandbox.filesystem.denyRead.includes("~/.claude/gh"), "gh must read its own token dir inside the sandbox");
+    assert.ok(!s.sandbox.credentials.files.some((f: { path: string }) => f.path === "~/.claude/gh"));
+    assert.ok(s.sandbox.filesystem.denyWrite.includes("~/.claude/gh"), "agent token dir stays write-denied");
+    assert.ok(s.sandbox.filesystem.denyRead.includes("~/.codex/gh"), "the other CLI's token dir stays read-denied");
+    assert.ok(s.permissions.deny.includes("Read(~/.claude/gh/**)") && s.permissions.deny.includes("Edit(~/.claude/gh/**)"));
+    assert.ok(s.permissions.deny.includes("Bash(*/.claude/gh*)") && s.permissions.deny.includes("Bash(*/.codex/gh*)"), "Bash pattern denies reading the token dir the sandbox no longer hides");
+    assert.ok(s.permissions.deny.includes("Bash(*GH_CONFIG_DIR*)") && s.permissions.deny.includes("Bash(*gh/hosts.yml*)"), "indirections created by this change are denied deterministically");
+    // system config ของทุก CLI (รวม hooks dir ของ Codex ที่เก็บ wrapper ซึ่ง Codex รัน escalated) ต้องเขียนจาก Claude sandbox ไม่ได้
+    for (const p of ["~/.codex/hooks", "~/.codex/config.toml", "~/.codex/rules", "~/.claude/hooks", "~/.claude/settings.json", "~/.pi/agent/extensions", "~/.config/agents-adapter/config.yaml", "~/.zshrc"]) assert.ok(s.sandbox.filesystem.denyWrite.includes(p), `${p} write-denied`);
+    // replacement 2: Go TLS (gh, docker buildx) และ pgrep ผ่าน mach lookup ที่ระบุชื่อ service ไม่ใช่ wildcard
+    assert.deepEqual(s.sandbox.network.allowMachLookup, ["com.apple.trustd.agent", "com.apple.sysmond"]);
+    assert.equal(s.sandbox.enableWeakerNetworkIsolation, undefined, "use the named service, not the blanket flag");
+    // replacement 3: docker daemon ผ่าน socket (process ลูกด้วย)
+    assert.ok(s.sandbox.network.allowUnixSockets.includes("/var/run/docker.sock"));
+    // wrapper: allow pattern เดียวกับ excluded และไฟล์ถูก render ลง hooks dir ที่ sandbox เขียนไม่ได้
+    assert.ok(s.permissions.allow.includes(`Bash(${wrapper} *)`));
+    const plan = renderClaude(t.env, { mode: "apply", previousManaged: {} });
+    const w = plan.changes.find((c) => c.path === wrapper);
+    assert.ok(w && w.after?.startsWith("#!/usr/bin/env bash") && w.mode === 0o755);
+    const probe = plan.changes.find((c) => c.path.endsWith("/.claude/hooks/agents-adapter/sandbox-probe.sh"));
+    assert.ok(probe && probe.after?.includes("summary: FAIL="), "probe installed next to the wrapper (runs inside the sandbox)");
+    assert.ok(!excluded.some((c) => c.includes("sandbox-probe.sh")), "probe must stay inside the sandbox");
+    assert.ok(plan.unsupported.some((u) => u.includes("hosts.yml missing")), "plan warns when the agent token is not set up yet");
+    // wrapper ที่เนื้อหาเท่าเดิมแต่ mode ถูกแก้เป็น 644 ต้องนับเป็น modify ไม่ใช่ unchanged
+    fs.mkdirSync(path.dirname(wrapper), { recursive: true });
+    fs.writeFileSync(wrapper, w!.after!, { mode: 0o644 });
+    const again = renderClaude(t.env, { mode: "apply", previousManaged: {} }).changes.find((c) => c.path === wrapper);
+    assert.equal(again?.kind, "modify", "mode drift is a change");
+    fs.chmodSync(wrapper, 0o755);
+    assert.equal(renderClaude(t.env, { mode: "apply", previousManaged: {} }).changes.find((c) => c.path === wrapper)?.kind, "unchanged");
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("claude allowMachLookup merge keeps user services and drops stale managed ones", () => {
+  const t = makeTestEnv();
+  try {
+    const user = JSON.stringify({ sandbox: { network: { allowMachLookup: ["com.apple.coresimulator.*", "com.apple.old"] } } });
+    const first = JSON.parse(renderClaudeSettings(user, t.env, { mode: "apply", previousManaged: { "claude.sandbox.network.allowMachLookup": ["com.apple.old"] } }).content);
+    assert.deepEqual(first.sandbox.network.allowMachLookup, ["com.apple.coresimulator.*", "com.apple.trustd.agent", "com.apple.sysmond"]);
+    const removed = JSON.parse(renderClaudeSettings(JSON.stringify(first), t.env, { mode: "remove", previousManaged: {} }).content);
+    assert.deepEqual(removed.sandbox.network.allowMachLookup, ["com.apple.coresimulator.*"]);
   } finally {
     t.cleanup();
   }
@@ -122,6 +172,7 @@ test("claude sandbox keeps toolchains working inside the sandbox: docker socket,
     // VSTest testhost ใช้ v4-mapped IPv6 loopback ที่ seatbelt ปฏิเสธ
     assert.equal(s.env.DOTNET_SYSTEM_NET_DISABLEIPV6, "1");
     assert.ok(!s.sandbox.excludedCommands.includes("dotnet test *"), "dotnet test no longer needs to leave the sandbox");
+    assert.ok((s.sandbox.filesystem.allowWrite as string[]).includes(path.join(t.env.home, ".claude")), "hooks dir parent writable for apply; Claude itself protects ~/.claude/hooks");
     // ถ้า allowUnsandboxedCommands หาย excludedCommands ทั้งชุดไร้ผลโดยเงียบ
     assert.equal(s.sandbox.allowUnsandboxedCommands, true);
     assert.equal(s.sandbox.failIfUnavailable, true);

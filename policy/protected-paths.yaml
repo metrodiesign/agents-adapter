@@ -9,6 +9,9 @@ credential_paths:
   - "${HOME}/.kube"
   - "${HOME}/.config/gcloud"
   - "${HOME}/.config/gh"
+  # agent token dir ของ gh ต่อ CLI (trusted-defaults gh_agent_config_subdir): agent ห้ามอ่าน แต่ sandbox ของ CLI เจ้าของ
+  # dir ต้องให้ gh subprocess อ่านได้ (Claude ตัดออกจาก denyRead/credentials.files เฉพาะ dir ของตัวเอง; Codex profile read)
+  - "${HOME}/.claude/gh"
   - "${HOME}/.codex/gh"
   - "${HOME}/.git-credentials"
   - "${HOME}/.netrc"

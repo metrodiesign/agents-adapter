@@ -17,6 +17,10 @@ always_writable:
   - "${HOME}/.cargo"
   - "${HOME}/go/pkg"
   - "${HOME}/.local/state/agents-adapter"
+  # buildx state dir (activity/, current, instances/) ไม่ใช่ credential: `docker build` ใน sandbox ล้มด้วย
+  # `failed to update builder last activity time: open ~/.docker/buildx/activity/.tmp-default...: operation not permitted`
+  # (วัดทั้ง Claude sandbox และ `codex sandbox`); `~/.docker/config.json` ยัง deny ตาม credential_paths
+  - "${HOME}/.docker/buildx"
 
 # path ที่ adapter ของแต่ละ CLI เขียนได้เพื่อจัดการตัวเอง (ยกเว้น credential file ที่ deny ทับ)
 agent_config_dirs:
@@ -25,28 +29,27 @@ agent_config_dirs:
   - "${HOME}/.pi"
   - "${HOME}/.agents"
 
-# CLI ที่ต้องรันนอก outer sandbox เพราะใช้ keychain/socket/runtime ของตัวเอง
-# git network ops ต้องออกด้วย: git เรียก credential helper (gh auth git-credential) เป็น subprocess
-# ซึ่งอ่าน ~/.config/gh ไม่ได้ใน sandbox ทำให้ fetch/pull/push ของ private repo พัง
+# CLI ที่ต้องรันนอก outer sandbox: เหลือเฉพาะที่ไม่มี capability ทดแทนใน sandbox
+# `codex *` ต้องออก: Codex CLI อ่าน ~/.codex/auth.json (credential path ที่ deny โดยตั้งใจ) และใช้ sandbox ของตัวเอง
+# `gh *`, git network ops, `docker *` ไม่ต้องออกแล้ว (ดู gh_agent_config_subdir, sandbox_mach_services, always_writable):
+# - gh อ่าน token จาก GH_CONFIG_DIR=<agent config dir>/gh แทน ~/.config/gh + keychain
+# - git เรียก `gh auth git-credential` เป็น process ลูกซึ่งอ่าน dir เดียวกัน (วัดด้วย token ปลอม: GitHub ตอบ
+#   `Invalid username or token` แทน `could not read Username`)
+# - Go TLS (gh, docker buildx) ต้องการ mach lookup `com.apple.trustd.agent`; docker daemon ผ่าน allowed_unix_sockets
 # การออกนอก sandbox ไม่ใช่ bypass permission: deny ของ push main/develop, bare push, force push ยังบังคับตามเดิม
-# `docker *` ยังต้องออก: buildx เขียน ~/.docker/buildx (วัดแล้ว `docker build` ใน sandbox ล้มด้วย
-# `failed to update builder last activity time: ... operation not permitted`) และ registry auth อ่าน
-# ~/.docker/config.json ซึ่งเป็น credential path; allowUnixSockets ครอบเฉพาะ process ลูกที่เรียก daemon
-# `dotnet test` ไม่ต้องออกแล้ว: env DOTNET_SYSTEM_NET_DISABLEIPV6 + unix socket ใน temp dir ทำให้รันใน sandbox ได้
+# ห้ามใส่ `ps *`, `kill *`, `pgrep *`: segment เดียวที่ match ยกทั้งบรรทัดออกนอก sandbox
 excluded_commands:
-  - "gh *"
-  - "docker *"
   - "codex *"
-  - "git push *"
-  - "git fetch *"
-  - "git pull *"
-  - "git ls-remote *"
-  - "git clone *"
-  # rtk hook (Rust Token Killer) rewrite `git fetch`/`git pull`/`gh`/`docker` เป็น `rtk ...` ก่อนถึง sandbox จึงต้อง match รูปนั้นด้วย
-  - "rtk git fetch *"
-  - "rtk git pull *"
-  - "rtk gh *"
-  - "rtk docker *"
+
+# wrapper ที่โค้ดอยู่ใน repo นี้ (runtime/shared/) ติดตั้งลง hooks dir ของแต่ละ CLI ซึ่ง sandbox เขียนไม่ได้
+# และต้องรันนอก sandbox เพราะ seatbelt ปฏิเสธ signal ไป process นอก tree ของ sandbox (`kill -TERM` ตอบ `operation not permitted`)
+# Claude: excludedCommands + permissions.allow ด้วย absolute path; Codex: prefix_rule allow + require_escalated
+unsandboxed_wrappers:
+  - agents-free-port.sh
+
+# script ที่ติดตั้งลง hooks dir เดียวกันแต่ต้องรัน "ใน" sandbox (ไม่ใส่ excludedCommands): probe ต้องวัดจากข้างใน
+shared_scripts:
+  - sandbox-probe.sh
 
 # unix socket ที่ process ใน sandbox ต่อได้
 # docker CLI ที่ถูกเรียกจาก script/compose เป็น process ลูก ไม่ได้รับการยกเว้นจาก excluded_commands
@@ -64,8 +67,27 @@ allowed_unix_sockets:
 # env ที่ทุก adapter ตั้งให้ shell command เพื่อให้ toolchain ทำงานใน sandbox ได้
 # DOTNET_SYSTEM_NET_DISABLEIPV6: seatbelt ปฏิเสธ connect ไป v4-mapped IPv6 loopback (`::ffff:127.0.0.1`)
 # ที่ .NET dual-stack socket ใช้ ทำให้ VSTest testhost ต่อ vstest.console ไม่ได้ (`failed to connect to testhost`)
+# GH_NO_UPDATE_NOTIFIER: gh ไม่พยายามเขียน state.yml ลง config dir ของ agent (เปิดอ่านอย่างเดียวใน sandbox)
 sandbox_shell_env:
   DOTNET_SYSTEM_NET_DISABLEIPV6: "1"
+  GH_NO_UPDATE_NOTIFIER: "1"
+
+# config dir ของ gh สำหรับ agent token (fine-grained PAT ใน hosts.yml plaintext): <agent config dir>/<subdir>
+# Claude -> ${HOME}/.claude/gh, Codex -> ${HOME}/.codex/gh; แต่ละ CLI ตั้ง GH_CONFIG_DIR ให้ทุก shell command
+# dir นี้อยู่ใน credential_paths (agent ห้ามอ่าน/แสดง) แต่ sandbox ของ CLI นั้นต้องไม่บัง gh subprocess ของตัวเอง
+# token ของ user ใน ~/.config/gh อยู่ใน keychain ซึ่ง seatbelt ปิดทุกโหมด จึงต้องใช้ token แยกที่ user สร้างเอง
+gh_agent_config_subdir: gh
+
+# mach service ที่ sandbox ต้องเปิด lookup เพิ่ม (Claude `sandbox.network.allowMachLookup`; Codex seatbelt ไม่มี key นี้)
+# com.apple.trustd.agent: Go crypto/x509 บน macOS ประเมิน certificate ผ่าน trustd; ไม่เปิด gh/docker buildx ตอบ
+#   `tls: failed to verify certificate: x509: OSStatus -26276` (วัดด้วย seatbelt profile เดียวกับ Claude: ปิด = -26276,
+#   เปิด = GitHub ตอบ `Bad credentials` กับ token ปลอม และ `docker build --pull` ผ่าน) ช่องเสี่ยงที่รับ: trustd fetch
+#   OCSP/AIA URL ให้ process ใน sandbox ได้ ซึ่งแคบกว่าการยก `gh *`/`docker *` ออกนอก sandbox ทั้งตัว
+# com.apple.sysmond: `pgrep`/`pkill` ขอ process list จาก sysmond; ไม่เปิดตอบ `sysmond service not found` +
+#   `Cannot get process list` (exit 3); เปิดแล้ว enumerate ได้ แต่ signal ข้าม sandbox และ `/bin/ps` (setuid) ยังถูกปฏิเสธ
+sandbox_mach_services:
+  - com.apple.trustd.agent
+  - com.apple.sysmond
 
 # agent type ที่ทำงาน security audit: ห้าม spawn เมื่อ ANTHROPIC_BASE_URL ชี้ provider ที่ไม่ใช่ Anthropic
 # content filter ของ provider อื่น (เช่น OpenAI cyber filter) ตอบ 400 และแฟล็ก context ถาวร ทุก request ถัดไปของ agent ตัวนั้นล้มหมด

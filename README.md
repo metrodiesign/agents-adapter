@@ -84,6 +84,7 @@ scripts/uninstall.sh                   # ถอน managed content ออก (ba
 ```bash
 scripts/doctor.sh          # PASS / WARN / FAIL / UNSUPPORTED; exit 1 เมื่อมี FAIL; ไม่พิมพ์ secret
 scripts/verify-parity.sh   # รัน fixture ทุกตัวผ่านทั้งสาม adapter + Python hook tests
+scripts/sandbox-probe.sh   # รันจากใน Claude/Codex session: วัด capability ของ Bash sandbox ระดับ primitive (PASS / DENY(known) / FAIL / SKIP)
 ```
 
 ## วิธีเพิ่ม policy rule

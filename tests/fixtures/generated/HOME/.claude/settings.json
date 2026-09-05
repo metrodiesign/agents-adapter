@@ -57,6 +57,8 @@
       "Edit(~/.config/gcloud/**)",
       "Read(~/.config/gh/**)",
       "Edit(~/.config/gh/**)",
+      "Read(~/.claude/gh/**)",
+      "Edit(~/.claude/gh/**)",
       "Read(~/.codex/gh/**)",
       "Edit(~/.codex/gh/**)",
       "Read(~/.git-credentials)",
@@ -79,6 +81,10 @@
       "Edit(~/.claude.json)",
       "Read(~/.pi/agent/auth.json)",
       "Edit(~/.pi/agent/auth.json)",
+      "Bash(*/.claude/gh*)",
+      "Bash(*/.codex/gh*)",
+      "Bash(*GH_CONFIG_DIR*)",
+      "Bash(*gh/hosts.yml*)",
       "Read(**/.env.production)",
       "Edit(**/.env.production)",
       "Read(**/.env.production.local)",
@@ -234,7 +240,8 @@
       "Bash(gh workflow view *)",
       "Bash(gh release list *)",
       "Bash(gh release view *)",
-      "Bash(codex *)"
+      "Bash(codex *)",
+      "Bash(${HOME}/.claude/hooks/agents-adapter/agents-free-port.sh *)"
     ],
     "additionalDirectories": [
       "${HOME}/Desktop/Project"
@@ -271,6 +278,7 @@
         "~/.kube",
         "~/.config/gcloud",
         "~/.config/gh",
+        "~/.claude/gh",
         "~/.codex/gh",
         "~/.git-credentials",
         "~/.netrc",
@@ -282,10 +290,23 @@
         "~/.claude/.credentials.json",
         "~/.claude.json",
         "~/.pi/agent/auth.json",
+        "~/.config/agents-adapter/config.yaml",
+        "~/.claude/settings.json",
+        "~/.claude/hooks",
+        "~/.codex/config.toml",
+        "~/.codex/requirements.toml",
+        "~/.codex/hooks.json",
+        "~/.codex/hooks",
+        "~/.codex/rules",
+        "~/.pi/agent/extensions",
+        "~/.pi/agent/agents-adapter-isolation.yaml",
         "~/.zshrc",
         "~/.zprofile",
+        "~/.zshenv",
         "~/.bashrc",
-        "~/.bash_profile"
+        "~/.bash_profile",
+        "~/.profile",
+        "~/.gitconfig"
       ],
       "allowWrite": [
         "${HOME}/Desktop/Project",
@@ -305,22 +326,13 @@
         "${HOME}/.m2",
         "${HOME}/.cargo",
         "${HOME}/go/pkg",
-        "${HOME}/.local/state/agents-adapter"
+        "${HOME}/.local/state/agents-adapter",
+        "${HOME}/.docker/buildx"
       ]
     },
     "excludedCommands": [
-      "gh *",
-      "docker *",
       "codex *",
-      "git push *",
-      "git fetch *",
-      "git pull *",
-      "git ls-remote *",
-      "git clone *",
-      "rtk git fetch *",
-      "rtk git pull *",
-      "rtk gh *",
-      "rtk docker *"
+      "${HOME}/.claude/hooks/agents-adapter/agents-free-port.sh *"
     ],
     "network": {
       "allowedDomains": [
@@ -356,6 +368,10 @@
         "${HOME}/.docker/run/docker.sock",
         "/tmp",
         "/private/tmp"
+      ],
+      "allowMachLookup": [
+        "com.apple.trustd.agent",
+        "com.apple.sysmond"
       ],
       "allowLocalBinding": true
     },
@@ -531,7 +547,7 @@
       "Key internal services: local development services, local databases, local Docker และ internal API ที่ registry.npmjs.org",
       "Internal package registry: ไม่มี private registry ที่ประกาศไว้; public registries ใน sandbox.network.allowedDomains ใช้สำหรับ dependency installation",
       "Secrets management: development secret อยู่ในไฟล์ env ที่ถูก gitignore หรือ credential store ของ CLI; ห้ามพิมพ์หรือ commit ค่า secret",
-      "Sensitive data locations & audiences: .env.production*, .env.prod*, credential stores, keychains, ~/.ssh, ~/.aws, ~/.azure, ~/.kube, ~/.config/gh และ ~/.codex/auth.json ใช้ได้เฉพาะผ่าน CLI เจ้าของ credential และห้ามเปิดเผยเนื้อหา",
+      "Sensitive data locations & audiences: .env.production*, .env.prod*, credential stores, keychains, ~/.ssh, ~/.aws, ~/.azure, ~/.kube, ~/.config/gh, ~/.claude/gh, ~/.codex/gh และ ~/.codex/auth.json ใช้ได้เฉพาะผ่าน CLI เจ้าของ credential และห้ามเปิดเผยเนื้อหา",
       "Sensitive remote targets: hostname, namespace, container, database หรือ environment ที่มี prod หรือ production เป็นชื่อหรือ segment ให้ถือเป็น production",
       "Protected IaC scopes: IAM, RBAC, network, DNS, quota, node pool และ resource ที่อยู่ใน production",
       "Additional context: main และ develop เป็น protected branches ตาม policy; PR merge เป็นการตัดสินใจของ user"
@@ -540,7 +556,9 @@
   },
   "language": "thai",
   "env": {
-    "DOTNET_SYSTEM_NET_DISABLEIPV6": "1"
+    "GH_CONFIG_DIR": "${HOME}/.claude/gh",
+    "DOTNET_SYSTEM_NET_DISABLEIPV6": "1",
+    "GH_NO_UPDATE_NOTIFIER": "1"
   },
   "hooks": {
     "PreToolUse": [

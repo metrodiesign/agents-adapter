@@ -51,7 +51,7 @@ flowchart TB
 | `policy/core-policy.yaml` | กฎ provider-neutral: language, trust zone, approval, git/github workflow, CI gates, destructive, staging/production boundary, retry, completion |
 | `policy/permission-matrix.yaml` | rule id + decision + category; contract ที่ adapter และ test ใช้ร่วมกัน |
 | `policy/protected-paths.yaml` | credential path, basename, extension, system config path, credential env var |
-| `policy/trusted-defaults.yaml` | temp/cache ที่เขียนได้, agent config dir, excluded commands, public registries |
+| `policy/trusted-defaults.yaml` | temp/cache ที่เขียนได้ (รวม `~/.docker/buildx`), agent config dir, excluded commands (เหลือ `codex *`), unsandboxed wrappers, unix socket, shell env, gh agent config subdir, mach services (`trustd.agent`, `sysmond`), public registries |
 | `policy/provenance.yaml` | rule -> section/JSON path ของ Claude reference |
 | `policy/schema/*.json` | JSON schema ที่ loader บังคับใช้ |
 
