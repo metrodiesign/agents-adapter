@@ -17,6 +17,7 @@ test("trusted-defaults keeps every sandbox capability key the adapters depend on
   assert.equal(d.sandbox_shell_env.GH_NO_UPDATE_NOTIFIER, "1");
   // mach services: Go TLS + pgrep; ห้ามใช้ wildcard
   assert.deepEqual(d.sandbox_mach_services, ["com.apple.trustd.agent", "com.apple.sysmond"]);
+  assert.equal(d.sandbox_git_config_writable, true, "git push -u / branch -d need .git/config writable");
   for (const m of d.sandbox_mach_services) assert.ok(!m.includes("*"), `${m}: mach service must be named, not a wildcard`);
   // allowWrite: temp + cache ของแต่ละ toolchain + buildx state
   for (const w of ["/tmp", "/private/tmp", "${TMPDIR}", "${HOME}/.npm", "${HOME}/.nuget/packages", "${HOME}/.composer/cache", "${HOME}/.m2", "${HOME}/.cargo", "${HOME}/go/pkg", "${HOME}/.cache", "${HOME}/.docker/buildx"]) assert.ok(d.always_writable.includes(w), `always_writable missing ${w}`);

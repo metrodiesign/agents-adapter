@@ -89,6 +89,13 @@ sandbox_mach_services:
   - com.apple.trustd.agent
   - com.apple.sysmond
 
+# .git/config ของ repo ต้องเขียนได้ใน sandbox: Claude ใส่ `**/.git/config` ใน mandatory write-deny (ยกได้ด้วย
+# `sandbox.filesystem.allowGitConfig`; `.git/hooks` ยัง deny เสมอ ยืนยันจาก HRr ใน binary 2.1.261); ปิดไว้
+# `git push -u`, `git branch -d`, `git remote`, `git config --local` ตอบ `could not lock config file .git/config: Operation not permitted`
+# Codex: workspace `.git` เป็น write อยู่แล้ว (วัด: `codex sandbox -- git config test.key 1` exit 0)
+# ช่องเสี่ยงที่รับ: agent ตั้ง core.hooksPath/credential.helper ใน repo ได้ (git global config ยัง ASK ผ่าน SYSTEM_CONFIG_CHANGE)
+sandbox_git_config_writable: true
+
 # agent type ที่ทำงาน security audit: ห้าม spawn เมื่อ ANTHROPIC_BASE_URL ชี้ provider ที่ไม่ใช่ Anthropic
 # content filter ของ provider อื่น (เช่น OpenAI cyber filter) ตอบ 400 และแฟล็ก context ถาวร ทุก request ถัดไปของ agent ตัวนั้นล้มหมด
 security_agent_types:

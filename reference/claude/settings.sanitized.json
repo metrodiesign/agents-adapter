@@ -264,6 +264,7 @@
       ]
     },
     "filesystem": {
+      "allowGitConfig": true,
       "allowRead": [
         "~/.claude/gh"
       ],

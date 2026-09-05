@@ -331,7 +331,8 @@
       ],
       "allowRead": [
         "~/.claude/gh"
-      ]
+      ],
+      "allowGitConfig": true
     },
     "excludedCommands": [
       "codex *",
