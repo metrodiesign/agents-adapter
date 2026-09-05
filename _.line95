@@ -1,1 +1,0 @@
-out="$(lsof -nP -iTCP -sTCP:LISTEN 2>&1 | head -n 1)" && report PASS "proc: lsof listeners" "$(printf '%s' "$out" | cut -c1-60)" || report FAIL "proc: lsof listeners" "$(first_line "$out")"

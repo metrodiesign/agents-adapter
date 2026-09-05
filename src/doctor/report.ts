@@ -153,6 +153,12 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
       checks.push({ level: credDeny ? "PASS" : "WARN", name: "credential exposure (claude)", detail: credDeny ? "credential Read/Edit denied" : "credential deny rules missing" });
       const envMap = (s.env ?? {}) as Record<string, unknown>;
       checks.push(...ghAgentTokenChecks("claude", env, d, envMap.GH_CONFIG_DIR === agentGhConfigDir(env.home, "claude"), d.ghClaudeAgentTokenKeyring));
+      // Read(~/.claude/gh/**) deny ถูก merge เข้า denyRead ของ sandbox: ไม่มี allowRead = gh ใน sandbox ตอบ `open .../config.yml: operation not permitted`
+      const fsCfg = ((sandbox.filesystem ?? {}) as Record<string, unknown>);
+      const allowRead = Array.isArray(fsCfg.allowRead) ? (fsCfg.allowRead as string[]) : [];
+      const ghTilde = agentGhConfigDir(env.home, "claude").replace(env.home, "~");
+      const readOk = allowRead.includes(ghTilde);
+      checks.push({ level: readOk ? "PASS" : "WARN", name: "sandbox gh token read (claude)", detail: readOk ? `filesystem.allowRead has ${ghTilde} (overrides the Read(...) deny rule merged into denyRead)` : `filesystem.allowRead lacks ${ghTilde}: gh in the sandbox fails with \`open ${ghTilde}/config.yml: operation not permitted\`; run apply --target claude` });
       // sandbox capability ที่แทน excludedCommands: ถ้าหายจะพังเงียบ ๆ ในรูป TLS -26276 / Cannot get process list หลังเปิด session ใหม่
       const net = ((sandbox.network ?? {}) as Record<string, unknown>);
       const mach = Array.isArray(net.allowMachLookup) ? (net.allowMachLookup as string[]) : [];

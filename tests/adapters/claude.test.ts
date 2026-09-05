@@ -116,6 +116,8 @@ test("claude sandbox keeps only codex and the agents-adapter wrapper outside the
     assert.ok(!s.sandbox.credentials.files.some((f: { path: string }) => f.path === "~/.claude/gh"));
     assert.ok(s.sandbox.filesystem.denyWrite.includes("~/.claude/gh"), "agent token dir stays write-denied");
     assert.ok(s.sandbox.filesystem.denyRead.includes("~/.codex/gh"), "the other CLI's token dir stays read-denied");
+    // Claude Code merges Read(...) deny rules into the sandbox denyRead; without allowRead gh in the sandbox gets `open ~/.claude/gh/config.yml: operation not permitted`
+    assert.deepEqual(s.sandbox.filesystem.allowRead, ["~/.claude/gh"], "allowRead re-opens the token dir the Read(...) deny rule would hide from the seatbelt");
     assert.ok(s.permissions.deny.includes("Read(~/.claude/gh/**)") && s.permissions.deny.includes("Edit(~/.claude/gh/**)"));
     assert.ok(s.permissions.deny.includes("Bash(*/.claude/gh*)") && s.permissions.deny.includes("Bash(*/.codex/gh*)"), "Bash pattern denies reading the token dir the sandbox no longer hides");
     assert.ok(s.permissions.deny.includes("Bash(*GH_CONFIG_DIR*)") && s.permissions.deny.includes("Bash(*gh/hosts.yml*)"), "indirections created by this change are denied deterministically");

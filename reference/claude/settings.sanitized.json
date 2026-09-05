@@ -264,6 +264,9 @@
       ]
     },
     "filesystem": {
+      "allowRead": [
+        "~/.claude/gh"
+      ],
       "allowWrite": [
         "${HOME}/Desktop/Project",
         "${HOME}/.claude",
