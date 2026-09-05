@@ -26,6 +26,8 @@ export interface ClaudeManaged {
   additionalDirectories: string[];
   allowWrite: string[];
   shellEnv: Record<string, string>;
+  /** sandbox.filesystem.allowGitConfig: ยก .git/config (glob ทุก repo) ออกจาก mandatory write-deny; .git/hooks ยัง deny */
+  allowGitConfig: boolean;
   /** absolute path ของ wrapper ที่ติดตั้งใน ~/.claude/hooks/agents-adapter (excludedCommands + permissions.allow) */
   wrappers: string[];
 }
@@ -65,6 +67,8 @@ export function claudeManaged(env: Environment): ClaudeManaged {
     allowWrite: [...ctx.developmentRoots, ...ctx.agentConfigDirs, ...ctx.alwaysWritable],
     // GH_CONFIG_DIR: gh อ่าน agent token จาก ~/.claude/gh แทน ~/.config/gh + keychain (ใช้ทั้งใน/นอก sandbox)
     shellEnv: { GH_CONFIG_DIR: ghDir, ...defaults.sandbox_shell_env },
+    // ไม่เปิด: `git push -u`/`git branch -d`/`git remote` ตอบ `could not lock config file .git/config: Operation not permitted`
+    allowGitConfig: defaults.sandbox_git_config_writable,
     wrappers,
   };
 }
@@ -141,6 +145,7 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
     // fail-closed: ถ้า sandbox ใช้ไม่ได้ต้องหยุด ไม่ใช่รันดิบ
     [["sandbox", "failIfUnavailable"], true],
     [["sandbox", "network", "allowLocalBinding"], true],
+    [["sandbox", "filesystem", "allowGitConfig"], m.allowGitConfig],
     [["autoMode", "classifyAllShell"], true],
     [["language"], "thai"],
     ...Object.entries(m.shellEnv).map(([k, v]) => [["env", k], v] as [string[], Json]),
