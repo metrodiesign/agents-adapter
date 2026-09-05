@@ -58,11 +58,16 @@ shared_scripts:
 # ไม่รวม docker.sandboxes sockets โดยตั้งใจ
 # /tmp, /private/tmp: .NET NamedPipeServerStream บน Unix = AF_UNIX socket ใน temp dir
 # MSBuild worker node bind ไม่ได้จะล้มด้วย `MSB1025` + `SocketException (13): Permission denied`
+# ${TMPDIR}: temp dir จริงของเครื่อง (macOS = `getconf DARWIN_USER_TEMP_DIR` ใต้ /var/folders) ซึ่ง Codex ส่งเป็น TMPDIR ให้คำสั่งใน
+# sandbox; seatbelt ของ Codex ปฏิเสธ `network-bind` ที่นั่น (probe: `net: bind AF_UNIX in $TMPDIR` FAIL, `--log-denials` ตอบ
+# `network-bind /private/var/folders/.../T/...sock`) และผ่านเมื่อ path นี้อยู่ใน unix_sockets (วัดด้วย CODEX_HOME ชั่วคราว);
+# Claude ใช้ TMPDIR=/tmp/claude-<uid> ซึ่ง /tmp ครอบอยู่แล้ว entry นี้จึงไม่เปลี่ยนผลของ Claude
 allowed_unix_sockets:
   - "/var/run/docker.sock"
   - "${HOME}/.docker/run/docker.sock"
   - "/tmp"
   - "/private/tmp"
+  - "${TMPDIR}"
 
 # env ที่ทุก adapter ตั้งให้ shell command เพื่อให้ toolchain ทำงานใน sandbox ได้
 # DOTNET_SYSTEM_NET_DISABLEIPV6: seatbelt ปฏิเสธ connect ไป v4-mapped IPv6 loopback (`::ffff:127.0.0.1`)

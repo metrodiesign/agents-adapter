@@ -174,7 +174,7 @@ test("claude sandbox keeps toolchains working inside the sandbox: docker socket,
     assert.ok(s.sandbox.network.allowUnixSockets.includes("/var/run/docker.sock"), "docker.sock allowed");
     assert.ok(s.sandbox.network.allowUnixSockets.some((p: string) => p.endsWith("/.docker/run/docker.sock")), "docker.sock symlink target allowed");
     // MSBuild worker node ใช้ NamedPipeServerStream = AF_UNIX socket ใน temp dir
-    for (const p of ["/tmp", "/private/tmp"]) assert.ok(s.sandbox.network.allowUnixSockets.includes(p), p);
+    for (const p of ["/tmp", "/private/tmp", t.env.ctx.tmpdir]) assert.ok(s.sandbox.network.allowUnixSockets.includes(p), p);
     // VSTest testhost ใช้ v4-mapped IPv6 loopback ที่ seatbelt ปฏิเสธ
     assert.equal(s.env.DOTNET_SYSTEM_NET_DISABLEIPV6, "1");
     assert.ok(!s.sandbox.excludedCommands.includes("dotnet test *"), "dotnet test no longer needs to leave the sandbox");

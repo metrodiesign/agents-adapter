@@ -102,7 +102,10 @@ else
 fi
 
 # --- process enumeration / signal -------------------------------------------
-out="$(pgrep -l -f sandbox-probe 2>&1)" && report PASS "proc: pgrep (sysmond lookup)" "$(printf '%s' "$out" | head -n 1)" || report FAIL "proc: pgrep (sysmond lookup)" "$(first_line "$out") -> allowMachLookup com.apple.sysmond not active: apply + new session"
+# Codex seatbelt ไม่มี key สำหรับ mach service: pgrep ถูกปฏิเสธเสมอ (DENY(known)) ไม่ใช่ FAIL ของ policy
+if out="$(pgrep -l -f sandbox-probe 2>&1)"; then report PASS "proc: pgrep (sysmond lookup)" "$(printf '%s' "$out" | head -n 1)"
+elif [ -n "${CODEX_SANDBOX:-}" ]; then report "DENY(known)" "proc: pgrep (sysmond lookup)" "$(first_line "$out"); Codex has no mach-service key, use lsof"
+else report FAIL "proc: pgrep (sysmond lookup)" "$(first_line "$out") -> allowMachLookup com.apple.sysmond not active: apply + new session"; fi
 out="$(/bin/ps -p $$ 2>&1)" && report FAIL "proc: /bin/ps (setuid)" "ps works: sandbox is not confining setuid exec" || report "DENY(known)" "proc: /bin/ps (setuid)" "$(first_line "$out"); use pgrep -lf / lsof"
 # lsof คืน 1 เมื่อไม่มี listener จึงนับ 0/1 เป็นผ่าน; ห้ามต่อ pipe ก่อนอ่าน exit code
 out="$(lsof -nP -iTCP -sTCP:LISTEN 2>&1)"; rc=$?

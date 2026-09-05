@@ -6,6 +6,9 @@
 
 ### Fixed
 
+- Codex: `allowed_unix_sockets` เติม `${TMPDIR}` (ขยายเป็น temp dir จริงของเครื่อง เช่น `/var/folders/.../T`) เพราะ seatbelt ของ Codex ปฏิเสธ `network-bind` ที่นั่นแม้เขียนไฟล์ได้ (`sandbox-probe.sh` ใน `codex sandbox`: `net: bind AF_UNIX in $TMPDIR` FAIL, `--log-denials` ตอบ `network-bind /private/var/folders/.../T/...sock`; ใส่ path ใน `unix_sockets` แล้ว bind ผ่าน วัดด้วย `CODEX_HOME` ชั่วคราว) กระทบ .NET NamedPipe/MSBuild node ที่ bind ใน `$TMPDIR` ภายใต้ Codex; Claude ได้ entry เดียวกัน (`/tmp/claude-<uid>` ซึ่ง `/tmp` ครอบอยู่แล้ว)
+- `sandbox-probe.sh`: `pgrep` ภายใต้ `CODEX_SANDBOX` รายงาน DENY(known) (Codex ไม่มี key สำหรับ mach service) แทน FAIL ที่แนะนำ `allowMachLookup` ของ Claude
+
 - Claude: ถอด `sandbox.filesystem.allowGitConfig` และ policy key `sandbox_git_config_writable` ที่เพิ่มใน PR #47 เพราะเป็น option ของ sandbox runtime ที่ Claude Code 2.1.261 ไม่อ่านจาก settings.json (runtime รับเฉพาะ `filesystem.{denyRead,allowRead,allowWrite,denyWrite,disabled}`; ตั้งแล้ววัดใน session ใหม่ยัง `could not lock config file .git/config: Operation not permitted`); บันทึกเป็น known limitation ใน `docs/claude-adapter.md`: `.git/config` ของ repo ปัจจุบันเขียนไม่ได้ใน sandbox (`git push -u` ยัง exit 0, repo อื่น/`git clone` เขียนได้) test กันไม่ให้ render key ที่ตายกลับมา
 - Claude: `sandbox.filesystem.allowRead` เติม `~/.claude/gh` เพราะ Claude Code 2.1.261 merge `permissions.deny` `Read(~/.claude/gh/**)` เข้า `denyRead` ของ sandbox (schema: `Merged with paths from Read(...) deny permission rules`) ทำให้การตัด dir นี้ออกจาก `denyRead` ไม่พอ: หลัง apply จริง `sandbox-probe.sh` รายงาน `gh: auth status` FAIL ด้วย `open ~/.claude/gh/config.yml: operation not permitted`; `allowRead` `takes precedence over denyRead` และไม่แตะ `Read`/`Edit`/Bash deny rules; doctor เพิ่ม `sandbox gh token read (claude)`; ลบไฟล์ `_.line95` ที่หลุด commit ใน PR #45
 
