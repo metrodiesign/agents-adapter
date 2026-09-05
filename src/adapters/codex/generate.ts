@@ -171,7 +171,8 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
   // 3a. unix socket: เติมเฉพาะ socket ใน policy; entry เดิมของ user (เช่น docker.sandboxes) คงไว้ ห้าม strip
   const sockets = ensureObj(net, ["unix_sockets"]);
   for (const s of loadTrustedDefaults().allowed_unix_sockets) {
-    const key = s.replace(/\$\{HOME\}/g, env.home);
+    // ${TMPDIR} = temp dir จริงของเครื่อง (ctx.tmpdir): Codex seatbelt ปฏิเสธ network-bind ใน /var/folders/.../T แม้เขียนไฟล์ได้
+    const key = s.replace(/\$\{HOME\}/g, env.home).replace(/\$\{TMPDIR\}/g, env.ctx.tmpdir);
     if (!(key in sockets)) sockets[key] = "allow";
   }
   managedKeys.push(`permissions."${PROFILE}".network.unix_sockets (additive)`);

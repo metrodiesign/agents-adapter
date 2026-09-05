@@ -11,7 +11,7 @@ import { loadProtectedPaths, loadTrustedDefaults, REPO_ROOT, agentGhConfigDir, w
 test("trusted-defaults keeps every sandbox capability key the adapters depend on", () => {
   const d = loadTrustedDefaults();
   // socket: docker daemon (ทั้ง symlink และ target) + AF_UNIX ใน temp dir สำหรับ MSBuild worker node
-  for (const s of ["/var/run/docker.sock", "${HOME}/.docker/run/docker.sock", "/tmp", "/private/tmp"]) assert.ok(d.allowed_unix_sockets.includes(s), `allowed_unix_sockets missing ${s}`);
+  for (const s of ["/var/run/docker.sock", "${HOME}/.docker/run/docker.sock", "/tmp", "/private/tmp", "${TMPDIR}"]) assert.ok(d.allowed_unix_sockets.includes(s), `allowed_unix_sockets missing ${s}`);
   // env: VSTest testhost loopback + gh state file
   assert.equal(d.sandbox_shell_env.DOTNET_SYSTEM_NET_DISABLEIPV6, "1");
   assert.equal(d.sandbox_shell_env.GH_NO_UPDATE_NOTIFIER, "1");

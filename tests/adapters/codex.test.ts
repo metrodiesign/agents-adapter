@@ -119,6 +119,9 @@ test("codex unix_sockets is additive: policy sockets are added, user sockets are
     assert.equal(sockets["/opt/com.docker.sandboxes/sandboxd/docker.sock"], "allow", "user socket preserved");
     assert.equal(sockets["/var/run/docker.sock"], "allow");
     assert.equal(sockets[path.join(t.env.home, ".docker/run/docker.sock")], "allow");
+    // Codex seatbelt denies network-bind in the real temp dir (TMPDIR under /var/folders) unless it is listed here
+    assert.equal(sockets[t.env.ctx.tmpdir], "allow", "${TMPDIR} expands to ctx.tmpdir so AF_UNIX bind in $TMPDIR works under Codex");
+    assert.ok(!Object.keys(sockets).some((k) => k.includes("${TMPDIR}")), "token must be expanded, never rendered raw");
   } finally {
     t.cleanup();
   }

@@ -58,7 +58,7 @@ export function claudeManaged(env: Environment): ClaudeManaged {
     excludedCommands: [...defaults.excluded_commands, ...wrappers.map((p) => `${p} *`)],
     allowedDomains: trustedDomains(config),
     // socket ที่ process ลูกใน sandbox ต้องต่อได้ (docker ที่ถูกเรียกจาก script ไม่ได้รับการยกเว้นจาก excludedCommands)
-    allowedUnixSockets: defaults.allowed_unix_sockets.map((p) => p.replace(/\$\{HOME\}/g, ctx.home)),
+    allowedUnixSockets: defaults.allowed_unix_sockets.map((p) => p.replace(/\$\{HOME\}/g, ctx.home).replace(/\$\{TMPDIR\}/g, ctx.tmpdir)),
     // trustd.agent: Go TLS (gh, docker buildx); sysmond: pgrep/pkill process list; entry ของ user (เช่น coresimulator) คงอยู่
     allowMachLookup: defaults.sandbox_mach_services,
     additionalDirectories: ctx.developmentRoots,
