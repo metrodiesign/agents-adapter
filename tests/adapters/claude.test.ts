@@ -126,8 +126,10 @@ test("claude sandbox keeps only codex and the agents-adapter wrapper outside the
     // replacement 2: Go TLS (gh, docker buildx) และ pgrep ผ่าน mach lookup ที่ระบุชื่อ service ไม่ใช่ wildcard
     assert.deepEqual(s.sandbox.network.allowMachLookup, ["com.apple.trustd.agent", "com.apple.sysmond"]);
     assert.equal(s.sandbox.enableWeakerNetworkIsolation, undefined, "use the named service, not the blanket flag");
-    // replacement 4: **/.git/config ออกจาก mandatory write-deny ของ Claude (`git push -u` เขียน upstream); .git/hooks ยัง deny เสมอ
-    assert.equal(s.sandbox.filesystem.allowGitConfig, true);
+    // allowGitConfig เป็น option ของ sandbox runtime ที่ Claude Code 2.1.261 ไม่อ่านจาก settings (dead key): ห้าม render
+    assert.equal(s.sandbox.filesystem.allowGitConfig, undefined, "dead key must not be rendered as if it worked");
+    const stale = JSON.parse(renderClaudeSettings(JSON.stringify({ sandbox: { filesystem: { allowGitConfig: true } } }), t.env, { mode: "apply", previousManaged: {} }).content);
+    assert.equal(stale.sandbox.filesystem.allowGitConfig, undefined, "stale allowGitConfig from an earlier apply is stripped");
     // replacement 3: docker daemon ผ่าน socket (process ลูกด้วย)
     assert.ok(s.sandbox.network.allowUnixSockets.includes("/var/run/docker.sock"));
     // wrapper: allow pattern เดียวกับ excluded และไฟล์ถูก render ลง hooks dir ที่ sandbox เขียนไม่ได้

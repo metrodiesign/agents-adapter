@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Environment } from "../../config/loader.ts";
 import { trustedDomains } from "../../config/loader.ts";
-import { getPath, isObject, mergeManagedList, renderTemplate, setPath, stableJson, stripManagedList, upsertBlock, removeBlock, type Json } from "../../config/merger.ts";
+import { deletePath, getPath, isObject, mergeManagedList, renderTemplate, setPath, stableJson, stripManagedList, upsertBlock, removeBlock, type Json } from "../../config/merger.ts";
 import { agentGhConfigDir, loadProtectedPaths, loadTrustedDefaults, serializableContext, sharedScriptPaths, wrapperPaths } from "../../core/policy-loader.ts";
 import { change, readIfExists, validateJson } from "../fs-helpers.ts";
 import type { AdapterPlan, RenderMode } from "../types.ts";
@@ -26,8 +26,6 @@ export interface ClaudeManaged {
   additionalDirectories: string[];
   allowWrite: string[];
   shellEnv: Record<string, string>;
-  /** sandbox.filesystem.allowGitConfig: ยก .git/config (glob ทุก repo) ออกจาก mandatory write-deny; .git/hooks ยัง deny */
-  allowGitConfig: boolean;
   /** absolute path ของ wrapper ที่ติดตั้งใน ~/.claude/hooks/agents-adapter (excludedCommands + permissions.allow) */
   wrappers: string[];
 }
@@ -67,8 +65,6 @@ export function claudeManaged(env: Environment): ClaudeManaged {
     allowWrite: [...ctx.developmentRoots, ...ctx.agentConfigDirs, ...ctx.alwaysWritable],
     // GH_CONFIG_DIR: gh อ่าน agent token จาก ~/.claude/gh แทน ~/.config/gh + keychain (ใช้ทั้งใน/นอก sandbox)
     shellEnv: { GH_CONFIG_DIR: ghDir, ...defaults.sandbox_shell_env },
-    // ไม่เปิด: `git push -u`/`git branch -d`/`git remote` ตอบ `could not lock config file .git/config: Operation not permitted`
-    allowGitConfig: defaults.sandbox_git_config_writable,
     wrappers,
   };
 }
@@ -145,7 +141,6 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
     // fail-closed: ถ้า sandbox ใช้ไม่ได้ต้องหยุด ไม่ใช่รันดิบ
     [["sandbox", "failIfUnavailable"], true],
     [["sandbox", "network", "allowLocalBinding"], true],
-    [["sandbox", "filesystem", "allowGitConfig"], m.allowGitConfig],
     [["autoMode", "classifyAllShell"], true],
     [["language"], "thai"],
     ...Object.entries(m.shellEnv).map(([k, v]) => [["env", k], v] as [string[], Json]),
@@ -163,6 +158,8 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
     setPath(settings, p, value);
     managedKeys.push(p.join("."));
   }
+  // stale scalar จาก PR #47: allowGitConfig เป็น option ของ runtime ที่ Claude Code ไม่อ่านจาก settings (dead key) ถอดออกทุก mode
+  if (getPath(settings, ["sandbox", "filesystem", "allowGitConfig"]) === true) deletePath(settings, ["sandbox", "filesystem", "allowGitConfig"]);
   // hooks: เฉพาะ entry ที่ command ชี้ hooks/agents-adapter/ เป็น managed; entry ของ user คงอยู่
   mergeClaudeHooks(settings, env.home, remove);
   managedKeys.push("hooks.PreToolUse (agents-adapter entries)");

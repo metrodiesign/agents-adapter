@@ -42,8 +42,6 @@ export interface TrustedDefaults {
   gh_agent_config_subdir: string;
   /** mach service ที่ sandbox ต้องเปิด lookup (Claude allowMachLookup); CLI ที่ไม่มี key นี้รายงาน unsupported */
   sandbox_mach_services: string[];
-  /** ให้ sandbox เขียน .git/config ของ repo (Claude filesystem.allowGitConfig; Codex workspace .git write อยู่แล้ว) */
-  sandbox_git_config_writable: boolean;
   /** wrapper ใน runtime/shared ที่ติดตั้งลง hooks dir ของแต่ละ CLI และรันนอก sandbox */
   unsandboxed_wrappers: string[];
   /** script ใน runtime/shared ที่ติดตั้งลง hooks dir เดียวกันแต่รันใน sandbox (probe) */
