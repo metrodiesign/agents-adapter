@@ -288,6 +288,12 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["${HOME}/.codex/hooks/agents-adapter/agents-free-port.sh"],
+    decision = "allow",
+    justification = "agents-adapter BUILD: agents-free-port frees a port held by a dev server of the current repository (cwd check inside the wrapper)",
+)
+
+prefix_rule(
     pattern = ["git", "push", "origin", "main"],
     decision = "forbidden",
     justification = "agents-adapter GIT_PUSH_PROTECTED: main is protected",

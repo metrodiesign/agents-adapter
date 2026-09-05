@@ -38,6 +38,14 @@ export interface TrustedDefaults {
   excluded_commands: string[];
   allowed_unix_sockets: string[];
   sandbox_shell_env: Record<string, string>;
+  /** subdir ใต้ agent config dir ที่เก็บ hosts.yml ของ gh (agent token); GH_CONFIG_DIR ชี้มาที่นี่ */
+  gh_agent_config_subdir: string;
+  /** mach service ที่ sandbox ต้องเปิด lookup (Claude allowMachLookup); CLI ที่ไม่มี key นี้รายงาน unsupported */
+  sandbox_mach_services: string[];
+  /** wrapper ใน runtime/shared ที่ติดตั้งลง hooks dir ของแต่ละ CLI และรันนอก sandbox */
+  unsandboxed_wrappers: string[];
+  /** script ใน runtime/shared ที่ติดตั้งลง hooks dir เดียวกันแต่รันใน sandbox (probe) */
+  shared_scripts: string[];
   security_agent_types: string[];
   anthropic_hosts: string[];
   public_registries: string[];
@@ -89,6 +97,21 @@ export function loadProtectedPaths(): ProtectedPaths {
 
 export function loadTrustedDefaults(): TrustedDefaults {
   return readYaml<TrustedDefaults>(path.join(POLICY_DIR, "trusted-defaults.yaml"));
+}
+
+/** config dir ของ gh สำหรับ agent token ของ CLI นั้น: ~/.claude/gh, ~/.codex/gh */
+export function agentGhConfigDir(home: string, cli: "claude" | "codex"): string {
+  return path.join(home, `.${cli}`, loadTrustedDefaults().gh_agent_config_subdir);
+}
+
+/** absolute path ของ wrapper ที่ติดตั้งใน hooks/agents-adapter ของ CLI นั้น */
+export function wrapperPaths(home: string, cli: "claude" | "codex"): string[] {
+  return loadTrustedDefaults().unsandboxed_wrappers.map((f) => path.join(home, `.${cli}`, "hooks", "agents-adapter", f));
+}
+
+/** absolute path ของ shared script (probe) ที่ติดตั้งใน hooks/agents-adapter ของ CLI นั้น */
+export function sharedScriptPaths(home: string, cli: "claude" | "codex"): string[] {
+  return loadTrustedDefaults().shared_scripts.map((f) => path.join(home, `.${cli}`, "hooks", "agents-adapter", f));
 }
 
 export function loadProvenance(): { version: number; rules: Record<string, unknown> } {

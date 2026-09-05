@@ -3,7 +3,7 @@ import * as path from "node:path";
 import type { Environment } from "../../config/loader.ts";
 import { trustedDomains } from "../../config/loader.ts";
 import { getPath, isObject, mergeManagedList, renderTemplate, setPath, stableJson, stripManagedList, upsertBlock, removeBlock, type Json } from "../../config/merger.ts";
-import { loadProtectedPaths, loadTrustedDefaults, serializableContext } from "../../core/policy-loader.ts";
+import { agentGhConfigDir, loadProtectedPaths, loadTrustedDefaults, serializableContext, sharedScriptPaths, wrapperPaths } from "../../core/policy-loader.ts";
 import { change, readIfExists, validateJson } from "../fs-helpers.ts";
 import type { AdapterPlan, RenderMode } from "../types.ts";
 import { autoModeEntries, claudePatterns } from "./rules.ts";
@@ -20,9 +20,12 @@ export interface ClaudeManaged {
   excludedCommands: string[];
   allowedDomains: string[];
   allowedUnixSockets: string[];
+  allowMachLookup: string[];
   additionalDirectories: string[];
   allowWrite: string[];
   shellEnv: Record<string, string>;
+  /** absolute path ของ wrapper ที่ติดตั้งใน ~/.claude/hooks/agents-adapter (excludedCommands + permissions.allow) */
+  wrappers: string[];
 }
 
 export function claudeManaged(env: Environment): ClaudeManaged {
@@ -31,21 +34,33 @@ export function claudeManaged(env: Environment): ClaudeManaged {
   const protectedPaths = loadProtectedPaths();
   const defaults = loadTrustedDefaults();
   const tilde = (p: string): string => p.replace(ctx.home, "~");
+  // gh subprocess (gh, gh auth git-credential ที่ git เรียก) ต้องอ่าน agent token dir ของ Claude เองใน sandbox:
+  // ตัดออกจาก denyRead/credentials.files เฉพาะ dir นี้ (ยัง deny write, ยัง deny Read/Edit tool และ Bash pattern ใน permissions)
+  const ghDir = agentGhConfigDir(ctx.home, "claude");
+  const sandboxDenied = ctx.credentialPaths.filter((p) => p !== ghDir);
+  const wrappers = wrapperPaths(ctx.home, "claude");
   return {
     deny: pats.deny,
     ask: pats.ask,
     allow: pats.allow,
-    denyRead: ctx.credentialPaths.map(tilde),
-    denyWrite: [...ctx.credentialPaths.map(tilde), ...ctx.systemConfigPaths.filter((p) => p.startsWith(ctx.home) && /\/\.(zshrc|zprofile|bashrc|bash_profile)$/.test(p)).map(tilde)],
-    credentialFiles: ctx.credentialPaths.map(tilde),
+    denyRead: sandboxDenied.map(tilde),
+    // system config ใต้ home ทั้งชุด (shell rc, settings/config/hooks/rules ของทุก CLI, config ของ adapter): SYSTEM_CONFIG_CHANGE เป็น ASK
+    // และ hooks dir ของ Codex ต้องแก้จาก Claude sandbox ไม่ได้ ไม่งั้น wrapper ที่ Codex รัน escalated ถูกเขียนทับจากใน sandbox
+    denyWrite: [...ctx.credentialPaths.map(tilde), ...ctx.systemConfigPaths.filter((p) => p.startsWith(ctx.home)).map(tilde)],
+    credentialFiles: sandboxDenied.map(tilde),
     credentialEnvVars: protectedPaths.credential_env_vars,
-    excludedCommands: defaults.excluded_commands,
+    // wrapper ต้องรันนอก sandbox (signal ข้าม sandbox); match ด้วย absolute path จึงต้องเป็นไฟล์ใน hooks dir ที่ sandbox เขียนไม่ได้
+    excludedCommands: [...defaults.excluded_commands, ...wrappers.map((p) => `${p} *`)],
     allowedDomains: trustedDomains(config),
     // socket ที่ process ลูกใน sandbox ต้องต่อได้ (docker ที่ถูกเรียกจาก script ไม่ได้รับการยกเว้นจาก excludedCommands)
     allowedUnixSockets: defaults.allowed_unix_sockets.map((p) => p.replace(/\$\{HOME\}/g, ctx.home)),
+    // trustd.agent: Go TLS (gh, docker buildx); sysmond: pgrep/pkill process list; entry ของ user (เช่น coresimulator) คงอยู่
+    allowMachLookup: defaults.sandbox_mach_services,
     additionalDirectories: ctx.developmentRoots,
     allowWrite: [...ctx.developmentRoots, ...ctx.agentConfigDirs, ...ctx.alwaysWritable],
-    shellEnv: defaults.sandbox_shell_env,
+    // GH_CONFIG_DIR: gh อ่าน agent token จาก ~/.claude/gh แทน ~/.config/gh + keychain (ใช้ทั้งใน/นอก sandbox)
+    shellEnv: { GH_CONFIG_DIR: ghDir, ...defaults.sandbox_shell_env },
+    wrappers,
   };
 }
 
@@ -73,6 +88,7 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
     [["sandbox", "excludedCommands"], "excludedCommands", "claude.sandbox.excludedCommands"],
     [["sandbox", "network", "allowedDomains"], "allowedDomains", "claude.sandbox.network.allowedDomains"],
     [["sandbox", "network", "allowUnixSockets"], "allowedUnixSockets", "claude.sandbox.network.allowUnixSockets"],
+    [["sandbox", "network", "allowMachLookup"], "allowMachLookup", "claude.sandbox.network.allowMachLookup"],
   ];
   for (const [p, key, stateKey] of lists) {
     const current = getPath(settings, p);
@@ -149,6 +165,10 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
 
 export const CLAUDE_HOOK_DIR_NAME = "agents-adapter";
 const CLAUDE_RUNTIME_HOOKS = ["provider_guard.py"];
+/** wrapper ที่ใช้ร่วมทุก CLI (runtime/shared) ติดตั้งลง hooks dir เดียวกับ hook เพราะ sandbox เขียน dir นี้ไม่ได้ */
+export function sharedWrapperSource(repoRoot: string, file: string): string {
+  return fs.readFileSync(path.join(repoRoot, "runtime", "shared", file), "utf8");
+}
 
 export function claudeHookCommand(home: string, file: string): string {
   const script = path.join(home, ".claude", "hooks", CLAUDE_HOOK_DIR_NAME, file);
@@ -190,6 +210,12 @@ export function claudeBlockVars(env: Environment): Record<string, string> {
     development_env_patterns: env.ctx.devEnvPatterns.join(", "),
     production_env_patterns: env.ctx.prodEnvPatterns.join(", "),
     pi_isolation_mode: env.config.pi?.isolation_mode ?? "host-macos",
+    gh_agent_config_dir_claude: agentGhConfigDir(env.home, "claude").replace(env.home, "~"),
+    gh_agent_config_dir_codex: agentGhConfigDir(env.home, "codex").replace(env.home, "~"),
+    free_port_wrapper_claude: wrapperPaths(env.home, "claude")[0] ?? "",
+    free_port_wrapper_codex: wrapperPaths(env.home, "codex")[0] ?? "",
+    sandbox_probe_claude: sharedScriptPaths(env.home, "claude")[0] ?? "",
+    sandbox_probe_codex: sharedScriptPaths(env.home, "codex")[0] ?? "",
   };
 }
 
@@ -216,16 +242,26 @@ export function renderClaude(env: Environment, mode: RenderMode): AdapterPlan {
   }
   const ctxPath = path.join(hookDir, "agents-adapter.config.json");
   changes.push(change(ctxPath, readIfExists(ctxPath), remove ? null : stableJson(serializableContext(env.ctx)), validateJson));
+  for (const f of [...loadTrustedDefaults().unsandboxed_wrappers, ...loadTrustedDefaults().shared_scripts]) {
+    const target = path.join(hookDir, f);
+    changes.push(change(target, readIfExists(target), remove ? null : sharedWrapperSource(env.repoRoot, f), undefined, 0o755));
+  }
+  const unsupported: string[] = [];
+  // stat เท่านั้น ไม่อ่านเนื้อหา: env.GH_CONFIG_DIR ชี้ dir นี้ทันทีหลัง apply ถ้ายังไม่มี token gh/git push ทุกรูปแบบจะพัง
+  const hosts = path.join(agentGhConfigDir(env.home, "claude"), "hosts.yml");
+  if (!remove && !fs.existsSync(hosts)) unsupported.push(`${hosts.replace(env.home, "~")} missing: gh and git push/fetch will fail until the GitHub setup in docs/claude-adapter.md is done (doctor: gh agent token (claude))`);
   return {
     target: "claude",
     changes,
     managedKeys: rendered.managedKeys.concat(["CLAUDE.md managed block", `hooks/${CLAUDE_HOOK_DIR_NAME}/*`]),
     preserved: rendered.preserved,
     conflicts: rendered.conflicts,
-    unsupported: [],
+    unsupported,
     notes: [
       "Claude uses native permissions.allow/ask/deny + sandbox + autoMode; the only hook is provider_guard.py (PreToolUse Agent|Task)",
       "provider guard denies security agents (auditor, skeptic, security-review) when ANTHROPIC_BASE_URL is not Anthropic",
+      `gh, git push/fetch/pull and docker now run inside the sandbox: env.GH_CONFIG_DIR=${agentGhConfigDir(env.home, "claude").replace(env.home, "~")} needs an agent token (see docs/claude-adapter.md GitHub setup; doctor: gh agent token (claude)), allowMachLookup adds com.apple.trustd.agent (Go TLS) and com.apple.sysmond (pgrep)`,
+      "sandbox settings are read at session start: open a new Claude session after apply, then run scripts/sandbox-probe.sh",
     ],
   };
 }
@@ -243,6 +279,7 @@ export function claudeManagedState(env: Environment): Record<string, unknown> {
     "claude.sandbox.excludedCommands": m.excludedCommands,
     "claude.sandbox.network.allowedDomains": m.allowedDomains,
     "claude.sandbox.network.allowUnixSockets": m.allowedUnixSockets,
+    "claude.sandbox.network.allowMachLookup": m.allowMachLookup,
     "claude.sandbox.credentials.files": m.credentialFiles.map((p) => ({ path: p, mode: "deny" })),
     "claude.sandbox.credentials.envVars": m.credentialEnvVars.map((n) => ({ name: n, mode: "deny" })),
     ...Object.fromEntries(Object.entries(autoModeEntries(env.config, env.ctx)).map(([k, v]) => [`claude.autoMode.${k}`, v])),

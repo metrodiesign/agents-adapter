@@ -30,6 +30,7 @@
     "${HOME}/.kube",
     "${HOME}/.config/gcloud",
     "${HOME}/.config/gh",
+    "${HOME}/.claude/gh",
     "${HOME}/.codex/gh",
     "${HOME}/.git-credentials",
     "${HOME}/.netrc",
@@ -95,7 +96,8 @@
     "${HOME}/.m2",
     "${HOME}/.cargo",
     "${HOME}/go/pkg",
-    "${HOME}/.local/state/agents-adapter"
+    "${HOME}/.local/state/agents-adapter",
+    "${HOME}/.docker/buildx"
   ],
   "agentConfigDirs": [
     "${HOME}/.claude",

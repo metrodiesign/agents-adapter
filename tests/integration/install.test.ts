@@ -105,9 +105,19 @@ test("doctor reports FAIL on legacy codex config and PASS after apply; never pri
     const before = await runDoctor(t.env, { parity: false, detected });
     assert.ok(before.some((c) => c.name === "danger-full-access" && c.level === "FAIL"));
     assert.ok(before.some((c) => c.name === "filesystem root read" && c.level === "FAIL"));
+    // agent token ของ Claude: GH_CONFIG_DIR ชี้ ~/.claude/gh จึงต้องมี hosts.yml (mode 600) ไม่งั้น gh/git push พังใน sandbox = FAIL
+    const claudeGh = path.join(t.world.home, ".claude", "gh");
+    fs.mkdirSync(claudeGh, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(claudeGh, "hosts.yml"), "github.com:\n  oauth_token: SECRET-VALUE-XYZ\n", { mode: 0o600 });
     apply(t.env, "all");
     const after = await runDoctor(t.env, { parity: false, detected });
     assert.ok(after.every((c) => c.level !== "FAIL"), JSON.stringify(after.filter((c) => c.level === "FAIL")));
+    assert.ok(after.some((c) => c.name === "gh agent token (claude)" && c.level === "PASS" && c.detail.includes("GH_CONFIG_DIR set")));
+    assert.ok(after.some((c) => c.name === "sandbox Go TLS (claude)" && c.level === "PASS"));
+    assert.ok(after.some((c) => c.name === "sandbox excluded commands (claude)" && c.level === "PASS"));
+    fs.rmSync(claudeGh, { recursive: true, force: true });
+    const missing = await runDoctor(t.env, { parity: false, detected });
+    assert.ok(missing.some((c) => c.name === "gh agent token (claude)" && c.level === "FAIL" && c.detail.includes("hosts.yml missing") && c.detail.includes("--insecure-storage")));
     assert.ok(after.some((c) => c.name === "production env exposure (codex)" && c.level === "PASS"), "root-level workspace deny patterns count as denied");
     assert.ok(!JSON.stringify(after).includes("SECRET-VALUE-XYZ"));
     // ใน Bash sandbox ของ Claude stat ~/.codex/gh ตอบ EPERM: ต้องเป็น UNSUPPORTED ของ check นั้นเดียว ไม่ล้ม check อื่นเป็น "codex config parse"
@@ -119,6 +129,7 @@ test("doctor reports FAIL on legacy codex config and PASS after apply; never pri
       const sandboxed = await runDoctor(t.env, { parity: false, detected: { ...detected, agentSandbox: "claude" } });
       assert.ok(!sandboxed.some((c) => c.name === "codex config parse"), "EPERM/EACCES on the credential dir must not be reported as a config parse failure");
       assert.ok(sandboxed.some((c) => c.name === "gh agent token (codex)" && c.level === "UNSUPPORTED"));
+      assert.ok(sandboxed.some((c) => c.name === "gh agent token (claude)" && c.level === "FAIL" && c.detail.includes("hosts.yml missing")), "claude token dir is readable by the sandbox: a missing token is a FAIL, not UNSUPPORTED");
       assert.ok(sandboxed.some((c) => c.name === "hook availability (codex)"), "later codex checks still run");
       assert.ok(!JSON.stringify(sandboxed).includes("SECRET-VALUE-XYZ"));
     } finally {
@@ -145,6 +156,9 @@ test("doctor warns when an OAuth gh token lacks the workflow scope", async () =>
     assert.ok(keyring.some((c) => c.name === "gh agent token storage (codex)" && c.level === "FAIL" && c.detail.includes("--insecure-storage")));
     const plain = await runDoctor(t.env, { parity: false, detected: { ...base, ghAgentTokenKeyring: false } });
     assert.ok(plain.some((c) => c.name === "gh agent token storage (codex)" && c.level === "PASS"));
+    const claudeKeyring = await runDoctor(t.env, { parity: false, detected: { ...base, ghClaudeAgentTokenKeyring: true, ghClaudeAgentTokenScopes: ["repo"] } });
+    assert.ok(claudeKeyring.some((c) => c.name === "gh agent token storage (claude)" && c.level === "FAIL" && c.detail.includes("GH_CONFIG_DIR=~/.claude/gh")));
+    assert.ok(claudeKeyring.some((c) => c.name === "gh agent token workflow scope (claude)" && c.level === "WARN"));
   } finally {
     t.cleanup();
   }

@@ -170,10 +170,10 @@ ANTHROPIC_DEFAULT_HAIKU_MODEL
 ## Sandbox และ CLI rules
 
 - Bash sandbox เปิดเป็นค่าเริ่มต้น และ sandboxed command ที่ผ่าน policy ให้ auto-approve
-- `gh *`, `docker *`, `codex *`, `dotnet test *` และ git network ops (`git push *`, `git fetch *`, `git pull *`, `git ls-remote *`, `git clone *`) รันนอก outer Claude sandbox ผ่าน `excludedCommands` เพราะต้องใช้ keychain/socket/runtime ของตัวเอง หรือเรียก `gh auth git-credential` ที่ต้องอ่าน `~/.config/gh`; รวมรูปที่ rtk hook rewrite (`rtk gh *`, `rtk docker *`, `rtk git fetch *`, `rtk git pull *`) และ pattern match ทั้งบรรทัด จึงต้องรัน `gh` เป็นคำสั่งเดี่ยว ไม่ต่อด้วย `&&` หรือ pipe
+- `sandbox.excludedCommands` เหลือ `codex *` (Codex อ่าน `~/.codex/auth.json` และใช้ sandbox ของตัวเอง) และ wrapper `~/.claude/hooks/agents-adapter/agents-free-port.sh *`; `gh`, git network ops และ `docker` รันใน sandbox ด้วย `env.GH_CONFIG_DIR=~/.claude/gh` (agent token), `sandbox.network.allowMachLookup` (`com.apple.trustd.agent` สำหรับ Go TLS, `com.apple.sysmond` สำหรับ pgrep), `allowUnixSockets` (docker.sock) และ `allowWrite` `~/.docker/buildx`; pattern จับคู่ต่อ segment (`;`, `&&`, `|`) และ process ลูกไม่เคยได้รับการยกเว้น
 - การออกนอก outer sandbox ไม่เท่ากับ bypass permission; ยังต้องผ่าน permission rules และ Auto classifier
-- ห้ามเปิด Docker socket ให้ sandboxed subprocess เมื่อ `docker *` ถูก exclude อยู่แล้ว
-- หาก Go binary พบ `tls: failed to verify certificate: x509: OSStatus -26276` ให้เพิ่ม binary นั้นใน `excludedCommands` แบบเจาะจง แทนการลด network isolation ทั้งระบบ
+- Docker socket เปิดให้ sandbox ผ่าน `allowUnixSockets` จาก policy กลางเท่านั้น ห้ามเพิ่ม socket อื่น (เช่น docker.sandboxes) ด้วยมือ
+- หาก Go binary พบ `tls: failed to verify certificate: x509: OSStatus -26276` แปลว่า session เริ่มก่อน apply ที่เติม `com.apple.trustd.agent` ใน `allowMachLookup` ให้เปิด session ใหม่ ห้ามเพิ่ม binary ใน `excludedCommands` และห้ามใช้ `enableWeakerNetworkIsolation`
 - ห้ามใช้วิธีอ่าน token แล้วต่อเข้า `curl`; ให้ CLI เจ้าของ credential ทำงานเอง
 - hook ทุกตัวต้อง fail-open เมื่อ executable/script ไม่ได้ติดตั้ง แต่เมื่อ hook ทำงานแล้วและคืน deny ต้องเคารพผล
 - error เดิมซ้ำสองครั้งให้หยุด retry วิธีเดิม ตรวจ evidence เปลี่ยน hypothesis/tool แล้วทำต่อ

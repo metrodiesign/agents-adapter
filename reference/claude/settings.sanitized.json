@@ -258,7 +258,9 @@
       "strictAllowlist": false,
       "allowLocalBinding": true,
       "allowMachLookup": [
-        "com.apple.coresimulator.*"
+        "com.apple.coresimulator.*",
+        "com.apple.trustd.agent",
+        "com.apple.sysmond"
       ]
     },
     "filesystem": {
@@ -285,7 +287,8 @@
         "~/Library/org.swift.swiftpm",
         "~/Library/Caches/org.swift.swiftpm",
         "~/Library/Developer/Xcode/DerivedData",
-        "~/Library/Developer/CoreSimulator"
+        "~/Library/Developer/CoreSimulator",
+        "~/.docker/buildx"
       ],
       "denyWrite": [
         "~/.codex/auth.json",
@@ -455,19 +458,8 @@
       ]
     },
     "excludedCommands": [
-      "gh *",
-      "docker *",
       "codex *",
-      "dotnet test *",
-      "git push *",
-      "git fetch *",
-      "git pull *",
-      "git ls-remote *",
-      "git clone *",
-      "rtk git fetch *",
-      "rtk git pull *",
-      "rtk gh *",
-      "rtk docker *"
+      "${HOME}/.claude/hooks/agents-adapter/agents-free-port.sh *"
     ]
   },
   "autoMode": {
@@ -511,7 +503,7 @@
       "Key internal services: local development services, local databases, local Docker และ internal API ที่ {{trusted_domains}}",
       "Internal package registry: ไม่มี private registry ที่ประกาศไว้; public registries ใน sandbox.network.allowedDomains ใช้สำหรับ dependency installation",
       "Secrets management: development secret อยู่ในไฟล์ env ที่ถูก gitignore หรือ credential store ของ CLI; ห้ามพิมพ์หรือ commit ค่า secret",
-      "Sensitive data locations & audiences: .env.production*, .env.prod*, credential stores, keychains, ~/.ssh, ~/.aws, ~/.azure, ~/.kube, ~/.config/gh และ ~/.codex/auth.json ใช้ได้เฉพาะผ่าน CLI เจ้าของ credential และห้ามเปิดเผยเนื้อหา",
+      "Sensitive data locations & audiences: .env.production*, .env.prod*, credential stores, keychains, ~/.ssh, ~/.aws, ~/.azure, ~/.kube, ~/.config/gh, ~/.claude/gh, ~/.codex/gh และ ~/.codex/auth.json ใช้ได้เฉพาะผ่าน CLI เจ้าของ credential และห้ามเปิดเผยเนื้อหา",
       "Sensitive remote targets: hostname, namespace, container, database หรือ environment ที่มี prod หรือ production เป็นชื่อหรือ segment ให้ถือเป็น production",
       "Protected IaC scopes: IAM, RBAC, network, DNS, quota, node pool และ resource ที่อยู่ใน production",
       "Additional context: main และ develop เป็น protected branches ตาม policy; PR merge เป็นการตัดสินใจของ user"

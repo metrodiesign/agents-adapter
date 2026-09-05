@@ -72,6 +72,10 @@ test("codex config: removes danger-full-access, root read and gh config read; ke
     assert.equal(fsTable["/"], undefined);
     assert.equal(fsTable["~/.config/gh"], "read"); // gh must read it in-sandbox: deny entries are not escalatable
     assert.equal(fsTable["~/.codex/gh"], "read"); // agent token dir: gh reads it, agent is denied by the hook
+    assert.equal(fsTable["~/.claude/gh"], "deny", "the other CLI's agent token dir is a credential path");
+    // always_writable (temp + toolchain caches incl. ~/.docker/buildx) flows into the profile; test env sets alwaysWritable=[tmpdir]
+    assert.equal(fsTable[t.env.ctx.tmpdir.replace(t.env.home, "~")], "write");
+    assert.ok(doc.auto_review.policy.includes("agents-free-port.sh"));
     const envSet = doc.shell_environment_policy.set;
     assert.equal(envSet.GH_CONFIG_DIR, path.join(t.env.home, ".codex", "gh"));
     assert.equal(envSet.GH_NO_UPDATE_NOTIFIER, "1");
@@ -115,6 +119,24 @@ test("codex unix_sockets is additive: policy sockets are added, user sockets are
     assert.equal(sockets["/opt/com.docker.sandboxes/sandboxd/docker.sock"], "allow", "user socket preserved");
     assert.equal(sockets["/var/run/docker.sock"], "allow");
     assert.equal(sockets[path.join(t.env.home, ".docker/run/docker.sock")], "allow");
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("codex profile drops keys the previous apply managed but the policy no longer lists, on apply and on uninstall", () => {
+  const t = makeTestEnv();
+  try {
+    const stale = `[permissions."Auto mode".filesystem]\n"/var/folders/old-machine/T" = "write"\n"~/user-dir" = "read"\n\n[permissions."Auto mode".filesystem.":workspace_roots"]\n"old.env" = "deny"\n`;
+    const prev = { "codex.filesystem.profile": ["/var/folders/old-machine/T", "~/.cache"], "codex.filesystem.workspace": ["old.env"] };
+    const doc = parseToml(renderCodexConfig(stale, t.env, { mode: "apply", previousManaged: prev }).content) as Record<string, any>;
+    const fsTable = doc.permissions["Auto mode"].filesystem;
+    assert.equal(fsTable["/var/folders/old-machine/T"], undefined, "stale managed write grant removed");
+    assert.equal(fsTable["~/user-dir"], "read", "user entry kept");
+    assert.equal(fsTable[":workspace_roots"]["old.env"], undefined, "stale managed workspace key removed");
+    const removed = parseToml(renderCodexConfig(stale, t.env, { mode: "remove", previousManaged: prev }).content) as Record<string, any>;
+    assert.equal(removed.permissions["Auto mode"].filesystem["/var/folders/old-machine/T"], undefined, "uninstall removes stale managed keys too");
+    assert.equal(removed.permissions["Auto mode"].filesystem["~/user-dir"], "read");
   } finally {
     t.cleanup();
   }
@@ -176,6 +198,9 @@ test("requirements.toml closes danger-full-access and hooks/rules are merged onc
     assert.equal(evaluateRules(["gh", "pr", "view", "1"], codexRules(t.env.config))?.decision, "allow");
     assert.equal(evaluateRules(["git", "push", "origin", "main"], codexRules(t.env.config))?.decision, "forbidden");
     assert.equal(evaluateRules(["docker", "system", "prune"], codexRules(t.env.config))?.decision, "prompt");
+    const wrapper = path.join(t.env.home, ".codex", "hooks", "agents-adapter", "agents-free-port.sh");
+    assert.equal(evaluateRules([wrapper, "3001"], codexRules(t.env.config, t.env.home))?.decision, "allow", "wrapper allow rule (absolute path in the read-only hooks dir)");
+    assert.ok(rules1.includes(`pattern = [${JSON.stringify(wrapper)}]`));
   } finally {
     t.cleanup();
   }
@@ -193,6 +218,8 @@ test("codex plan writes runtime hooks under hooks/agents-adapter and the config 
     assert.ok(paths.includes("~/.codex/hooks/agents-adapter.config.json"));
     assert.ok(paths.includes("~/.codex/requirements.toml"));
     assert.ok(paths.includes("~/.codex/rules/default.rules"));
+    const wrapper = p.changes.find((c) => c.path.endsWith("/.codex/hooks/agents-adapter/agents-free-port.sh"));
+    assert.ok(wrapper && wrapper.after?.includes("lsof -nP -t -iTCP") && wrapper.mode === 0o755, "shared wrapper installed for Codex too");
     const cfg = p.changes.find((c) => c.path.endsWith("agents-adapter.config.json"))?.after ?? "";
     assert.ok(!cfg.includes("connector_"));
   } finally {

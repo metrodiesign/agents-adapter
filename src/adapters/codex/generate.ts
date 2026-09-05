@@ -7,22 +7,22 @@ import { trustedDomains } from "../../config/loader.ts";
 import { HASH_END, HASH_START, isObject, renderTemplate, stableJson, upsertBlock, removeBlock, type Json } from "../../config/merger.ts";
 import { classifyCommand } from "../../core/classifier-facade.ts";
 import type { PolicyContext } from "../../core/context.ts";
-import { loadTrustedDefaults, serializableContext } from "../../core/policy-loader.ts";
-import { claudeBlockVars } from "../claude/generate.ts";
+import { agentGhConfigDir, loadTrustedDefaults, serializableContext, sharedScriptPaths, wrapperPaths } from "../../core/policy-loader.ts";
+import { claudeBlockVars, sharedWrapperSource } from "../claude/generate.ts";
 import { change, readIfExists, validateJson } from "../fs-helpers.ts";
 import type { AdapterPlan, RenderMode } from "../types.ts";
 import { codexRules, renderRulesBlock } from "./rules.ts";
 
 export const CODEX_HOOK_DIR_NAME = "agents-adapter";
 const PROFILE = "Auto mode";
-export const CODEX_GH_CONFIG_DIR_TILDE = "~/.codex/gh";
 /**
- * env ที่ Codex ตั้งให้ทุก shell command: gh และ `gh auth git-credential` (git push/pull/fetch) ใช้ token จาก ~/.codex/gh;
+ * env ที่ Codex ตั้งให้ทุก shell command: gh และ `gh auth git-credential` (git push/pull/fetch) ใช้ token จาก ~/.codex/gh
+ * (trusted-defaults gh_agent_config_subdir; Claude ใช้ ~/.claude/gh แบบเดียวกัน); ค่าที่เหลือมาจาก sandbox_shell_env:
  * DOTNET_SYSTEM_NET_DISABLEIPV6: seatbelt ปฏิเสธ connect ไป v4-mapped IPv6 loopback (`::ffff:127.0.0.1`, log เป็น `network-outbound remote:*:<port>`)
  * ที่ .NET dual-stack socket ใช้ ทำให้ VSTest testhost ต่อ vstest.console ไม่ได้ (`failed to connect to testhost`); บังคับ IPv4 แล้ว `dotnet test` ผ่านใน sandbox
  */
 export function codexShellEnvManaged(env: Environment): Record<string, string> {
-  return { GH_CONFIG_DIR: path.join(env.home, ".codex", "gh"), GH_NO_UPDATE_NOTIFIER: "1", ...loadTrustedDefaults().sandbox_shell_env };
+  return { GH_CONFIG_DIR: agentGhConfigDir(env.home, "codex"), ...loadTrustedDefaults().sandbox_shell_env };
 }
 
 function validateToml(content: string): void {
@@ -43,15 +43,16 @@ export function codexFilesystemManaged(env: Environment): { profile: Record<stri
   // token ของ gh ใน ~/.config/gh อยู่ใน macOS keychain ซึ่ง seatbelt ของ Codex ปิดทุกโหมด (แม้ escalated) จึงใช้ agent token
   // แยกใน ~/.codex/gh (hosts.yml ที่ user สร้างด้วย fine-grained PAT ผ่าน `gh auth login --insecure-storage`) และชี้ด้วย
   // GH_CONFIG_DIR; gh ต้องอ่าน dir นี้ใน sandbox แต่ agent ยังห้ามอ่าน/แสดง (credential_paths -> hook DENY)
-  profile[CODEX_GH_CONFIG_DIR_TILDE] = "read";
+  profile[tilde(agentGhConfigDir(ctx.home, "codex"))] = "read";
   profile["~/.gitconfig"] = "read";
   profile["~/.config/git"] = "read";
   profile["~/.codex/hooks"] = "read";
   profile["~/.codex/rules"] = "read";
   profile["~/.codex/skills"] = "read";
   profile["~/.codex/tmp"] = "write";
-  profile["~/.cache"] = "write";
-  profile["~/.npm"] = "write";
+  // temp + cache ของทุก toolchain จาก trusted-defaults always_writable (ชุดเดียวกับ Claude allowWrite) รวม ~/.docker/buildx
+  // ที่ `docker build` ใน `codex sandbox` ล้มด้วย `failed to update builder last activity time: ... operation not permitted`
+  for (const p of ctx.alwaysWritable) profile[tilde(p)] = "write";
   profile["~/.nvm/versions/node"] = "read";
   profile["/opt/homebrew"] = "read";
   profile["/usr/local"] = "read";
@@ -78,6 +79,7 @@ Approve only reversible, task-scoped development actions whose target and intent
 Never approve: merge or auto-merge of pull requests, release or tag creation, repository deletion, gist creation, credential or token access, force push, push to protected branches, production deploy, production database access, or writes under OS system paths (/System, /Library, /etc, /usr, /opt).
 Approve destructive local operations (delete, rename, overwrite) when every target is inside the Development Trust Zone workspace and is not a repository root, the .git directory itself or the zone root. Files and subdirectories inside .git (rebase-merge, rebase-apply, MERGE_HEAD, index.lock, hooks, refs) are ordinary workspace targets: approve their removal when the transcript shows git left them behind.
 Approve delete_file, protected-ref update, staging deploy or destructive operations outside the workspace only when the current user request names that exact action and target.
+Approve the agents-adapter wrapper agents-free-port.sh <port> (installed under ~/.codex/hooks/agents-adapter) with require_escalated: it only signals listeners whose working directory is inside the current repository and refuses ports below 1024.
 ${HASH_END}`;
 
 export function renderCodexConfig(existing: string | null, env: Environment, mode: RenderMode): { content: string; managedKeys: string[]; conflicts: string[]; preserved: string[]; unsupported: string[] } {
@@ -87,15 +89,22 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
   const managedKeys: string[] = [];
   const remove = mode.mode === "remove";
   const fsm = codexFilesystemManaged(env);
+  // key ที่ apply ครั้งก่อนจัดการ (state) แต่ policy เลิกใช้แล้ว ต้องถูกลบ ไม่งั้น write grant เก่า (เช่น tmpdir ของเครื่องเดิม) ค้างในไฟล์
+  const prevList = (key: string): string[] => {
+    const v = (mode.previousManaged as Record<string, unknown>)[key];
+    return Array.isArray(v) ? (v as string[]) : [];
+  };
+  const staleProfile = prevList("codex.filesystem.profile").filter((k) => !(k in fsm.profile));
+  const staleWorkspace = prevList("codex.filesystem.workspace").filter((k) => !(k in fsm.workspace));
 
   if (remove) {
-    // uninstall: คืนเฉพาะ managed keys ที่เพิ่ม; ไม่คืน sandbox_mode (danger-full-access) เพราะเป็น conflict เดิม
+    // uninstall: คืนเฉพาะ managed keys ที่เพิ่ม (รวม key จาก state ของ apply ก่อน); ไม่คืน sandbox_mode (danger-full-access) เพราะเป็น conflict เดิม
     const perm = getObj(doc, ["permissions", PROFILE]);
     if (perm) {
       const fsTable = getObj(perm, ["filesystem"]);
-      if (fsTable) for (const k of Object.keys(fsm.profile)) delete fsTable[k];
+      if (fsTable) for (const k of [...Object.keys(fsm.profile), ...staleProfile]) delete fsTable[k];
       const ws = fsTable ? getObj(fsTable, [":workspace_roots"]) : null;
-      if (ws) for (const k of Object.keys(fsm.workspace)) delete ws[k];
+      if (ws) for (const k of [...Object.keys(fsm.workspace), ...staleWorkspace]) delete ws[k];
     }
     const ar = getObj(doc, ["auto_review"]);
     if (ar && typeof ar.policy === "string") ar.policy = removeBlock(ar.policy, { start: HASH_START, end: HASH_END }) ?? "";
@@ -128,11 +137,13 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
       delete fsTable[k];
     }
   }
+  for (const k of staleProfile) delete fsTable[k];
   for (const [k, v] of Object.entries(fsm.profile)) {
     if (k in fsTable && fsTable[k] !== v) conflicts.push(`filesystem["${k}"]: ${JSON.stringify(fsTable[k])} -> "${v}"`);
     fsTable[k] = v;
   }
   const ws = ensureObj(fsTable, [":workspace_roots"]);
+  for (const k of staleWorkspace) delete ws[k];
   for (const k of Object.keys(ws)) {
     if (k.startsWith("**/") && ws[k] === "deny") {
       conflicts.push(`workspace_roots["${k}"] = "deny" removed (recursive glob makes Codex seatbelt deny unlink/rename of every workspace directory; root-level pattern used instead)`);
@@ -290,7 +301,7 @@ export function renderRulesFile(existing: string | null, env: Environment, mode:
     return out === null || out.trim() === "" ? null : out;
   }
   const stripped = existing === null ? null : stripShadowingUserRules(existing, env.ctx, conflicts);
-  return upsertBlock(stripped, renderRulesBlock(codexRules(env.config)), { start: HASH_START, end: HASH_END });
+  return upsertBlock(stripped, renderRulesBlock(codexRules(env.config, env.home)), { start: HASH_START, end: HASH_END });
 }
 
 /**
@@ -357,6 +368,11 @@ export function renderCodex(env: Environment, mode: RenderMode): AdapterPlan {
   const ctxPath = path.join(hookDir, "agents-adapter.config.json");
   const existingCtx = readIfExists(ctxPath);
   changes.push(change(ctxPath, existingCtx, remove ? null : stableJson(serializableContext(env.ctx)), validateJson));
+  // wrapper ที่ใช้ร่วมกับ Claude: hooks dir ของ Codex เป็น read ใน profile จึงแก้จากใน sandbox ไม่ได้
+  for (const f of [...loadTrustedDefaults().unsandboxed_wrappers, ...loadTrustedDefaults().shared_scripts]) {
+    const target = path.join(hookDir, f);
+    changes.push(change(target, readIfExists(target), remove ? null : sharedWrapperSource(env.repoRoot, f), undefined, 0o755));
+  }
   // ค่า config path ที่ hook คาดหวังคือ ~/.codex/hooks/agents-adapter.config.json (ตาม policy_gate.DEFAULT_CONFIG)
   const ctxDefaultPath = path.join(codexDir, "hooks", "agents-adapter.config.json");
   const existingCtxDefault = readIfExists(ctxDefaultPath);
@@ -366,6 +382,8 @@ export function renderCodex(env: Environment, mode: RenderMode): AdapterPlan {
   notes.push("Codex loads config.toml, rules and the auto_review policy at process start: restart every running codex session (including its subagent threads), otherwise the seatbelt, execpolicy and reviewer keep the pre-apply policy");
   notes.push("ASK is enforced natively by rules (prompt) + approvals reviewer policy; PreToolUse hook enforces DENY and adds context for ASK");
   notes.push("requirements.toml at ~/.codex is honoured by Codex only when loaded as system requirements; verify with `codex doctor`");
+  notes.push(`sandbox_mach_services (${loadTrustedDefaults().sandbox_mach_services.join(", ")}) have no Codex config key: pgrep stays denied in the Codex seatbelt (sysmond service not found); gh TLS already works there`);
+  notes.push(`${wrapperPaths(env.home, "codex").map((p) => p.replace(env.home, "~")).join(", ")}: run with sandbox_permissions require_escalated to free a port held by a dev server of the current repository; ${sharedScriptPaths(env.home, "codex").map((p) => p.replace(env.home, "~")).join(", ")}: run inside the sandbox to measure it`);
   return {
     target: "codex",
     changes,

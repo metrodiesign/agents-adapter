@@ -4,6 +4,7 @@
  * ใช้เป็นชั้นเสริมของ hook: ห้ามพึ่ง rules ชั้นเดียวสำหรับ hard boundary
  */
 import type { UserConfig } from "../../core/policy-loader.ts";
+import { wrapperPaths } from "../../core/policy-loader.ts";
 
 export interface PrefixRule {
   pattern: Array<string | string[]>;
@@ -12,7 +13,7 @@ export interface PrefixRule {
   ruleId: string;
 }
 
-export function codexRules(config: UserConfig): PrefixRule[] {
+export function codexRules(config: UserConfig, home?: string): PrefixRule[] {
   const rules: PrefixRule[] = [
     { pattern: ["sudo"], decision: "forbidden", justification: "PRIVILEGE_ESCALATION: privileged execution is never allowed", ruleId: "PRIVILEGE_ESCALATION" },
     { pattern: ["doas"], decision: "forbidden", justification: "PRIVILEGE_ESCALATION", ruleId: "PRIVILEGE_ESCALATION" },
@@ -66,6 +67,9 @@ export function codexRules(config: UserConfig): PrefixRule[] {
     { pattern: ["docker"], decision: "allow", justification: "BUILD: docker needs its socket outside the sandbox; prune/volume/push rules still win", ruleId: "BUILD" },
     { pattern: ["dotnet", "test"], decision: "allow", justification: "TEST: dotnet test hosts need their runtime outside the sandbox", ruleId: "TEST" },
   ];
+  // wrapper ของ agents-adapter (absolute path ใน ~/.codex/hooks/agents-adapter ซึ่ง profile ให้ read เท่านั้น): รันด้วย require_escalated
+  // เพราะ seatbelt ปฏิเสธ signal ข้าม sandbox; allow rule ทำให้ escalation ไม่ prompt
+  if (home) for (const p of wrapperPaths(home, "codex")) rules.push({ pattern: [p], decision: "allow", justification: "BUILD: agents-free-port frees a port held by a dev server of the current repository (cwd check inside the wrapper)", ruleId: "BUILD" });
   for (const b of config.protected_branches) {
     rules.push({ pattern: ["git", "push", "origin", b], decision: "forbidden", justification: `GIT_PUSH_PROTECTED: ${b} is protected`, ruleId: "GIT_PUSH_PROTECTED" });
     rules.push({ pattern: ["git", "push", "origin", `HEAD:${b}`], decision: "forbidden", justification: `GIT_PUSH_PROTECTED: ${b} is protected`, ruleId: "GIT_PUSH_PROTECTED" });

@@ -5,7 +5,9 @@ import { ADAPTERS } from "../adapters/index.ts";
 import type { DetectedCapabilities } from "../adapters/types.ts";
 import type { Environment } from "../config/loader.ts";
 import { nativeProdEnvGlobs } from "../core/paths.ts";
-import { loadMatrix } from "../core/policy-loader.ts";
+import { agentGhConfigDir, loadMatrix } from "../core/policy-loader.ts";
+import { claudeManaged } from "../adapters/claude/generate.ts";
+import { BLOCK_END, BLOCK_START } from "../config/merger.ts";
 import { runParity } from "../parity/harness.ts";
 import { detectCapabilities } from "./capabilities.ts";
 import { driftReport } from "./drift.ts";
@@ -31,9 +33,41 @@ function versionGte(v: string | null, min: string): boolean {
   return true;
 }
 
+/**
+ * agent token ของ gh ต่อ CLI (~/.claude/gh, ~/.codex/gh; keychain ใช้ใน seatbelt ไม่ได้): ตรวจแค่มีไฟล์ + mode 600 + env ชี้ถูก ไม่พิมพ์เนื้อหา
+ * ใน Bash sandbox ของ Claude dir ของ Codex ถูก deny read (stat ก็ EPERM) จึงรายงาน UNSUPPORTED แทน FAIL
+ */
+function ghAgentTokenChecks(cli: "claude" | "codex", env: Environment, d: DetectedCapabilities, envApplied: boolean, keyring: boolean | null | undefined): Check[] {
+  const ghDir = agentGhConfigDir(env.home, cli);
+  const tilde = ghDir.replace(env.home, "~");
+  const hosts = path.join(ghDir, "hosts.yml");
+  const login = `pbpaste | GH_CONFIG_DIR=${tilde} gh auth login --with-token --insecure-storage`;
+  const out: Check[] = [];
+  let hostsStat: fs.Stats | null | "blocked" = null;
+  try {
+    hostsStat = fs.statSync(hosts);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") hostsStat = null;
+    else if ((code === "EPERM" || code === "EACCES") && d.agentSandbox !== null) hostsStat = "blocked";
+    else throw err;
+  }
+  const name = `gh agent token (${cli})`;
+  if (hostsStat === "blocked") out.push({ level: "UNSUPPORTED", name, detail: `cannot stat ${tilde} inside the ${d.agentSandbox} sandbox (credential path); run doctor from a terminal` });
+  else if (hostsStat === null) out.push({ level: cli === "claude" ? "FAIL" : "WARN", name, detail: `${tilde}/hosts.yml missing: gh and git push/fetch fail in the ${cli} sandbox (GH_CONFIG_DIR points there); run: mkdir -p ${tilde} && chmod 700 ${tilde} && ${login}` });
+  else {
+    const loose = (hostsStat.mode & 0o077) !== 0;
+    out.push({ level: loose ? "FAIL" : envApplied ? "PASS" : "WARN", name, detail: loose ? `${tilde}/hosts.yml readable by group/other; chmod 600` : envApplied ? "present, GH_CONFIG_DIR set (token never printed)" : `present but GH_CONFIG_DIR not applied; run apply --target ${cli}` });
+  }
+  // gh auth refresh (แม้ใส่ --insecure-storage) ย้าย token เข้า keyring: seatbelt อ่าน keychain ไม่ได้ -> gh ใน sandbox ตอบ HTTP 401
+  if (keyring === true) out.push({ level: "FAIL", name: `gh agent token storage (${cli})`, detail: `${tilde} token is in the keyring (gh auth status shows \`(keyring)\`): the ${cli} sandbox cannot read it (HTTP 401 Requires authentication); run: GH_CONFIG_DIR=${tilde} gh auth logout -h github.com; then ${login}` });
+  else if (keyring === false) out.push({ level: "PASS", name: `gh agent token storage (${cli})`, detail: "plaintext hosts.yml (readable inside the seatbelt)" });
+  return out;
+}
+
 export async function runDoctor(env: Environment, opts: { parity?: boolean; detected?: DetectedCapabilities } = {}): Promise<Check[]> {
   const checks: Check[] = [];
-  const d = opts.detected ?? detectCapabilities();
+  const d = opts.detected ?? detectCapabilities(env.home);
   const ver = (name: "claude" | "codex" | "pi", v: string | null): void => {
     if (v === null) checks.push({ level: "UNSUPPORTED", name: `${name} version`, detail: "CLI not found" });
     else checks.push({ level: versionGte(v, MIN[name]) ? "PASS" : "WARN", name: `${name} version`, detail: `${v} (min ${MIN[name]})` });
@@ -53,6 +87,7 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
   for (const [name, scopes, fix] of [
     ["GitHub token workflow scope", d.ghTokenScopes, "gh auth refresh -h github.com -s workflow"],
     ["gh agent token workflow scope (codex)", d.ghAgentTokenScopes, "re-login with a token that has the scope: GH_CONFIG_DIR=~/.codex/gh gh auth logout -h github.com; then gh auth login --with-token --insecure-storage (gh auth refresh moves the token into the keyring)"],
+    ["gh agent token workflow scope (claude)", d.ghClaudeAgentTokenScopes, "re-login with a token that has the scope: GH_CONFIG_DIR=~/.claude/gh gh auth logout -h github.com; then gh auth login --with-token --insecure-storage (gh auth refresh moves the token into the keyring)"],
   ] as const) {
     if (scopes === null || scopes === undefined) continue;
     const ok = scopes.includes("workflow");
@@ -74,30 +109,8 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
       // gh ต้องอ่าน ~/.config/gh ใน sandbox (deny entry ไม่ escalatable) จึงยอม read; write เท่านั้นที่เปิดช่องให้แก้ credential
       const ghWrite = fsTable["~/.config/gh"] === "write";
       checks.push({ level: ghWrite ? "FAIL" : "PASS", name: "credential exposure (gh config)", detail: ghWrite ? "~/.config/gh writable by shell" : "gh config read-only" });
-      // agent token ของ gh สำหรับ Codex sandbox (keychain ใช้ไม่ได้ใน seatbelt): ตรวจแค่มีไฟล์และ mode ไม่พิมพ์เนื้อหา
-      const ghDir = path.join(env.home, ".codex", "gh");
-      const hosts = path.join(ghDir, "hosts.yml");
       const envSet = ((doc.shell_environment_policy as Record<string, unknown> | undefined)?.set ?? {}) as Record<string, unknown>;
-      const envOk = envSet.GH_CONFIG_DIR === ghDir;
-      // ~/.codex/gh เป็น credential path: Bash sandbox ของ Claude deny read ทั้ง dir (stat ก็ EPERM) ไม่ใช่ปัญหา config
-      let hostsStat: fs.Stats | null | "blocked" = null;
-      try {
-        hostsStat = fs.statSync(hosts);
-      } catch (err) {
-        const code = (err as NodeJS.ErrnoException).code;
-        if (code === "ENOENT" || code === "ENOTDIR") hostsStat = null;
-        else if ((code === "EPERM" || code === "EACCES") && d.agentSandbox !== null) hostsStat = "blocked";
-        else throw err;
-      }
-      if (hostsStat === "blocked") checks.push({ level: "UNSUPPORTED", name: "gh agent token (codex)", detail: `cannot stat ~/.codex/gh inside the ${d.agentSandbox} sandbox (credential path); run doctor from a terminal` });
-      else if (hostsStat === null) checks.push({ level: "WARN", name: "gh agent token (codex)", detail: "~/.codex/gh/hosts.yml missing: gh/git push fail in the Codex sandbox; see docs/codex-adapter.md GitHub setup" });
-      else {
-        const loose = (hostsStat.mode & 0o077) !== 0;
-        checks.push({ level: loose ? "FAIL" : envOk ? "PASS" : "WARN", name: "gh agent token (codex)", detail: loose ? "~/.codex/gh/hosts.yml readable by group/other; chmod 600" : envOk ? "present, GH_CONFIG_DIR set (token never printed)" : "present but shell_environment_policy.set.GH_CONFIG_DIR not applied" });
-      }
-      // gh auth refresh (แม้ใส่ --insecure-storage) ย้าย token เข้า keyring: seatbelt อ่าน keychain ไม่ได้ -> gh ใน sandbox ตอบ HTTP 401
-      if (d.ghAgentTokenKeyring === true) checks.push({ level: "FAIL", name: "gh agent token storage (codex)", detail: "~/.codex/gh token is in the keyring (gh auth status shows `(keyring)`): the Codex sandbox cannot read it (HTTP 401 Requires authentication); run: GH_CONFIG_DIR=~/.codex/gh gh auth logout -h github.com; then pbpaste | GH_CONFIG_DIR=~/.codex/gh gh auth login --with-token --insecure-storage" });
-      else if (d.ghAgentTokenKeyring === false) checks.push({ level: "PASS", name: "gh agent token storage (codex)", detail: "plaintext hosts.yml (readable inside the seatbelt)" });
+      checks.push(...ghAgentTokenChecks("codex", env, d, envSet.GH_CONFIG_DIR === agentGhConfigDir(env.home, "codex"), d.ghAgentTokenKeyring));
       const ws = (fsTable[":workspace_roots"] ?? {}) as Record<string, unknown>;
       // pattern เป็น root-level ตั้งแต่เลิกใช้ `**/` (seatbelt deny unlink ทั้ง workspace)
       const prodDenied = nativeProdEnvGlobs(env.ctx.prodEnvPatterns).every((p) => ws[p] === "deny");
@@ -138,6 +151,29 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
       const deny = (perms.deny ?? []) as string[];
       const credDeny = deny.some((x) => x.includes("Read(~/.ssh"));
       checks.push({ level: credDeny ? "PASS" : "WARN", name: "credential exposure (claude)", detail: credDeny ? "credential Read/Edit denied" : "credential deny rules missing" });
+      const envMap = (s.env ?? {}) as Record<string, unknown>;
+      checks.push(...ghAgentTokenChecks("claude", env, d, envMap.GH_CONFIG_DIR === agentGhConfigDir(env.home, "claude"), d.ghClaudeAgentTokenKeyring));
+      // sandbox capability ที่แทน excludedCommands: ถ้าหายจะพังเงียบ ๆ ในรูป TLS -26276 / Cannot get process list หลังเปิด session ใหม่
+      const net = ((sandbox.network ?? {}) as Record<string, unknown>);
+      const mach = Array.isArray(net.allowMachLookup) ? (net.allowMachLookup as string[]) : [];
+      const machOk = mach.includes("com.apple.trustd.agent");
+      checks.push({ level: machOk ? "PASS" : "WARN", name: "sandbox Go TLS (claude)", detail: machOk ? "allowMachLookup has com.apple.trustd.agent (gh/docker buildx verify certificates inside the sandbox)" : "allowMachLookup lacks com.apple.trustd.agent: gh/docker in the sandbox fail with x509: OSStatus -26276; run apply --target claude" });
+      // เทียบกับชุดที่ policy render จริง: entry ใดที่ไม่ใช่ managed (ของ user หรือค้างจาก apply เก่า) ยกคำสั่งออกนอก sandbox โดย policy ไม่รู้
+      const excluded = Array.isArray(sandbox.excludedCommands) ? (sandbox.excludedCommands as string[]) : [];
+      const managedExcluded = new Set(claudeManaged(env).excludedCommands);
+      const extra = excluded.filter((c) => !managedExcluded.has(c));
+      const missing = [...managedExcluded].filter((c) => !excluded.includes(c));
+      checks.push({ level: extra.length === 0 && missing.length === 0 ? "PASS" : "WARN", name: "sandbox excluded commands (claude)", detail: extra.length === 0 && missing.length === 0 ? `exactly the policy set: ${[...managedExcluded].map((c) => c.replace(env.home, "~")).join(", ")}` : `${extra.length ? "not from policy (user or stale): " + extra.join(", ") : ""}${extra.length && missing.length ? "; " : ""}${missing.length ? "missing: " + missing.map((c) => c.replace(env.home, "~")).join(", ") : ""}; run apply --target claude` });
+      // ส่วนที่ user เขียนเองใน ~/.claude/CLAUDE.md อาจยังสั่งตามโลก excludedCommands เดิม ซึ่งขัดกับ managed block
+      const claudeMd = path.join(env.home, ".claude", "CLAUDE.md");
+      if (fs.existsSync(claudeMd)) {
+        const text = fs.readFileSync(claudeMd, "utf8");
+        const a = text.indexOf(BLOCK_START);
+        const b = text.indexOf(BLOCK_END);
+        const userPart = a !== -1 && b !== -1 ? text.slice(0, a) + text.slice(b + BLOCK_END.length) : text;
+        const staleLines = userPart.split("\n").filter((l) => /excludedCommands/.test(l) && /(`gh \*`|`docker \*`|-26276)/.test(l)).length;
+        checks.push({ level: staleLines === 0 ? "PASS" : "WARN", name: "CLAUDE.md user rules (claude)", detail: staleLines === 0 ? "no user bullet contradicts the managed sandbox block" : `${staleLines} user-written line(s) still say gh/docker leave the sandbox via excludedCommands or tell agents to add -26276 binaries to it; edit them above the managed block` });
+      }
     } catch (err) {
       checks.push({ level: "FAIL", name: "claude settings parse", detail: err instanceof Error ? err.message : String(err) });
     }

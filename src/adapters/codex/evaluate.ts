@@ -70,7 +70,7 @@ export async function evaluateCodex(action: Action, ctx: PolicyContext, env: Env
   if (action.kind === "tool") return runPolicyGate(action.tool.name, action.tool.input, ctx, env.repoRoot);
   const hook = runPolicyGate("Bash", { command: action.command }, ctx, env.repoRoot);
   // rules layer: Codex ข้ามคำสั่งที่มี substitution/env prefix; เทียบเฉพาะ segment ที่เป็น simple command
-  const rules = codexRules(env.config);
+  const rules = codexRules(env.config, env.home);
   const verdicts: Verdict[] = [hook];
   for (const seg of parseCommand(action.command)) {
     if (seg.hasSubstitution) continue;
