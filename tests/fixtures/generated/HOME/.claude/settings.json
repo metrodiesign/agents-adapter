@@ -328,6 +328,9 @@
         "${HOME}/go/pkg",
         "${HOME}/.local/state/agents-adapter",
         "${HOME}/.docker/buildx"
+      ],
+      "allowRead": [
+        "~/.claude/gh"
       ]
     },
     "excludedCommands": [

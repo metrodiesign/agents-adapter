@@ -15,6 +15,8 @@ export interface ClaudeManaged {
   allow: string[];
   denyRead: string[];
   denyWrite: string[];
+  /** re-allow อ่านใน sandbox: Claude Code merge `Read(...)` deny rules เข้า denyRead จึงต้อง allowRead ทับ */
+  allowRead: string[];
   credentialFiles: string[];
   credentialEnvVars: string[];
   excludedCommands: string[];
@@ -47,6 +49,9 @@ export function claudeManaged(env: Environment): ClaudeManaged {
     // system config ใต้ home ทั้งชุด (shell rc, settings/config/hooks/rules ของทุก CLI, config ของ adapter): SYSTEM_CONFIG_CHANGE เป็น ASK
     // และ hooks dir ของ Codex ต้องแก้จาก Claude sandbox ไม่ได้ ไม่งั้น wrapper ที่ Codex รัน escalated ถูกเขียนทับจากใน sandbox
     denyWrite: [...ctx.credentialPaths.map(tilde), ...ctx.systemConfigPaths.filter((p) => p.startsWith(ctx.home)).map(tilde)],
+    // Claude Code merge permissions.deny `Read(~/.claude/gh/**)` เข้า sandbox denyRead ("Merged with paths from Read(...) deny permission rules")
+    // ทำให้ gh ใน sandbox อ่าน token ไม่ได้แม้ตัด ghDir ออกจาก denyRead แล้ว; allowRead "takes precedence over denyRead" (ทั้งสองข้อความจาก schema ใน binary 2.1.261)
+    allowRead: [tilde(ghDir)],
     credentialFiles: sandboxDenied.map(tilde),
     credentialEnvVars: protectedPaths.credential_env_vars,
     // wrapper ต้องรันนอก sandbox (signal ข้าม sandbox); match ด้วย absolute path จึงต้องเป็นไฟล์ใน hooks dir ที่ sandbox เขียนไม่ได้
@@ -85,6 +90,7 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
     [["sandbox", "filesystem", "denyRead"], "denyRead", "claude.sandbox.filesystem.denyRead"],
     [["sandbox", "filesystem", "denyWrite"], "denyWrite", "claude.sandbox.filesystem.denyWrite"],
     [["sandbox", "filesystem", "allowWrite"], "allowWrite", "claude.sandbox.filesystem.allowWrite"],
+    [["sandbox", "filesystem", "allowRead"], "allowRead", "claude.sandbox.filesystem.allowRead"],
     [["sandbox", "excludedCommands"], "excludedCommands", "claude.sandbox.excludedCommands"],
     [["sandbox", "network", "allowedDomains"], "allowedDomains", "claude.sandbox.network.allowedDomains"],
     [["sandbox", "network", "allowUnixSockets"], "allowedUnixSockets", "claude.sandbox.network.allowUnixSockets"],
@@ -276,6 +282,7 @@ export function claudeManagedState(env: Environment): Record<string, unknown> {
     "claude.sandbox.filesystem.denyRead": m.denyRead,
     "claude.sandbox.filesystem.denyWrite": m.denyWrite,
     "claude.sandbox.filesystem.allowWrite": m.allowWrite,
+    "claude.sandbox.filesystem.allowRead": m.allowRead,
     "claude.sandbox.excludedCommands": m.excludedCommands,
     "claude.sandbox.network.allowedDomains": m.allowedDomains,
     "claude.sandbox.network.allowUnixSockets": m.allowedUnixSockets,

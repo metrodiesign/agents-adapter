@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Claude: `sandbox.filesystem.allowRead` เติม `~/.claude/gh` เพราะ Claude Code 2.1.261 merge `permissions.deny` `Read(~/.claude/gh/**)` เข้า `denyRead` ของ sandbox (schema: `Merged with paths from Read(...) deny permission rules`) ทำให้การตัด dir นี้ออกจาก `denyRead` ไม่พอ: หลัง apply จริง `sandbox-probe.sh` รายงาน `gh: auth status` FAIL ด้วย `open ~/.claude/gh/config.yml: operation not permitted`; `allowRead` `takes precedence over denyRead` และไม่แตะ `Read`/`Edit`/Bash deny rules; doctor เพิ่ม `sandbox gh token read (claude)`; ลบไฟล์ `_.line95` ที่หลุด commit ใน PR #45
+
 ### Added
 
 - `scripts/sandbox-probe.sh`: probe suite ระดับ primitive (ไม่ผูกกับโปรเจกต์) รันจากใน Bash sandbox แล้วรายงาน PASS / DENY(known) / FAIL / SKIP พร้อม error บรรทัดจริง: เขียน/อ่าน repo, `$TMPDIR`, cache dir ของแต่ละ toolchain, `~/.docker/buildx`; bind/connect `127.0.0.1`, `::1`, `::ffff:127.0.0.1`; AF_UNIX ใน `$TMPDIR`/`/tmp`; docker daemon จาก process ลูก; `docker build --pull`; `gh auth status`; `pgrep`/`/bin/ps`/`lsof`/signal; wrapper; egress ไป registry ของ node/dotnet/php/java/go/rust/python/docker (stack ที่ไม่มี toolchain = SKIP ไม่นับเป็น pass)
