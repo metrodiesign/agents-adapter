@@ -31,6 +31,11 @@
         "codex": { "type": "boolean" },
         "pi": { "type": "boolean" }
       }
+    },
+    "sandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "enabled": { "type": "boolean" } }
     }
   }
 }

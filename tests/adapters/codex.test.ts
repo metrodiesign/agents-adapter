@@ -160,7 +160,7 @@ test("codex config render is idempotent", () => {
 test("requirements.toml closes danger-full-access and hooks/rules are merged once", () => {
   const t = makeTestEnv();
   try {
-    const req = parseToml(renderRequirements(null, { mode: "apply", previousManaged: {} }) ?? "") as Record<string, any>;
+    const req = parseToml(renderRequirements(null, t.env, { mode: "apply", previousManaged: {} }) ?? "") as Record<string, any>;
     assert.equal(req.allowed_permission_profiles[":danger-full-access"], false);
     assert.equal(req.allowed_permission_profiles["Auto mode"], true);
     const existingHooks = JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "/opt/homebrew/bin/rtk hook claude" }] }] } });
@@ -225,6 +225,22 @@ test("codex plan writes runtime hooks under hooks/agents-adapter and the config 
     assert.ok(wrapper && wrapper.after?.includes("lsof -nP -t -iTCP") && wrapper.mode === 0o755, "shared wrapper installed for Codex too");
     const cfg = p.changes.find((c) => c.path.endsWith("agents-adapter.config.json"))?.after ?? "";
     assert.ok(!cfg.includes("connector_"));
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("user config sandbox.enabled: false switches codex to :danger-full-access and opens it in requirements.toml", () => {
+  const t = makeTestEnv(undefined, ["sandbox: { enabled: false }"]);
+  try {
+    const r = renderCodexConfig(LEGACY, t.env, { mode: "apply", previousManaged: {} });
+    const doc = parseToml(r.content) as Record<string, any>;
+    assert.equal(doc.default_permissions, ":danger-full-access");
+    assert.equal(doc.sandbox_mode, undefined, "sandbox_mode still removed: it conflicts with default_permissions");
+    assert.ok(doc.permissions["Auto mode"], "managed profile kept so the user can switch back");
+    const req = parseToml(renderRequirements(null, t.env, { mode: "apply", previousManaged: {} }) ?? "") as Record<string, any>;
+    assert.equal(req.allowed_permission_profiles[":danger-full-access"], true);
+    assert.ok(req.allowed_sandbox_modes.includes("danger-full-access"));
   } finally {
     t.cleanup();
   }

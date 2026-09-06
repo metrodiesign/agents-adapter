@@ -208,3 +208,20 @@ test("claude provider guard hook is added once, removed on uninstall, and the ru
     t.cleanup();
   }
 });
+
+test("user config sandbox.enabled: false disables the claude sandbox but keeps permission rules", () => {
+  const on = makeTestEnv();
+  const off = makeTestEnv(undefined, ["sandbox: { enabled: false }"]);
+  try {
+    const a = JSON.parse(renderClaudeSettings(JSON.stringify(USER_SETTINGS), on.env, { mode: "apply", previousManaged: {} }).content) as Record<string, any>;
+    const b = JSON.parse(renderClaudeSettings(JSON.stringify(USER_SETTINGS), off.env, { mode: "apply", previousManaged: {} }).content) as Record<string, any>;
+    assert.equal(a.sandbox.enabled, true);
+    assert.equal(a.sandbox.failIfUnavailable, true);
+    assert.equal(b.sandbox.enabled, false);
+    assert.equal(b.sandbox.failIfUnavailable, false);
+    assert.deepEqual(b.permissions.deny, a.permissions.deny, "deny rules do not depend on the sandbox");
+  } finally {
+    on.cleanup();
+    off.cleanup();
+  }
+});

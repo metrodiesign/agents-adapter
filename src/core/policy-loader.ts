@@ -61,6 +61,13 @@ export interface UserConfig {
   production_env_patterns?: string[];
   pi?: { isolation_mode?: "host-macos" | "docker" | "gondolin" | "openshell" };
   adapters?: { claude?: boolean; codex?: boolean; pi?: boolean };
+  /** OS sandbox ของ Claude (`sandbox.enabled`) และ Codex (permission profile); default true. false = Claude sandbox ปิด, Codex ใช้ `:danger-full-access` */
+  sandbox?: { enabled?: boolean };
+}
+
+/** false เฉพาะเมื่อ user config ตั้ง `sandbox.enabled: false` อย่างชัดเจน */
+export function sandboxEnabled(config: UserConfig): boolean {
+  return config.sandbox?.enabled !== false;
 }
 
 const DEFAULT_DEV_ENV = [".env", ".env.local", ".env.development", ".env.test", ".env.testing", ".env.integration"];

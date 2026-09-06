@@ -5,7 +5,7 @@ import { ADAPTERS } from "../adapters/index.ts";
 import type { DetectedCapabilities } from "../adapters/types.ts";
 import type { Environment } from "../config/loader.ts";
 import { nativeProdEnvGlobs } from "../core/paths.ts";
-import { agentGhConfigDir, loadMatrix } from "../core/policy-loader.ts";
+import { agentGhConfigDir, loadMatrix, sandboxEnabled } from "../core/policy-loader.ts";
 import { claudeManaged } from "../adapters/claude/generate.ts";
 import { BLOCK_END, BLOCK_START } from "../config/merger.ts";
 import { runParity } from "../parity/harness.ts";
@@ -99,9 +99,12 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
   if (fs.existsSync(codexConfig)) {
     try {
       const doc = parseToml(fs.readFileSync(codexConfig, "utf8")) as Record<string, unknown>;
-      const danger = doc.sandbox_mode === "danger-full-access";
+      const sb = sandboxEnabled(env.config);
+      const dangerProfile = doc.default_permissions === ":danger-full-access";
+      // sandbox_mode = danger-full-access ผิดเสมอ (conflict กับ default_permissions); profile :danger-full-access ผิดเฉพาะเมื่อ user config ไม่ได้ปิด sandbox
+      const danger = doc.sandbox_mode === "danger-full-access" || (dangerProfile && sb);
       const both = doc.sandbox_mode !== undefined && doc.default_permissions !== undefined;
-      checks.push({ level: danger ? "FAIL" : "PASS", name: "danger-full-access", detail: danger ? "sandbox_mode = danger-full-access present" : "not enabled" });
+      checks.push({ level: danger ? "FAIL" : "PASS", name: "danger-full-access", detail: danger ? (dangerProfile ? "default_permissions = :danger-full-access but user config sandbox.enabled is not false" : "sandbox_mode = danger-full-access present") : dangerProfile ? "disabled by user config (sandbox.enabled: false)" : "not enabled" });
       checks.push({ level: both ? "FAIL" : "PASS", name: "permission profile conflict", detail: both ? "sandbox_mode and default_permissions both set" : "no conflict" });
       const perms = (doc.permissions as Record<string, Record<string, unknown>> | undefined)?.[String(doc.default_permissions ?? "")];
       const fsTable = (perms?.filesystem ?? {}) as Record<string, unknown>;
@@ -132,8 +135,9 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
   const req = path.join(env.home, ".codex", "requirements.toml");
   if (fs.existsSync(req)) {
     const r = parseToml(fs.readFileSync(req, "utf8")) as Record<string, Record<string, unknown>>;
-    const closed = r.allowed_permission_profiles?.[":danger-full-access"] === false;
-    checks.push({ level: closed ? "PASS" : "FAIL", name: "requirements danger-full-access", detail: closed ? '":danger-full-access" = false' : "danger-full-access not closed" });
+    const want = !sandboxEnabled(env.config);
+    const ok = r.allowed_permission_profiles?.[":danger-full-access"] === want;
+    checks.push({ level: ok ? "PASS" : "FAIL", name: "requirements danger-full-access", detail: ok ? `":danger-full-access" = ${want}` : want ? "danger-full-access not opened although user config sandbox.enabled is false; run apply --target codex" : "danger-full-access not closed" });
   } else {
     checks.push({ level: "WARN", name: "requirements.toml", detail: "not found; run apply --target codex" });
   }
@@ -147,7 +151,8 @@ export async function runDoctor(env: Environment, opts: { parity?: boolean; dete
       const bypass = perms.defaultMode === "bypassPermissions" || perms.disableBypassPermissionsMode !== "disable";
       checks.push({ level: bypass ? "FAIL" : "PASS", name: "claude bypass mode", detail: bypass ? "bypass permissions not disabled" : "disableBypassPermissionsMode = disable" });
       const sandbox = (s.sandbox ?? {}) as Record<string, unknown>;
-      checks.push({ level: sandbox.enabled === true ? "PASS" : "WARN", name: "claude sandbox", detail: sandbox.enabled === true ? "enabled" : "sandbox disabled" });
+      const sbc = sandboxEnabled(env.config);
+      checks.push({ level: sandbox.enabled === sbc ? "PASS" : "WARN", name: "claude sandbox", detail: sandbox.enabled === true ? (sbc ? "enabled" : "enabled although user config sandbox.enabled is false; run apply --target claude") : sbc ? "sandbox disabled" : "disabled by user config (sandbox.enabled: false)" });
       const deny = (perms.deny ?? []) as string[];
       const credDeny = deny.some((x) => x.includes("Read(~/.ssh"));
       checks.push({ level: credDeny ? "PASS" : "WARN", name: "credential exposure (claude)", detail: credDeny ? "credential Read/Edit denied" : "credential deny rules missing" });
