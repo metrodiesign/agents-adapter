@@ -38,6 +38,11 @@ production_env_patterns:
   - ".env.prod"
   - ".env.prod.*"
 
+# OS sandbox ของ Claude (`sandbox.enabled`) และ Codex (`default_permissions`): true = เปิด (default)
+# false = Claude sandbox ปิด, Codex ใช้ `:danger-full-access` และ requirements.toml เปิด profile นั้น; permission rules, classifier และ hook ยังบังคับตามเดิม
+sandbox:
+  enabled: true
+
 pi:
   # host-macos | docker | gondolin | openshell
   isolation_mode: "host-macos"

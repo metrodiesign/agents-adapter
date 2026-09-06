@@ -3,7 +3,7 @@ import * as path from "node:path";
 import type { Environment } from "../../config/loader.ts";
 import { trustedDomains } from "../../config/loader.ts";
 import { deletePath, getPath, isObject, mergeManagedList, renderTemplate, setPath, stableJson, stripManagedList, upsertBlock, removeBlock, type Json } from "../../config/merger.ts";
-import { agentGhConfigDir, loadProtectedPaths, loadTrustedDefaults, serializableContext, sharedScriptPaths, wrapperPaths } from "../../core/policy-loader.ts";
+import { agentGhConfigDir, loadProtectedPaths, loadTrustedDefaults, serializableContext, sharedScriptPaths, wrapperPaths, sandboxEnabled } from "../../core/policy-loader.ts";
 import { change, readIfExists, validateJson } from "../fs-helpers.ts";
 import type { AdapterPlan, RenderMode } from "../types.ts";
 import { autoModeEntries, claudePatterns } from "./rules.ts";
@@ -134,12 +134,13 @@ export function renderClaudeSettings(existing: string | null, env: Environment, 
   // scalar managed keys
   const scalars: Array<[string[], Json]> = [
     [["permissions", "disableBypassPermissionsMode"], "disable"],
-    [["sandbox", "enabled"], true],
+    // user config `sandbox.enabled: false` ปิด OS sandbox ทั้งตัว (permission rules, classifier และ hook ยังบังคับ)
+    [["sandbox", "enabled"], sandboxEnabled(env.config)],
     [["sandbox", "autoAllowBashIfSandboxed"], true],
     // ถ้า allowUnsandboxedCommands เป็น false ทั้ง excludedCommands จะไร้ผลโดยไม่มีสัญญาณเตือน
     [["sandbox", "allowUnsandboxedCommands"], true],
-    // fail-closed: ถ้า sandbox ใช้ไม่ได้ต้องหยุด ไม่ใช่รันดิบ
-    [["sandbox", "failIfUnavailable"], true],
+    // fail-closed: ถ้า sandbox ใช้ไม่ได้ต้องหยุด ไม่ใช่รันดิบ (ไม่มีความหมายเมื่อ sandbox ปิด)
+    [["sandbox", "failIfUnavailable"], sandboxEnabled(env.config)],
     [["sandbox", "network", "allowLocalBinding"], true],
     [["autoMode", "classifyAllShell"], true],
     [["language"], "thai"],

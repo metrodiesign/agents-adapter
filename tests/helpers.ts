@@ -11,7 +11,7 @@ export interface TestEnv {
 }
 
 /** environment ที่ชี้ home จำลอง พร้อม config ที่ development_roots = {ZONE} */
-export function makeTestEnv(seed?: (home: string) => void): TestEnv {
+export function makeTestEnv(seed?: (home: string) => void, extraConfig: string[] = []): TestEnv {
   const world = makeFixtureWorld();
   const configPath = path.join(world.home, ".config", "agents-adapter", "config.yaml");
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
@@ -26,6 +26,7 @@ export function makeTestEnv(seed?: (home: string) => void): TestEnv {
       "trusted_domains: [github.com, localhost]",
       "pi: { isolation_mode: host-macos }",
       "adapters: { claude: true, codex: true, pi: true }",
+      ...extraConfig,
       "",
     ].join("\n"),
   );

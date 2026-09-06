@@ -7,7 +7,7 @@ import { trustedDomains } from "../../config/loader.ts";
 import { HASH_END, HASH_START, isObject, renderTemplate, stableJson, upsertBlock, removeBlock, type Json } from "../../config/merger.ts";
 import { classifyCommand } from "../../core/classifier-facade.ts";
 import type { PolicyContext } from "../../core/context.ts";
-import { agentGhConfigDir, loadTrustedDefaults, serializableContext, sharedScriptPaths, wrapperPaths } from "../../core/policy-loader.ts";
+import { agentGhConfigDir, loadTrustedDefaults, sandboxEnabled, serializableContext, sharedScriptPaths, wrapperPaths } from "../../core/policy-loader.ts";
 import { claudeBlockVars, sharedWrapperSource } from "../claude/generate.ts";
 import { change, readIfExists, validateJson } from "../fs-helpers.ts";
 import type { AdapterPlan, RenderMode } from "../types.ts";
@@ -115,12 +115,13 @@ export function renderCodexConfig(existing: string | null, env: Environment, mod
 
   // 1. conflict: sandbox_mode + default_permissions
   if ("sandbox_mode" in doc) {
-    conflicts.push(`sandbox_mode = ${JSON.stringify(doc.sandbox_mode)} removed (conflicts with default_permissions; danger-full-access is forbidden)`);
+    conflicts.push(`sandbox_mode = ${JSON.stringify(doc.sandbox_mode)} removed (conflicts with default_permissions; use user config sandbox.enabled: false to disable the sandbox)`);
     delete doc.sandbox_mode;
   }
   doc.approval_policy = "on-request";
   doc.approvals_reviewer = "auto_review";
-  doc.default_permissions = PROFILE;
+  // user config `sandbox.enabled: false`: built-in profile `:danger-full-access` = PermissionProfile::Disabled (ไม่มี seatbelt); profile "Auto mode" ยัง render ไว้ให้สลับกลับได้
+  doc.default_permissions = sandboxEnabled(env.config) ? PROFILE : ":danger-full-access";
   managedKeys.push("approval_policy", "approvals_reviewer", "default_permissions", "sandbox_mode (removed)");
 
   // 2. permission profile
@@ -235,7 +236,7 @@ function ensureObj(obj: Record<string, Json>, p: string[]): Record<string, Json>
   return cur;
 }
 
-export function renderRequirements(existing: string | null, mode: RenderMode): string | null {
+export function renderRequirements(existing: string | null, env: Environment, mode: RenderMode): string | null {
   const doc: Record<string, Json> = existing ? (parseToml(existing) as Record<string, Json>) : {};
   if (mode.mode === "remove") {
     delete doc.allowed_permission_profiles;
@@ -244,8 +245,9 @@ export function renderRequirements(existing: string | null, mode: RenderMode): s
     delete doc.allowed_approvals_reviewers;
     return Object.keys(doc).length === 0 ? null : stringifyToml(doc) + "\n";
   }
-  doc.allowed_permission_profiles = { [PROFILE]: true, ":read-only": true, ":workspace": true, ":danger-full-access": false };
-  doc.allowed_sandbox_modes = ["read-only", "workspace-write"];
+  const sb = sandboxEnabled(env.config);
+  doc.allowed_permission_profiles = { [PROFILE]: true, ":read-only": true, ":workspace": true, ":danger-full-access": !sb };
+  doc.allowed_sandbox_modes = sb ? ["read-only", "workspace-write"] : ["read-only", "workspace-write", "danger-full-access"];
   doc.allowed_approval_policies = ["untrusted", "on-request"];
   doc.allowed_approvals_reviewers = ["user", "auto_review"];
   return stringifyToml(doc) + "\n";
@@ -343,7 +345,7 @@ export function renderCodex(env: Environment, mode: RenderMode): AdapterPlan {
 
   const reqPath = path.join(codexDir, "requirements.toml");
   const existingReq = readIfExists(reqPath);
-  changes.push(change(reqPath, existingReq, renderRequirements(existingReq, mode), validateToml));
+  changes.push(change(reqPath, existingReq, renderRequirements(existingReq, env, mode), validateToml));
 
   const hooksPath = path.join(codexDir, "hooks.json");
   const existingHooks = readIfExists(hooksPath);
