@@ -35,7 +35,7 @@ approval ที่ได้รับใช้กับขั้นตอนต�
 - เขียน/ลบใต้ OS system path (`/System`, `/Library`, `/etc`, `/usr`, `/opt`, `/bin`, `/sbin`)
 - `--dangerously-bypass-approvals-and-sandbox`, `--sandbox danger-full-access`, bypass flag อื่น
 - `sudo`, pipe จาก curl/wget เข้า shell
-- spawn security agent (auditor, skeptic, security-review) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic (`SECURITY_AGENT_PROVIDER`); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume
+- spawn security agent (auditor, skeptic, security-review) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic (`SECURITY_AGENT_PROVIDER`); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume ทางกู้: kill ตัวนั้น เขียน `Stage: audit-pending` ใน `.pipeline/<slug>/state.md` แล้ว resume ขั้น audit ต่อบน plain `claude` (Anthropic ตรง) ด้วย skill `spec-pipeline`; plain `codex` spawn ได้แต่เสี่ยงแฟล็กเหมือนกัน เห็น 400 ครั้งแรก = kill แล้ว split ทันที ห้าม retry
 
 ## Sandbox และ credential CLI
 
