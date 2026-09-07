@@ -34,7 +34,7 @@ ASK อื่นนอกรายการข้างบน (เช่น comm
 - credential file, keychain, production env (.env.production, .env.production.*, .env.prod, .env.prod.*), production database, OS system path (`/System`, `/Library`, `/etc`, `/usr`, `/opt`)
 - `/share`, public gist, session export ไปบริการภายนอก
 - bypass flag รวม `pi --no-extensions`, `sudo`, curl/wget pipe เข้า shell
-- spawn security agent (auditor, skeptic, security-review) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic (`SECURITY_AGENT_PROVIDER`); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume
+- spawn security agent (auditor, skeptic, security-review) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic (`SECURITY_AGENT_PROVIDER`); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume ทางที่ถูก: เรียก security agent เป็น process ลูกของ plain `claude` บน Anthropic ตรง (`env -u ANTHROPIC_BASE_URL ... claude -p --agent auditor --allowedTools "Bash Read Glob Grep"` ตาม skill `spec-pipeline`) ไม่ใช่ bypass guard; agent ที่โดนแฟล็กแล้วให้ kill เขียน `Stage: audit-pending` ใน `.pipeline/<slug>/state.md` แล้วทำขั้น audit ต่อด้วย subprocess หรือ resume บน plain `claude`; plain `codex` spawn ได้แต่เสี่ยงแฟล็กเหมือนกัน เห็น 400 ครั้งแรก = kill แล้วสลับทันที ห้าม retry
 
 `!command` และ `!!command` ของ user ผ่าน gate เดียวกัน
 

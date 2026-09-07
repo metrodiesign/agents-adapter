@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- managed block ทั้ง 3 CLI: bullet `SECURITY_AGENT_PROVIDER` เพิ่มทางที่ถูกสำหรับ session ที่ไม่ใช่ Anthropic ตรงตามที่ skill `spec-pipeline` (`~/.agents/skills/spec-pipeline`) กำหนด: เรียก security agent เป็น process ลูก `claude -p --agent auditor` โดย unset `ANTHROPIC_*` (พิสูจน์ใต้ Claude sandbox: auth ผ่าน, Bash ต้องมี `--allowedTools` ไม่งั้นถูก deny ในโหมด `-p`) และทางกู้เมื่อโดน content filter 400: kill แล้วเขียน `Stage: audit-pending` ใน `.pipeline/<slug>/state.md` แล้วทำต่อด้วย subprocess หรือ resume บน plain `claude`; plain `codex` spawn ได้แต่เสี่ยงแฟล็กเท่ากัน เห็น 400 ครั้งแรกให้ split ทันที; `docs/troubleshooting.md` แถว cyber filter อธิบายว่า "ถาวร" คือข้อความที่โดนแฟล็กค้างใน history ไม่ใช่ account โดนแบน และบันทึกทางถาวร (Anthropic API key เป็น upstream ที่สองใน cliproxyapi) ไว้เป็นงานถัดไป
+
 ### Fixed
 
 - Codex: `allowed_unix_sockets` เติม `${TMPDIR}` (ขยายเป็น temp dir จริงของเครื่อง เช่น `/var/folders/.../T`) เพราะ seatbelt ของ Codex ปฏิเสธ `network-bind` ที่นั่นแม้เขียนไฟล์ได้ (`sandbox-probe.sh` ใน `codex sandbox`: `net: bind AF_UNIX in $TMPDIR` FAIL, `--log-denials` ตอบ `network-bind /private/var/folders/.../T/...sock`; ใส่ path ใน `unix_sockets` แล้ว bind ผ่าน วัดด้วย `CODEX_HOME` ชั่วคราว) กระทบ .NET NamedPipe/MSBuild node ที่ bind ใน `$TMPDIR` ภายใต้ Codex; Claude ได้ entry เดียวกัน (`/tmp/claude-<uid>` ซึ่ง `/tmp` ครอบอยู่แล้ว)
