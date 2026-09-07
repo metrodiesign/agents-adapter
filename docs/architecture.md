@@ -48,7 +48,7 @@ flowchart TB
 | ไฟล์ | บทบาท |
 |---|---|
 | `reference/claude/*` | behavioral authority ที่ sanitize แล้ว |
-| `policy/core-policy.yaml` | กฎ provider-neutral: language, trust zone, approval, git/github workflow, CI gates, destructive, staging/production boundary, retry, completion |
+| `policy/core-policy.yaml` | กฎ provider-neutral: language, trust zone, approval, workflow autonomy, git/github workflow, CI gates, destructive, staging/production boundary, retry, completion |
 | `policy/permission-matrix.yaml` | rule id + decision + category; contract ที่ adapter และ test ใช้ร่วมกัน |
 | `policy/protected-paths.yaml` | credential path, basename, extension, system config path, credential env var |
 | `policy/trusted-defaults.yaml` | temp/cache ที่เขียนได้ (รวม `~/.docker/buildx`), agent config dir, excluded commands (เหลือ `codex *`), unsandboxed wrappers, unix socket, shell env, gh agent config subdir, mach services (`trustd.agent`, `sysmond`), public registries |
