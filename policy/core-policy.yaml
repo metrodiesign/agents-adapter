@@ -14,6 +14,17 @@ language:
     - error and log text
     - technical term
   markdown_no_emoji: true
+  generated_documents:
+    prose: thai
+    applies_to: [spec, requirements, design, tasks, plan, report, handoff, retro]
+    requirement_sentence_form: "เมื่อ<เหตุการณ์> ระบบต้อง<พฤติกรรม> (รูปไทยของ EARS)"
+    keep_machine_contract:
+      - REQ-ID / F-ID / B-ID
+      - "Status: with original enum values"
+      - schema keys and checkbox syntax
+      - headings and table columns that tools parse
+    evidence: only commands actually run and results actually observed, as a separate block
+    no_retroactive_translation_of_existing_documents: true
 
 trust_zone:
   description: current repository และทุก repository ใต้ development_roots
@@ -46,6 +57,24 @@ approval:
     - backup
     - rollback plan
     - verification plan
+
+workflow_autonomy:
+  default: autonomous
+  description: สำรวจ repo เลือกแนวทางที่ปลอดภัยและย้อนกลับได้ บันทึก assumptions แล้วทำต่อจนผ่าน review และ test gates ใน scope ที่ได้รับมอบหมาย
+  phase_approval_only_when: user explicitly requests interactive review or sign-off per phase
+  slash_command_alone_is_not_pause_request: true
+  quality_gates_always_apply:
+    - review
+    - test gates
+    - spec traceability
+  ask_only_for:
+    - product decision that cannot be inferred from repo or objective
+    - external or destructive authorization not yet granted
+  while_waiting: continue independent work
+  never:
+    - write approval metadata such as "Status: approved" without real user approval
+    - bypass or work around hooks to pass a gate
+    - relax secrets, production, protected refs or permission hooks
 
 deny_is_hard_block:
   cannot_be_bypassed_by:

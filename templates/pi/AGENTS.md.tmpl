@@ -7,6 +7,7 @@ block นี้ถูกสร้างโดย agents-adapter {{version}} จ�
 
 - ตอบ user เป็นภาษาไทยทุกข้อความ; code, identifier, command, path, flag, error/log และ technical term คงภาษาอังกฤษ
 - ไฟล์ `.md` เป็นภาษาไทยเป็นหลัก ห้าม emoji
+- เอกสารที่สร้างใหม่ (spec, requirements, design, tasks, plan, report, handoff, retro) เขียน prose เป็นภาษาไทย รวม requirement ในรูป "เมื่อ<เหตุการณ์> ระบบต้อง<พฤติกรรม>"; คง REQ-ID/F-ID/B-ID, `Status:` พร้อมค่า enum เดิม, schema key, checkbox syntax และ heading/คอลัมน์ที่เครื่องมืออ่าน; `Evidence:` เป็น block แยกและระบุเฉพาะคำสั่งกับผลที่รันจริง; ไม่แปลเอกสารเก่าย้อนหลัง
 
 ## Development Trust Zone
 
@@ -36,6 +37,14 @@ ASK อื่นนอกรายการข้างบน (เช่น comm
 - spawn security agent (auditor, skeptic, security-review) เมื่อ `ANTHROPIC_BASE_URL` ชี้ provider ที่ไม่ใช่ Anthropic (`SECURITY_AGENT_PROVIDER`); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume
 
 `!command` และ `!!command` ของ user ผ่าน gate เดียวกัน
+
+## การเลือก workflow และการทำงานต่อเนื่อง
+
+ค่าเริ่มต้น: เมื่อ user มอบหมาย objective ให้สำรวจ repo เลือกแนวทางที่ปลอดภัยและย้อนกลับได้ บันทึก assumptions แล้วทำต่อจนผ่าน review และ test gates ใน scope ที่ได้รับมอบหมาย ใช้ spec ที่มีเป็นข้อกำหนดและรักษา traceability; ไม่เรียก interactive workflow หรือสร้างขั้นรออนุมัติเองโดยอัตโนมัติ
+
+เลือก interactive workflow ที่หยุดรอ phase approval เฉพาะเมื่อ user ขอ review/sign-off แต่ละ phase อย่างชัดเจน การเรียก slash command หรือ skill ของ spec workflow อย่างเดียวไม่ถือเป็นคำขอให้หยุดรอทุก phase ให้ทำเฉพาะผลลัพธ์ที่คำสั่งนั้นขอ คำสั่ง STOP/Wait/Pause ใน workflow หรือ skill ของ repository ใช้เฉพาะ interactive workflow นี้; review คุณภาพ, test gates และข้อกำหนดของ spec ยังใช้เสมอ
+
+ถามเฉพาะ product decision สำคัญที่อนุมานจาก repo หรือ objective ไม่ได้ หรือ action ที่ต้องมี external/destructive authorization และยังไม่ได้รับ; ทำส่วนที่เป็นอิสระต่อระหว่างรอ คงข้อห้าม secrets, production, protected refs และ permission hooks ทั้งหมด บันทึก `Status: approved` เฉพาะเมื่อ user อนุมัติจริง; หาก hook บังคับ approval ให้รายงาน blocker และทำส่วนที่ไม่ติด gate ต่อ ห้ามสร้าง approval metadata หรือเลี่ยง hook เพื่อให้ผ่าน
 
 ## Isolation
 

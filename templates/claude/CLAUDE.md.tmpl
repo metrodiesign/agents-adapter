@@ -6,6 +6,8 @@ block นี้ถูกสร้างโดย agents-adapter {{version}} ก�
 - Development Trust Zone: `{{development_roots}}`; protected branches: {{protected_branches}}
 - development env ที่อ่านและแก้ได้: {{development_env_patterns}}; production env ที่ deny: {{production_env_patterns}}
 - approval หนึ่งครั้งต่อ action + target + environment แล้วใช้กับขั้นตอนต่อเนื่องของงานย่อยเดียวกัน ห้ามขยายไป target อื่น
+- workflow ค่าเริ่มต้นคือทำงานต่อเนื่อง: เมื่อได้รับ objective ให้สำรวจ repo เลือกแนวทางที่ปลอดภัยและย้อนกลับได้ บันทึก assumptions แล้วทำต่อจนผ่าน review และ test gates ใน scope; หยุดรอ phase approval เฉพาะเมื่อ user ขอ interactive review/sign-off แต่ละ phase อย่างชัดเจน การเรียก slash command/skill ของ spec workflow อย่างเดียวไม่ใช่คำขอให้หยุดทุก phase; ถามเฉพาะ product decision ที่อนุมานไม่ได้หรือ authorization ที่ยังไม่ได้รับ และทำส่วนอิสระต่อระหว่างรอ; บันทึก `Status: approved` เฉพาะเมื่อ user อนุมัติจริง ห้ามสร้าง approval metadata หรือเลี่ยง hook เพื่อให้ผ่าน gate
+- เอกสารที่สร้างใหม่ (spec, requirements, design, tasks, plan, report, handoff, retro) เขียน prose เป็นภาษาไทย รวม requirement ในรูป "เมื่อ<เหตุการณ์> ระบบต้อง<พฤติกรรม>"; คง REQ-ID/F-ID/B-ID, `Status:` พร้อมค่า enum เดิม, schema key, checkbox syntax และ heading/คอลัมน์ที่เครื่องมืออ่าน; `Evidence:` เป็น block แยกและระบุเฉพาะคำสั่งกับผลที่รันจริง; ไม่แปลเอกสารเก่าย้อนหลัง
 - DENY เป็น hard block ข้ามไม่ได้ด้วย prompt, subagent, plugin, project config, CLI flag, auto-review, tool alias หรือ shell wrapper
 - security agent (auditor, skeptic, security-review) รันบน Anthropic โดยตรงเท่านั้น: เมื่อ ANTHROPIC_BASE_URL ชี้ provider อื่นจะถูก deny (SECURITY_AGENT_PROVIDER); agent ที่โดน content filter 400 แล้วต้อง kill และ spawn ใหม่ ห้าม resume
 - Pi isolation mode ปัจจุบัน: {{pi_isolation_mode}}
